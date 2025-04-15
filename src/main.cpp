@@ -154,7 +154,7 @@ int main(int argc, char ** argv) {
                 while (avcodec_receive_frame(audio_codec_ctx, frame) == 0) {
                     play_audio_frame(frame, swr_ctx, 2);
                     while (audio_buffer_len > 0) {
-                        OSSleepTicks(OSMillisecondsToTicks(5));
+                        OSSleepTicks(OSMillisecondsToTicks(1));
                     }
                 }
             }
@@ -162,31 +162,19 @@ int main(int argc, char ** argv) {
 
         if (pkt->stream_index == video_stream_index) {
             if (avcodec_send_packet(video_codec_ctx, pkt) == 0) {
-                while (avcodec_receive_frame(video_codec_ctx, frame) == 0) { // only runs once?
-                    // Convert frame to YUV420
-                    sws_scale(sws_ctx, frame->data, frame->linesize, 0, video_codec_ctx->height,
-                              frameRGB->data, frameRGB->linesize);
-
-                    if (frame->format != AV_PIX_FMT_YUV420P) {
-                        OSPrintf("Unexpected pixel format: %d\n", frame->format);
-                        return -1;
-                    }
-
+                while (avcodec_receive_frame(video_codec_ctx, frame) == 0) {
                     if (frame->format == AV_PIX_FMT_YUV420P) {
                         SDL_UpdateYUVTexture(texture, NULL,
                             frame->data[0], frame->linesize[0],
                             frame->data[1], frame->linesize[1],
                             frame->data[2], frame->linesize[2]);
-                    
-                        SDL_RenderClear(renderer);
+
                         SDL_RenderCopy(renderer, texture, NULL, NULL);
                         SDL_RenderPresent(renderer);
-                    } else {
-                        OSPrintf("Unexpected format: %d\n", frame->format);
-                    }      
+                    }
                 }
             }
-        }
+        }        
 
         av_packet_unref(pkt);
     }
