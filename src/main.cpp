@@ -8,11 +8,18 @@
 #include <gx2/context.h>
 
 #include "config.hpp"
+#include "menu.hpp"
 #include "video_player.hpp"
 
-int init() {
-    printf("Starting...\n");
+enum AppState {
+    STATE_MENU,
+    STATE_PLAYING
+};
 
+AppState app_state = STATE_MENU;
+
+int init_sdl() {
+    printf("Starting SDL...\n");
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) < 0) {
         printf("Failed to init SDL: %s\n", SDL_GetError());
         return -1;
@@ -26,11 +33,19 @@ int init() {
     }
 
     audio_mutex = SDL_CreateMutex();
-
     avformat_network_init();
 
-    if (avformat_open_input(&fmt_ctx, filename, NULL, NULL) != 0) {
-        printf("Could not open file.\n");
+    TTF_Init();
+    font = TTF_OpenFont("font.ttf", 24);
+
+    return 0;
+}
+
+int init_video_player(const char* filepath) {
+    printf("Starting Video Player...\n");
+
+    if (avformat_open_input(&fmt_ctx, filepath, NULL, NULL) != 0) {
+        printf("Could not open file: %s\n", filepath);
         return -1;
     }
 
@@ -44,10 +59,6 @@ int init() {
         return -1;
     }
 
-    return 0;
-}
-
-int video_player_create() {
     audio_codec_ctx = create_codec_context(fmt_ctx, audio_stream_index);
     video_codec_ctx = create_codec_context(fmt_ctx, video_stream_index);
 
@@ -74,6 +85,7 @@ int video_player_create() {
     frame = av_frame_alloc();
 
     SDL_PauseAudio(0);
+
     return 0;
 }
 
@@ -90,34 +102,41 @@ int video_player_cleanup() {
     SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    TTF_CloseFont(font);
+    TTF_Quit();
     SDL_Quit();
 
     return 0;
 }
 
+void handle_vpad_input() {
+    VPADStatus buf;
+    int key_press = VPADRead(VPAD_CHAN_0, &buf, 1, nullptr);
+    if (key_press == 1) {
+        if (buf.trigger == DRC_BUTTON_A) {
+            playing_video = !playing_video;
+            SDL_PauseAudio(playing_video ? 0 : 1);
+        }
+        else if(buf.trigger == DRC_BUTTON_START) {
+            
+        }
+        else if(buf.trigger) {
+            printf("pressed  = %08x\n", buf.trigger);
+        }
+    }
+}
+
 int main(int argc, char **argv) {
     WHBProcInit();
 
-    if (init() != 0) return -1;
-    if (video_player_create() != 0) return -1;
+    if (init_sdl() != 0) return -1;
+    if (init_video_player(filename) != 0) return -1;
 
-    double frameRate = av_q2d(framerate);
-    uint64_t ticks_per_second = OSMillisecondsToTicks(1000);
-    uint64_t ticks_per_frame = ticks_per_second / frameRate;
+    uint64_t ticks_per_frame = OSMillisecondsToTicks(1000) / av_q2d(framerate);
     uint64_t last_frame_ticks = OSGetSystemTime();
 
     while (WHBProcIsRunning()) {
-        VPADStatus buf;
-        int key_press = VPADRead(VPAD_CHAN_0, &buf, 1, nullptr);
-        if (key_press == 1) {
-            if (buf.trigger == DRC_BUTTON_A) {
-                playing_video = !playing_video;
-                SDL_PauseAudio(playing_video ? 0 : 1);
-            }
-            else if(buf.trigger) {
-                WHBLogPrintf("pressed  = %08x\n", buf.trigger);
-            }
-        }
+        handle_vpad_input();
 
         if (!playing_video) {
             SDL_RenderPresent(renderer);
@@ -125,7 +144,7 @@ int main(int argc, char **argv) {
             continue;
         }
 
-        if((av_read_frame(fmt_ctx, pkt)) >= 0 && playing_video) {
+        if((av_read_frame(fmt_ctx, pkt)) >= 0) {
             if (pkt->stream_index == audio_stream_index) {
                 if (avcodec_send_packet(audio_codec_ctx, pkt) == 0) {
                     while (avcodec_receive_frame(audio_codec_ctx, frame) == 0) {
@@ -163,7 +182,6 @@ int main(int argc, char **argv) {
         }
     }
 
-    // Flush and wait for audio
     avcodec_send_packet(audio_codec_ctx, NULL);
     while (avcodec_receive_frame(audio_codec_ctx, frame) == 0) {
         play_audio_frame(frame, swr_ctx, 2);
