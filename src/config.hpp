@@ -2,6 +2,8 @@
 #define CONFIG_H
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
+
 extern "C" {
     #include <libavformat/avformat.h>
     #include <libavcodec/avcodec.h>
@@ -11,6 +13,8 @@ extern "C" {
 }
 
 #define DRC_BUTTON_A 0x00008000
+#define DRC_BUTTON_START 0x00000008
+
 #define RING_BUFFER_SIZE (192000 * 4)
 
 extern uint8_t ring_buffer[RING_BUFFER_SIZE];
@@ -33,10 +37,13 @@ extern int audio_stream_index;
 extern int video_stream_index;
 extern AVRational framerate;
 
+extern TTF_Font* font;
+
 const int screen_width = 1280;
 const int screen_height = 720;
 const double audio_sample_rate = 48000;
 extern const char* filename;
+extern const char* fontpath;
 extern bool playing_video;
 
 #endif

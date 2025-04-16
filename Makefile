@@ -53,9 +53,13 @@ CXXFLAGS	:= $(CFLAGS)
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-g $(ARCH) $(RPXSPECS) -Wl,-Map,$(notdir $*.map)
 
-# cp ./libs/gx2gl/build/src/libgx2gl.a /opt/devkitpro/portlibs/wiiu/lib/; cp -r ./libs/gx2gl/include/GL/ /opt/devkitpro/portlibs/wiiu/include/
-#LIBS	:= -lwut -lm `/opt/devkitpro/portlibs/wiiu/bin/sdl2-config --libs` -lSDL2 -lopusfile -lromfs-wiiu -lSDL2_image -ljpeg -lharfbuzz -lSDL2_ttf -lSDL2_mixer -lmodplug -lmpg123 -lz -lflac
-LIBS	:= -lm `/opt/devkitpro/portlibs/wiiu/bin/sdl2-config --libs` -lSDL2_mixer -lSDL2_image -lSDL2 -ljpeg -lpng -lopusfile -lopus -lvorbisfile -lvorbis -logg -lmpg123 -lmodplug -lz `/opt/devkitpro/portlibs/ppc/bin/powerpc-eabi-pkg-config --cflags --libs libavformat libavcodec libavutil` -lswresample -lavformat -lavcodec -lavutil -lswscale
+LIBS := `/opt/devkitpro/portlibs/wiiu/bin/sdl2-config --libs` \
+		-lSDL2_ttf -lSDL2 -lfreetype -lbz2 -lharfbuzz -lSDL2_mixer \
+		-lSDL2_image -ljpeg -lpng -lopusfile -lopus \
+		-lvorbisfile -lvorbis -logg -lmpg123 -lmodplug -lz \
+		`/opt/devkitpro/portlibs/ppc/bin/powerpc-eabi-pkg-config --cflags --libs libavformat libavcodec libavutil` \
+		-lswresample -lavformat -lavcodec -lavutil -lswscale
+
 
 #-------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level

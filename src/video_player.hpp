@@ -1,5 +1,5 @@
-#ifndef VIDOE_PLAYER_H
-#define VIDOE_PLAYER_H
+#ifndef VIDEO_PLAYER_H
+#define VIDEO_PLAYER_H
 
 void audio_callback(void *userdata, Uint8 *stream, int len);
 void play_audio_frame(AVFrame* frame, SwrContext* swr_ctx, int out_channels);

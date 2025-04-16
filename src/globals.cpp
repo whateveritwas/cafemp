@@ -20,5 +20,8 @@ int audio_stream_index = -1;
 int video_stream_index = -1;
 AVRational framerate;
 
+TTF_Font* font;
+
 const char* filename = "/vol/external01/wiiu/apps/cafemp/test.mp4";
+const char* fontpath = "/vol/external01/wiiu/apps/cafemp/Roboto-Regular.ttf";
 bool playing_video = true;
