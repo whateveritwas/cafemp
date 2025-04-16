@@ -18,6 +18,14 @@ enum AppState {
 
 AppState app_state = STATE_MENU;
 
+std::string format_time(int seconds) {
+    int mins = seconds / 60;
+    int secs = seconds % 60;
+    char buffer[16];
+    snprintf(buffer, sizeof(buffer), "%02d:%02d", mins, secs);
+    return std::string(buffer);
+}
+
 int init_sdl() {
     printf("Starting SDL...\n");
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) < 0) {
@@ -36,7 +44,7 @@ int init_sdl() {
     avformat_network_init();
 
     TTF_Init();
-    font = TTF_OpenFont("font.ttf", 24);
+    font = TTF_OpenFont(fontpath, 24);
 
     return 0;
 }
@@ -126,6 +134,25 @@ void handle_vpad_input() {
     }
 }
 
+void render_timer(int current_pts_seconds, int duration_seconds) {
+    SDL_RenderCopy(renderer, texture, NULL, NULL);
+
+    std::string time_str = format_time(current_pts_seconds) + " / " + format_time(duration_seconds);
+    SDL_Color white = {255, 255, 255};
+
+    SDL_Surface* text_surface = TTF_RenderText_Blended(font, time_str.c_str(), white);
+    SDL_Texture* text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
+
+    int text_w, text_h;
+    SDL_QueryTexture(text_texture, NULL, NULL, &text_w, &text_h);
+    SDL_Rect dst_rect = {10, screen_height - text_h - 10, text_w, text_h};
+
+    SDL_RenderCopy(renderer, text_texture, NULL, &dst_rect);
+
+    SDL_FreeSurface(text_surface);
+    SDL_DestroyTexture(text_texture);
+}
+
 int main(int argc, char **argv) {
     WHBProcInit();
 
@@ -145,6 +172,8 @@ int main(int argc, char **argv) {
         }
 
         if((av_read_frame(fmt_ctx, pkt)) >= 0) {
+            int64_t duration_seconds = fmt_ctx->duration / AV_TIME_BASE;
+
             if (pkt->stream_index == audio_stream_index) {
                 if (avcodec_send_packet(audio_codec_ctx, pkt) == 0) {
                     while (avcodec_receive_frame(audio_codec_ctx, frame) == 0) {
@@ -153,10 +182,14 @@ int main(int argc, char **argv) {
                 }
             }
         
+            static int64_t current_pts_seconds = 0;
             if (pkt->stream_index == video_stream_index) {
                 if (avcodec_send_packet(video_codec_ctx, pkt) == 0) {
                     while (avcodec_receive_frame(video_codec_ctx, frame) == 0) {
                         if (frame->format == AV_PIX_FMT_YUV420P) {
+                            AVRational time_base = fmt_ctx->streams[video_stream_index]->time_base;
+                            current_pts_seconds = frame->pts * av_q2d(time_base);
+
                             SDL_UpdateYUVTexture(texture, NULL,
                                 frame->data[0], frame->linesize[0],
                                 frame->data[1], frame->linesize[1],
@@ -171,7 +204,7 @@ int main(int argc, char **argv) {
         
                             last_frame_ticks = OSGetSystemTime();
         
-                            SDL_RenderCopy(renderer, texture, NULL, NULL);
+                            render_timer(current_pts_seconds, duration_seconds);
                             SDL_RenderPresent(renderer);
                         }
                     }
