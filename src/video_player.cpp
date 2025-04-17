@@ -22,6 +22,9 @@ int ring_buffer_write_pos = 0;
 int ring_buffer_read_pos = 0;
 int ring_buffer_fill = 0;
 
+static int frame_counter = 0;
+const int frame_skip = 2;
+
 void audio_callback(void *userdata, Uint8 *stream, int len) {
     SDL_LockMutex(audio_mutex);
 
@@ -176,32 +179,29 @@ void video_player_update(uint64_t current_pts_seconds, AppState* app_state, SDL_
                         int video_width = frame->width;
                         int video_height = frame->height;
 
-                        // Define the target screen width and height (16:9 ratio)
                         int screen_width = SCREEN_WIDTH;
                         int screen_height = SCREEN_HEIGHT;
 
-                        // Calculate the new height to maintain aspect ratio, scaled by width
                         int new_width = screen_width;
                         int new_height = (video_height * new_width) / video_width;
 
-                        // Ensure the height does not exceed the screen height
                         if (new_height > screen_height) {
                             new_height = screen_height;
                             new_width = (video_width * new_height) / video_height;
                         }
 
-                        // Set the rendering destination rectangle to scale the video texture
                         SDL_Rect dst_rect = { 0, 0, new_width, new_height };
 
-                        // Center the video on the screen (if needed)
                         dst_rect.x = (screen_width - new_width) / 2;
                         dst_rect.y = (screen_height - new_height) / 2;
 
                         SDL_RenderClear(renderer);
-                        SDL_UpdateYUVTexture(texture, NULL,
-                            frame->data[0], frame->linesize[0],
-                            frame->data[1], frame->linesize[1],
-                            frame->data[2], frame->linesize[2]);
+                        if (frame_counter % frame_skip == 0) {
+                            SDL_UpdateYUVTexture(texture, NULL,
+                                frame->data[0], frame->linesize[0],
+                                frame->data[1], frame->linesize[1],
+                                frame->data[2], frame->linesize[2]);
+                        }
 
                         uint64_t now_ticks = OSGetSystemTime();
                         uint64_t elapsed_ticks = now_ticks - last_frame_ticks;
