@@ -1,0 +1,7 @@
+dist/
+build/
+
+*.elf
+*.rpx
+*.wuhb
+*.zip
