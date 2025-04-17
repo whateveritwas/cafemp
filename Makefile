@@ -43,8 +43,9 @@ DRC_SPLASH	:=
 #-------------------------------------------------------------------------------
 # options for code generation
 #-------------------------------------------------------------------------------
-CFLAGS	:=	-Wall -O3 -ffunction-sections -fno-exceptions -fno-rtti -funsafe-math-optimizations -funroll-loops -fexceptions \
-			$(MACHDEP)
+CFLAGS	:=	-Wall -Werror -O3 -ffunction-sections -fno-exceptions \
+			-fno-rtti -funsafe-math-optimizations -funroll-loops \
+			-fexceptions $(MACHDEP)
 
 CFLAGS	+=	$(INCLUDE) -D__WIIU__ -D__WUT__
 
