@@ -32,7 +32,7 @@ std::string format_time(int seconds) {
 
 void render_file_browser(SDL_Renderer* renderer, TTF_Font* font, int selected_index, const std::vector<std::string>& video_files) {
     // Set background color and clear screen
-    SDL_SetRenderDrawColor(renderer, 64, 64, 64, 255);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
     SDL_Color white = {255, 255, 255};

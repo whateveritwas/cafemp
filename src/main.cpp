@@ -90,8 +90,6 @@ void handle_vpad_input() {
                 std::string full_path = std::string(VIDEO_PATH) + video_files[selected_index];
                 video_player_start(full_path.c_str(), &app_state, *renderer, texture, *SDL_CreateMutex(), wanted_spec);
                 playing_video = true;
-            } else if(buf.trigger == DRC_BUTTON_START) {
-                //video_player_start("/vol/external01/wiiu/apps/cafemp/test.mp4", &app_state, renderer, texture);
             }
         }        
     }
