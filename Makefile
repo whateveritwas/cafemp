@@ -36,7 +36,7 @@ SOURCES		:=	src
 DATA		:=	
 INCLUDES	:=	src
 CONTENT		:=
-ICON		:= 	
+ICON		:= 	icon.png
 TV_SPLASH	:=
 DRC_SPLASH	:=
 
