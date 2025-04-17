@@ -4,14 +4,6 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 
-extern "C" {
-    #include <libavformat/avformat.h>
-    #include <libavcodec/avcodec.h>
-    #include <libswresample/swresample.h>
-    #include <libswscale/swscale.h>
-    #include <libavutil/imgutils.h>
-}
-
 #define DRC_BUTTON_A 0x00008000
 #define DRC_BUTTON_START 0x00000008
 #define DRC_BUTTON_SELECT 0x00000004
@@ -22,33 +14,16 @@ extern "C" {
 
 #define RING_BUFFER_SIZE (192000 * 4)
 
-extern uint8_t ring_buffer[RING_BUFFER_SIZE];
-extern int ring_buffer_write_pos;
-extern int ring_buffer_read_pos;
-extern int ring_buffer_fill;
+#define SCREEN_WIDTH 1280
+#define SCREEN_HEIGHT 720
+#define AUDIO_SAMPLE_RATE 48000
 
-extern SDL_mutex* audio_mutex;
-extern SDL_AudioSpec wanted_spec;
-extern AVFormatContext* fmt_ctx;
-extern AVCodecContext* audio_codec_ctx;
-extern AVCodecContext* video_codec_ctx;
-extern SDL_Window* window;
-extern SDL_Renderer* renderer;
-extern SDL_Texture* texture;
-extern SwrContext* swr_ctx;
-extern AVPacket* pkt;
-extern AVFrame* frame;
-extern int audio_stream_index;
-extern int video_stream_index;
-extern AVRational framerate;
+#define FONT_PATH "/vol/external01/wiiu/apps/cafemp/Roboto-Regular.ttf"
+#define VIDEO_PATH "/vol/external01/wiiu/apps/cafemp/"
 
-extern TTF_Font* font;
-
-const int screen_width = 1280;
-const int screen_height = 720;
-const double audio_sample_rate = 48000;
-extern const char* filename;
-extern const char* fontpath;
-extern bool playing_video;
+enum AppState {
+    STATE_MENU,
+    STATE_PLAYING
+};
 
 #endif
