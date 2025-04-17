@@ -1,12 +1,7 @@
-#include <coreinit/thread.h>
-#include <coreinit/time.h>
 #include <whb/proc.h>
-#include <whb/log.h>
-#include <whb/log_console.h>
 #include <vpad/input.h>
-#include <coreinit/debug.h>
-#include <gx2/context.h>
 #include <string>
+#include <thread>
 
 #include "config.hpp"
 #include "menu.hpp"
@@ -69,12 +64,8 @@ void handle_vpad_input() {
                 scan_directory(VIDEO_PATH, video_files);
             } else if(buf.trigger == DRC_BUTTON_DPAD_LEFT) {
                 video_player_scrub(-5);
-                // int64_t seek_target = (current_pts_seconds - 4) * AV_TIME_BASE;
-                // av_seek_frame(fmt_ctx, -1, seek_target, AVSEEK_FLAG_BACKWARD);
             } else if(buf.trigger == DRC_BUTTON_DPAD_RIGHT) {
                 video_player_scrub(5);
-                // int64_t seek_target = (current_pts_seconds + 4) * AV_TIME_BASE;
-                // av_seek_frame(fmt_ctx, -1, seek_target, AVSEEK_FLAG_ANY);
             }
         }
 
