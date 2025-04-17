@@ -18,7 +18,9 @@ AVCodecContext* create_codec_context(AVFormatContext* fmt_ctx, int stream_index)
 
 int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture* &texture);
 void video_player_start(const char* path, AppState* app_state, SDL_Renderer& renderer, SDL_Texture*& texture, SDL_mutex& _audio_mutex, SDL_AudioSpec wanted_spec);
-void video_player_update(uint64_t current_pts_seconds, AppState* app_state, SDL_Renderer* renderer, SDL_Texture* texture) ;
+void video_player_scrub(int dt);
+int64_t video_player_get_current_time();
+void video_player_update(AppState* app_state, SDL_Renderer* renderer, SDL_Texture* texture);
 int video_player_cleanup();
 
 #endif

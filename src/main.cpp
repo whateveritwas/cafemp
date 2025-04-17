@@ -13,7 +13,6 @@
 #include "video_player.hpp"
 
 AppState app_state = STATE_MENU;
-int64_t current_pts_seconds = 0;
 
 SDL_Window* window;
 SDL_Renderer* renderer;
@@ -69,15 +68,13 @@ void handle_vpad_input() {
                 video_player_cleanup();
                 scan_directory(VIDEO_PATH, video_files);
             } else if(buf.trigger == DRC_BUTTON_DPAD_LEFT) {
+                video_player_scrub(-5);
                 // int64_t seek_target = (current_pts_seconds - 4) * AV_TIME_BASE;
                 // av_seek_frame(fmt_ctx, -1, seek_target, AVSEEK_FLAG_BACKWARD);
-                // avcodec_flush_buffers(audio_codec_ctx);
-                // avcodec_flush_buffers(video_codec_ctx);
             } else if(buf.trigger == DRC_BUTTON_DPAD_RIGHT) {
+                video_player_scrub(5);
                 // int64_t seek_target = (current_pts_seconds + 4) * AV_TIME_BASE;
                 // av_seek_frame(fmt_ctx, -1, seek_target, AVSEEK_FLAG_ANY);
-                // avcodec_flush_buffers(audio_codec_ctx);
-                // avcodec_flush_buffers(video_codec_ctx);
             }
         }
 
@@ -103,6 +100,7 @@ int main(int argc, char **argv) {
     scan_directory(VIDEO_PATH, video_files);
 
     while (WHBProcIsRunning()) {
+        handle_vpad_input();
         switch(app_state) {
             case STATE_PLAYING:
             if (!playing_video) {
@@ -110,18 +108,15 @@ int main(int argc, char **argv) {
                 SDL_Delay(50);
                 break;
             }
-            video_player_update(current_pts_seconds, &app_state, renderer, texture);
-            render_video_hud(renderer, font, texture, current_pts_seconds, 0);
+            //render_video_hud(renderer, font, texture, video_player_get_current_time(), 0);
+            video_player_update(&app_state, renderer, texture);
             break;
 
             case STATE_MENU:
-            current_pts_seconds = 0;
             render_file_browser(renderer, font, selected_index, video_files);
             SDL_Delay(50);
             break;
         }
-
-        handle_vpad_input();
     }
 
     video_player_cleanup();

@@ -24,6 +24,7 @@ int ring_buffer_fill = 0;
 
 static int frame_counter = 0;
 const int frame_skip = 2;
+int64_t current_pts_seconds = 0;
 
 void audio_callback(void *userdata, Uint8 *stream, int len) {
     SDL_LockMutex(audio_mutex);
@@ -150,12 +151,32 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
 }
 
 void video_player_start(const char* path, AppState* app_state, SDL_Renderer& renderer, SDL_Texture*& texture, SDL_mutex& _audio_mutex, SDL_AudioSpec wanted_spec) {
+    current_pts_seconds = 0;
     audio_mutex = &_audio_mutex;
     video_player_init(path, &renderer, texture);
     *app_state = STATE_PLAYING;
 }
 
-void video_player_update(uint64_t current_pts_seconds, AppState* app_state, SDL_Renderer* renderer, SDL_Texture* texture) {
+void video_player_scrub(int dt) {
+
+    if(dt > 0) {
+        int64_t seek_target = (current_pts_seconds + dt) * AV_TIME_BASE;
+        av_seek_frame(fmt_ctx, -1, seek_target, AVSEEK_FLAG_ANY);
+    }
+    else {
+        int64_t seek_target = (current_pts_seconds - 4) * AV_TIME_BASE;
+        av_seek_frame(fmt_ctx, -1, seek_target, AVSEEK_FLAG_BACKWARD);
+    }
+
+    avcodec_flush_buffers(audio_codec_ctx);
+    avcodec_flush_buffers(video_codec_ctx);
+}
+
+int64_t video_player_get_current_time() {
+    return current_pts_seconds;
+}
+
+void video_player_update(AppState* app_state, SDL_Renderer* renderer, SDL_Texture* texture) {
     uint64_t ticks_per_frame = OSMillisecondsToTicks(1000) / av_q2d(framerate);
     uint64_t last_frame_ticks = OSGetSystemTime();
 
@@ -227,7 +248,6 @@ void video_player_update(uint64_t current_pts_seconds, AppState* app_state, SDL_
         video_player_cleanup();
     }
 }
-
 
 int video_player_cleanup() {
     avcodec_send_packet(audio_codec_ctx, NULL);
