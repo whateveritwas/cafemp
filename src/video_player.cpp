@@ -155,7 +155,6 @@ void video_player_start(const char* path, AppState* app_state, SDL_Renderer& ren
 void video_player_update(uint64_t current_pts_seconds, AppState* app_state, SDL_Renderer* renderer, SDL_Texture* texture) {
     uint64_t ticks_per_frame = OSMillisecondsToTicks(1000) / av_q2d(framerate);
     uint64_t last_frame_ticks = OSGetSystemTime();
-    // int64_t duration_seconds = fmt_ctx->duration / AV_TIME_BASE;
 
     if ((av_read_frame(fmt_ctx, pkt)) >= 0) {
         if (pkt->stream_index == audio_stream_index) {
@@ -173,6 +172,32 @@ void video_player_update(uint64_t current_pts_seconds, AppState* app_state, SDL_
                         AVRational time_base = fmt_ctx->streams[video_stream_index]->time_base;
                         current_pts_seconds = frame->pts * av_q2d(time_base);
 
+                        // Get the video width and height
+                        int video_width = frame->width;
+                        int video_height = frame->height;
+
+                        // Define the target screen width and height (16:9 ratio)
+                        int screen_width = SCREEN_WIDTH;
+                        int screen_height = SCREEN_HEIGHT;
+
+                        // Calculate the new height to maintain aspect ratio, scaled by width
+                        int new_width = screen_width;
+                        int new_height = (video_height * new_width) / video_width;
+
+                        // Ensure the height does not exceed the screen height
+                        if (new_height > screen_height) {
+                            new_height = screen_height;
+                            new_width = (video_width * new_height) / video_height;
+                        }
+
+                        // Set the rendering destination rectangle to scale the video texture
+                        SDL_Rect dst_rect = { 0, 0, new_width, new_height };
+
+                        // Center the video on the screen (if needed)
+                        dst_rect.x = (screen_width - new_width) / 2;
+                        dst_rect.y = (screen_height - new_height) / 2;
+
+                        SDL_RenderClear(renderer);
                         SDL_UpdateYUVTexture(texture, NULL,
                             frame->data[0], frame->linesize[0],
                             frame->data[1], frame->linesize[1],
@@ -187,7 +212,8 @@ void video_player_update(uint64_t current_pts_seconds, AppState* app_state, SDL_
 
                         last_frame_ticks = OSGetSystemTime();
 
-                        SDL_RenderCopy(renderer, texture, NULL, NULL);
+                        // Render the scaled video
+                        SDL_RenderCopy(renderer, texture, NULL, &dst_rect);
                         SDL_RenderPresent(renderer);
                     }
                 }
@@ -201,6 +227,7 @@ void video_player_update(uint64_t current_pts_seconds, AppState* app_state, SDL_
         video_player_cleanup();
     }
 }
+
 
 int video_player_cleanup() {
     avcodec_send_packet(audio_codec_ctx, NULL);
