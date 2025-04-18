@@ -5,6 +5,7 @@
 #include <SDL2/SDL.h>
 #include <vpad/input.h>
 #include <SDL2/SDL_ttf.h>
+#include <coreinit/time.h>
 
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO
@@ -58,7 +59,7 @@ void scan_directory(const char* path, std::vector<std::string>& video_files) {
     struct dirent* ent;
     while ((ent = readdir(dir)) != NULL) {
         std::string name(ent->d_name);
-        if (name.length() > 4 && name.substr(name.length() - 4) == ".mp4") {
+        if (name.length() > 4 && (name.substr(name.length() - 4) == ".mp4" || name.substr(name.length() - 4) == ".mkv")) {
             video_files.push_back(name);
         }
     }
@@ -152,7 +153,7 @@ void ui_render() {
 
 void ui_render_file_browser() {
     if (nk_begin(ctx, "File Browser", nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), NK_WINDOW_BORDER | NK_WINDOW_TITLE)) {
-        nk_layout_row_dynamic(ctx, 48, 1);
+        nk_layout_row_dynamic(ctx, 64, 1);
         for (int i = 0; i < static_cast<int>(video_files.size()); ++i) {
             std::string display_str = video_files[i];
 
@@ -175,7 +176,9 @@ void ui_render_file_browser() {
 }
 
 void ui_render_video() {
+    // uint64_t test_ticks = OSGetSystemTime();
     video_player_update(ui_app_state, ui_renderer, ui_texture);
+    // printf("A/V Decoding: %" PRIu64 "ms\n", OSTicksToMilliseconds(OSGetSystemTime() - test_ticks));
 
     frame_info* current_frame_info = video_player_get_current_frame_info();
 
@@ -210,32 +213,12 @@ void ui_render_video() {
 
         if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND)) {
             nk_layout_row_dynamic(ctx, 30, 2);
-            nk_label(ctx, "Paused", NK_TEXT_LEFT);
+            std::string hud_str = "Paused | " + format_time(video_player_get_current_time()) + " / " + format_time((int)current_frame_info->total_time);
+            nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
             nk_end(ctx);
             nk_sdl_render(NK_ANTI_ALIASING_ON);
         }
     }
-}
-
-void ui_render_video_hud() {
-/*
-    SDL_RenderCopy(renderer, texture, NULL, NULL);
-
-    std::string time_str = format_time(current_pts_seconds) + " / " + format_time(duration_seconds);
-    SDL_Color white = {255, 255, 255};
-
-    SDL_Surface* text_surface = TTF_RenderText_Blended(font, time_str.c_str(), white);
-    SDL_Texture* text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
-
-    int text_w, text_h;
-    SDL_QueryTexture(text_texture, NULL, NULL, &text_w, &text_h);
-    SDL_Rect dst_rect = {10, SCREEN_WIDTH - text_h - 10, text_w, text_h};
-
-    SDL_RenderCopy(renderer, text_texture, NULL, &dst_rect);
-
-    SDL_FreeSurface(text_surface);
-    SDL_DestroyTexture(text_texture);
-*/
 }
 
 void ui_shutodwn() {
