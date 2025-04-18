@@ -11,7 +11,7 @@
 #define DRC_BUTTON_DPAD_UP 0x00000200
 #define DRC_BUTTON_DPAD_DOWN 0x00000100
 
-#define RING_BUFFER_SIZE 192000
+#define RING_BUFFER_SIZE (192000*4)
 
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
@@ -23,6 +23,14 @@
 enum AppState {
     STATE_MENU,
     STATE_PLAYING
+};
+
+struct frame_info {
+    SDL_Texture* texture;
+    int frame_width;
+    int frame_height;
+    int total_time;
+    int current_time;
 };
 
 #endif

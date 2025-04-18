@@ -16,6 +16,8 @@ AVFrame* frame = NULL;
 AVRational framerate;
 SDL_mutex* audio_mutex;
 
+frame_info* current_frame_info;
+
 uint8_t ring_buffer[RING_BUFFER_SIZE];
 int ring_buffer_write_pos = 0;
 int ring_buffer_read_pos = 0;
@@ -190,9 +192,16 @@ int64_t video_player_get_current_time() {
     return current_pts_seconds;
 }
 
+frame_info* video_player_get_current_frame_info() {
+    return current_frame_info;
+}
+
 void video_player_update(AppState* app_state, SDL_Renderer* renderer, SDL_Texture* texture) {
     if (!playing_video)
         return;
+
+    uint64_t ticks_per_frame = OSMillisecondsToTicks(1000) / av_q2d(framerate);
+    uint64_t last_frame_ticks = OSGetSystemTime();
 
     if ((av_read_frame(fmt_ctx, pkt)) >= 0) {
         if (pkt->stream_index == audio_stream_index) {
@@ -209,35 +218,38 @@ void video_player_update(AppState* app_state, SDL_Renderer* renderer, SDL_Textur
                     if (frame->format == AV_PIX_FMT_YUV420P) {
                         AVRational time_base = fmt_ctx->streams[video_stream_index]->time_base;
                         current_pts_seconds = frame->pts * av_q2d(time_base);
-
-                        // Get the video width and height
-                        int video_width = frame->width;
-                        int video_height = frame->height;
-
-                        int screen_width = SCREEN_WIDTH;
-                        int screen_height = SCREEN_HEIGHT;
-
-                        int new_width = screen_width;
-                        int new_height = (video_height * new_width) / video_width;
-
-                        if (new_height > screen_height) {
-                            new_height = screen_height;
-                            new_width = (video_width * new_height) / video_height;
+                    
+                        if (!current_frame_info) {
+                            current_frame_info = new frame_info;
+                            current_frame_info->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, frame->width, frame->height);
+                            current_frame_info->frame_width = frame->width;
+                            current_frame_info->frame_height = frame->height;
+                            current_frame_info->current_time = current_pts_seconds;
+                            current_frame_info->total_time = 0;
                         }
-
-                        SDL_Rect dst_rect = { 0, 0, new_width, new_height };
-
-                        dst_rect.x = (screen_width - new_width) / 2;
-                        dst_rect.y = (screen_height - new_height) / 2;
-
-                        SDL_UpdateYUVTexture(texture, NULL,
+                    
+                        if (frame->width != current_frame_info->frame_width || frame->height != current_frame_info->frame_height) {
+                            SDL_DestroyTexture(current_frame_info->texture);
+                            current_frame_info->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, frame->width, frame->height);
+                            current_frame_info->frame_width = frame->width;
+                            current_frame_info->frame_height = frame->height;
+                            current_frame_info->current_time = current_pts_seconds;
+                            current_frame_info->total_time = 0;
+                        }
+                    
+                        SDL_UpdateYUVTexture(current_frame_info->texture, NULL,
                             frame->data[0], frame->linesize[0],
                             frame->data[1], frame->linesize[1],
                             frame->data[2], frame->linesize[2]);
-                        
-                        SDL_RenderClear(renderer);
-                        SDL_RenderCopy(renderer, texture, NULL, &dst_rect);
-                        // SDL_RenderPresent(renderer); // no audio stutter
+
+                        uint64_t now_ticks = OSGetSystemTime();
+                        uint64_t elapsed_ticks = now_ticks - last_frame_ticks;
+
+                        if (elapsed_ticks < ticks_per_frame) {
+                            OSSleepTicks(ticks_per_frame - elapsed_ticks);
+                        }
+
+                        last_frame_ticks = OSGetSystemTime();
                     }
                 }
             }
@@ -258,6 +270,12 @@ int video_player_cleanup() {
     }
     while (ring_buffer_fill > 0) {
         SDL_Delay(100);
+    }
+
+    if (current_frame_info) {
+        SDL_DestroyTexture(current_frame_info->texture);
+        delete current_frame_info;
+        current_frame_info = nullptr;
     }
 
     av_frame_free(&frame);

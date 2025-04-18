@@ -165,17 +165,56 @@ void ui_render_file_browser() {
                 SDL_RenderClear(ui_renderer);
             }
         }
+        nk_end(ctx);
+
+        SDL_SetRenderDrawColor(ui_renderer, bg.r * 255, bg.g * 255, bg.b * 255, bg.a * 255);
+        SDL_RenderClear(ui_renderer);
+    
+        nk_sdl_render(NK_ANTI_ALIASING_ON);
     }
-    nk_end(ctx);
-
-    SDL_SetRenderDrawColor(ui_renderer, bg.r * 255, bg.g * 255, bg.b * 255, bg.a * 255);
-    SDL_RenderClear(ui_renderer);
-
-    nk_sdl_render(NK_ANTI_ALIASING_ON);
 }
 
 void ui_render_video() {
     video_player_update(ui_app_state, ui_renderer, ui_texture);
+
+    frame_info* current_frame_info = video_player_get_current_frame_info();
+
+    SDL_SetRenderDrawColor(ui_renderer, 0, 0, 0, 255);
+    SDL_RenderClear(ui_renderer);
+
+    if (current_frame_info && current_frame_info->texture) {
+        int video_width = current_frame_info->frame_width;
+        int video_height = current_frame_info->frame_height;
+
+        int screen_width = SCREEN_WIDTH;
+        int screen_height = SCREEN_HEIGHT;
+
+        int new_width = screen_width;
+        int new_height = (video_height * new_width) / video_width;
+
+        if (new_height > screen_height) {
+            new_height = screen_height;
+            new_width = (video_width * new_height) / video_height;
+        }
+
+        SDL_Rect dest_rect = { 0, 0, new_width, new_height };
+
+        dest_rect.x = (screen_width - new_width) / 2;
+        dest_rect.y = (screen_height - new_height) / 2;
+        SDL_RenderCopy(ui_renderer, current_frame_info->texture, NULL, &dest_rect);
+    }
+
+    if(!video_player_is_playing()) {
+        const int hud_height = 80;
+        struct nk_rect hud_rect = nk_rect(0, SCREEN_HEIGHT - hud_height, SCREEN_WIDTH, hud_height);
+
+        if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND)) {
+            nk_layout_row_dynamic(ctx, 30, 2);
+            nk_label(ctx, "Paused", NK_TEXT_LEFT);
+            nk_end(ctx);
+            nk_sdl_render(NK_ANTI_ALIASING_ON);
+        }
+    }
 }
 
 void ui_render_video_hud() {
@@ -200,6 +239,8 @@ void ui_render_video_hud() {
 }
 
 void ui_shutodwn() {
+    if(video_player_is_playing()) video_player_cleanup();
+
     if (ui_texture) {
         SDL_DestroyTexture(ui_texture);
         ui_texture = nullptr;
