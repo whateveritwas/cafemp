@@ -45,10 +45,8 @@ int main(int argc, char **argv) {
 
     while (WHBProcIsRunning()) {
         ui_render();
-        SDL_RenderPresent(renderer); // audio stutter
+        SDL_RenderPresent(renderer);
     }
-
-    video_player_cleanup();
     ui_shutodwn();
 
     SDL_DestroyTexture(texture);

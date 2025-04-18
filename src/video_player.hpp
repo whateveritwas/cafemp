@@ -22,6 +22,7 @@ void video_player_scrub(int dt);
 int64_t video_player_get_current_time();
 bool video_player_is_playing();
 void video_player_play(bool new_state);
+frame_info* video_player_get_current_frame_info();
 void video_player_update(AppState* app_state, SDL_Renderer* renderer, SDL_Texture* texture);
 int video_player_cleanup();
 
