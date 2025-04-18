@@ -2,9 +2,8 @@
 #include <coreinit/thread.h>
 #include <coreinit/time.h>
 
-#include "video_player.hpp"
 #include "config.hpp"
-//#include "menu.hpp"
+#include "video_player.hpp"
 
 int audio_stream_index = -1;
 int video_stream_index = -1;
@@ -169,6 +168,12 @@ void video_player_scrub(int dt) {
         av_seek_frame(fmt_ctx, -1, seek_target, AVSEEK_FLAG_BACKWARD);
     }
 
+    SDL_LockMutex(audio_mutex);
+    ring_buffer_fill = 0;
+    ring_buffer_read_pos = 0;
+    ring_buffer_write_pos = 0;
+    SDL_UnlockMutex(audio_mutex);
+
     avcodec_flush_buffers(audio_codec_ctx);
     avcodec_flush_buffers(video_codec_ctx);
 }
@@ -229,8 +234,10 @@ void video_player_update(AppState* app_state, SDL_Renderer* renderer, SDL_Textur
                             frame->data[0], frame->linesize[0],
                             frame->data[1], frame->linesize[1],
                             frame->data[2], frame->linesize[2]);
-
+                        
+                        SDL_RenderClear(renderer);
                         SDL_RenderCopy(renderer, texture, NULL, &dst_rect);
+                        // SDL_RenderPresent(renderer); // no audio stutter
                     }
                 }
             }
@@ -259,5 +266,17 @@ int video_player_cleanup() {
     avcodec_free_context(&audio_codec_ctx);
     avcodec_free_context(&video_codec_ctx);
     avformat_close_input(&fmt_ctx);
+
+    frame = NULL;
+    pkt = NULL;
+    swr_ctx = NULL;
+    audio_codec_ctx = NULL;
+    video_codec_ctx = NULL;
+    fmt_ctx = NULL;
+    ring_buffer_fill = 0;
+    ring_buffer_read_pos = 0;
+    ring_buffer_write_pos = 0;
+
+
     return 0;
 }

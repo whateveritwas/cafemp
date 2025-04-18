@@ -32,6 +32,7 @@ SDL_Renderer* ui_renderer;
 SDL_Texture* ui_texture;
 AppState* ui_app_state;
 SDL_AudioSpec ui_wanted_spec;
+static SDL_mutex* audio_mutex = NULL;
 
 struct nk_context *ctx;
 struct nk_colorf bg;
@@ -110,15 +111,18 @@ void ui_handle_vpad_input() {
         if(*ui_app_state == STATE_PLAYING) {
             if(buf.trigger == DRC_BUTTON_A) {
                 video_player_play(!video_player_is_playing());
-            } else if(buf.trigger == DRC_BUTTON_SELECT) {
+            } else if(buf.trigger == VPAD_BUTTON_B) {
                 video_player_play(true);
                 video_player_cleanup();
                 video_player_play(false);
                 scan_directory(VIDEO_PATH, video_files);
                 *ui_app_state = STATE_MENU;
+            } else if(buf.trigger == VPAD_BUTTON_LEFT) {
+                video_player_scrub(-5);
+            } else if(buf.trigger == VPAD_BUTTON_RIGHT) {
+                video_player_scrub(5);
             }
-        } else if (*ui_app_state == STATE_MENU) {
-        }
+        } else if (*ui_app_state == STATE_MENU) {}
     }
 }
 
@@ -154,10 +158,11 @@ void ui_render_file_browser() {
 
             if (nk_button_label(ctx, display_str.c_str())) {
                 std::string full_path = std::string(VIDEO_PATH) + video_files[i];
-                video_player_start(full_path.c_str(), ui_app_state, *ui_renderer, ui_texture, *SDL_CreateMutex(), ui_wanted_spec);
-                SDL_RenderClear(ui_renderer);
+                audio_mutex = SDL_CreateMutex();
+                video_player_start(full_path.c_str(), ui_app_state, *ui_renderer, ui_texture, *audio_mutex, ui_wanted_spec);
                 video_player_play(true);
                 *ui_app_state = STATE_PLAYING;
+                SDL_RenderClear(ui_renderer);
             }
         }
     }
@@ -173,7 +178,8 @@ void ui_render_video() {
     video_player_update(ui_app_state, ui_renderer, ui_texture);
 }
 
-void ui_render_video_hud(SDL_Renderer* renderer, TTF_Font* font, SDL_Texture* texture, int current_pts_seconds, int duration_seconds) {
+void ui_render_video_hud() {
+/*
     SDL_RenderCopy(renderer, texture, NULL, NULL);
 
     std::string time_str = format_time(current_pts_seconds) + " / " + format_time(duration_seconds);
@@ -190,8 +196,17 @@ void ui_render_video_hud(SDL_Renderer* renderer, TTF_Font* font, SDL_Texture* te
 
     SDL_FreeSurface(text_surface);
     SDL_DestroyTexture(text_texture);
+*/
 }
 
 void ui_shutodwn() {
+    if (ui_texture) {
+        SDL_DestroyTexture(ui_texture);
+        ui_texture = nullptr;
+    }
+    if (audio_mutex) {
+        SDL_DestroyMutex(audio_mutex);
+        audio_mutex = NULL;
+    }
     nk_sdl_shutdown();
 }

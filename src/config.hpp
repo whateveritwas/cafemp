@@ -2,7 +2,6 @@
 #define CONFIG_H
 
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_ttf.h>
 
 #define DRC_BUTTON_A 0x00008000
 #define DRC_BUTTON_START 0x00000008

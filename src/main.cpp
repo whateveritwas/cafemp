@@ -22,7 +22,7 @@ int init_sdl() {
     }
 
     window = SDL_CreateWindow("", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, 0);
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH, SCREEN_HEIGHT);
 
     wanted_spec = create_audio_spec();
@@ -33,10 +33,6 @@ int init_sdl() {
     }
 
     avformat_network_init();
-
-    TTF_Init();
-    //font = TTF_OpenFont(FONT_PATH, 24);
-
     return 0;
 }
 
@@ -49,7 +45,7 @@ int main(int argc, char **argv) {
 
     while (WHBProcIsRunning()) {
         ui_render();
-        SDL_RenderPresent(renderer);
+        SDL_RenderPresent(renderer); // audio stutter
     }
 
     video_player_cleanup();

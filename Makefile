@@ -43,13 +43,15 @@ DRC_SPLASH	:=
 #-------------------------------------------------------------------------------
 # options for code generation
 #-------------------------------------------------------------------------------
- CFLAGS := -O3 -ffast-math -funroll-loops -fexceptions -Wall -Werror\
-           -fdata-sections -ffunction-sections -fno-rtti  \
-           -fomit-frame-pointer -fno-common -falign-loops -falign-jumps \
- 		  $(MACHDEP)
+CFLAGS := -O2 -ffast-math -funroll-loops -fexceptions -Wall -Werror \
+          -fdata-sections -ffunction-sections -fno-rtti -flto \
+          -fomit-frame-pointer -fno-common -falign-loops -falign-jumps \
+          -mcpu=750 -meabi -mhard-float $(INCLUDE) -D__WIIU__ -D__WUT__
 
+# Debug info strip for release builds
+CFLAGS += -g0
 
-CFLAGS	+=	$(INCLUDE) -D__WIIU__ -D__WUT__
+LDFLAGS += -Wl,--gc-sections -flto
 
 CXXFLAGS	:= $(CFLAGS)
 
