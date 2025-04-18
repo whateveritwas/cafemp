@@ -13,7 +13,6 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
 void ui_render();
 void ui_render_file_browser();
 void ui_render_video();
-void ui_render_video_hud();
 void ui_shutodwn();
 
 #endif

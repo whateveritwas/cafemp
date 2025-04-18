@@ -1,6 +1,16 @@
 #include <cstdint>
 #include <coreinit/thread.h>
 #include <coreinit/time.h>
+#include <SDL2/SDL.h>
+extern "C" {
+    #include <libavformat/avformat.h>
+    #include <libavcodec/avcodec.h>
+    #include <libswresample/swresample.h>
+    #include <libswscale/swscale.h>
+    #include <libavutil/imgutils.h>
+    #include <libavutil/frame.h>
+}
+
 
 #include "config.hpp"
 #include "video_player.hpp"
@@ -24,6 +34,7 @@ int ring_buffer_read_pos = 0;
 int ring_buffer_fill = 0;
 
 int64_t current_pts_seconds = 0;
+uint64_t ticks_per_frame = 0;
 
 bool playing_video = false;
 
@@ -95,11 +106,16 @@ SDL_AudioSpec create_audio_spec() {
     return wanted_spec;
 }
 
-AVCodecContext* create_codec_context(AVFormatContext* fmt_ctx, int stream_index) {
+AVCodecContext* create_codec_context(AVFormatContext* fmt_ctx, int stream_index, bool video = false) {
     AVCodecParameters* codecpar = fmt_ctx->streams[stream_index]->codecpar;
-    AVCodec* codec = avcodec_find_decoder(codecpar->codec_id);
+    const AVCodec* codec = avcodec_find_decoder(codecpar->codec_id);
     AVCodecContext* codec_ctx = avcodec_alloc_context3(codec);
     avcodec_parameters_to_context(codec_ctx, codecpar);
+
+    if(video) {
+        codec_ctx->skip_frame = AVDISCARD_NONREF;
+    }
+
     if (avcodec_open2(codec_ctx, codec, NULL) < 0) {
         printf("Failed to open codec.\n");
         return NULL;
@@ -107,7 +123,7 @@ AVCodecContext* create_codec_context(AVFormatContext* fmt_ctx, int stream_index)
     return codec_ctx;
 }
 
-int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture* &texture) {
+int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*& texture) {
     printf("Starting Video Player...\n");
 
     if (avformat_open_input(&fmt_ctx, filepath, NULL, NULL) != 0) {
@@ -126,22 +142,45 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
     }
 
     audio_codec_ctx = create_codec_context(fmt_ctx, audio_stream_index);
-    video_codec_ctx = create_codec_context(fmt_ctx, video_stream_index);
+    video_codec_ctx = create_codec_context(fmt_ctx, video_stream_index, true);
 
     if (!audio_codec_ctx || !video_codec_ctx) return -1;
 
     SDL_DestroyTexture(texture);
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, video_codec_ctx->width, video_codec_ctx->height);
+    texture = SDL_CreateTexture(
+        renderer,
+        SDL_PIXELFORMAT_IYUV,
+        SDL_TEXTUREACCESS_STREAMING,
+        video_codec_ctx->width,
+        video_codec_ctx->height
+    );
 
     framerate = fmt_ctx->streams[video_stream_index]->r_frame_rate;
     double frameRate = av_q2d(framerate);
     printf("FPS: %f\n", frameRate);
 
-    swr_ctx = swr_alloc_set_opts(NULL,
-        AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_S16, AUDIO_SAMPLE_RATE,
-        audio_codec_ctx->channel_layout, audio_codec_ctx->sample_fmt, audio_codec_ctx->sample_rate,
-        0, NULL);
-    swr_init(swr_ctx);
+    ticks_per_frame = frameRate * OSMillisecondsToTicks(1000);
+
+    // Allocate and set up SwrContext
+    AVChannelLayout out_ch_layout;
+    av_channel_layout_default(&out_ch_layout, 2); // stereo (2 channels)
+
+    int res = swr_alloc_set_opts2(
+        &swr_ctx,
+        &out_ch_layout,
+        AV_SAMPLE_FMT_S16,
+        AUDIO_SAMPLE_RATE,
+        &audio_codec_ctx->ch_layout,
+        audio_codec_ctx->sample_fmt,
+        audio_codec_ctx->sample_rate,
+        0,
+        nullptr
+    );
+
+    if (res < 0 || !swr_ctx || swr_init(swr_ctx) < 0) {
+        printf("Failed to initialize SwrContext\n");
+        return -1;
+    }
 
     pkt = av_packet_alloc();
     frame = av_frame_alloc();
@@ -200,7 +239,6 @@ void video_player_update(AppState* app_state, SDL_Renderer* renderer, SDL_Textur
     if (!playing_video)
         return;
 
-    uint64_t ticks_per_frame = OSMillisecondsToTicks(1000) / av_q2d(framerate);
     uint64_t last_frame_ticks = OSGetSystemTime();
 
     if ((av_read_frame(fmt_ctx, pkt)) >= 0) {
@@ -224,7 +262,6 @@ void video_player_update(AppState* app_state, SDL_Renderer* renderer, SDL_Textur
                             current_frame_info->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, frame->width, frame->height);
                             current_frame_info->frame_width = frame->width;
                             current_frame_info->frame_height = frame->height;
-                            current_frame_info->current_time = current_pts_seconds;
                             current_frame_info->total_time = 0;
                         }
                     
@@ -233,7 +270,6 @@ void video_player_update(AppState* app_state, SDL_Renderer* renderer, SDL_Textur
                             current_frame_info->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, frame->width, frame->height);
                             current_frame_info->frame_width = frame->width;
                             current_frame_info->frame_height = frame->height;
-                            current_frame_info->current_time = current_pts_seconds;
                             current_frame_info->total_time = 0;
                         }
                     
@@ -242,11 +278,10 @@ void video_player_update(AppState* app_state, SDL_Renderer* renderer, SDL_Textur
                             frame->data[1], frame->linesize[1],
                             frame->data[2], frame->linesize[2]);
 
-                        uint64_t now_ticks = OSGetSystemTime();
-                        uint64_t elapsed_ticks = now_ticks - last_frame_ticks;
-
+                        uint64_t elapsed_ticks = OSGetSystemTime() - last_frame_ticks;
                         if (elapsed_ticks < ticks_per_frame) {
-                            OSSleepTicks(ticks_per_frame - elapsed_ticks);
+                            printf("%llu\n", OSTicksToMilliseconds((ticks_per_frame - elapsed_ticks) / 1000));
+                            OSSleepTicks((ticks_per_frame - elapsed_ticks)/1000);
                         }
 
                         last_frame_ticks = OSGetSystemTime();
@@ -268,6 +303,7 @@ int video_player_cleanup() {
     while (avcodec_receive_frame(audio_codec_ctx, frame) == 0) {
         play_audio_frame(frame, swr_ctx, 2);
     }
+
     while (ring_buffer_fill > 0) {
         SDL_Delay(100);
     }
@@ -278,23 +314,43 @@ int video_player_cleanup() {
         current_frame_info = nullptr;
     }
 
-    av_frame_free(&frame);
-    av_packet_free(&pkt);
-    swr_free(&swr_ctx);
-    avcodec_free_context(&audio_codec_ctx);
-    avcodec_free_context(&video_codec_ctx);
-    avformat_close_input(&fmt_ctx);
+    if (frame) {
+        av_frame_free(&frame);
+        frame = nullptr;
+    }
 
-    frame = NULL;
-    pkt = NULL;
-    swr_ctx = NULL;
-    audio_codec_ctx = NULL;
-    video_codec_ctx = NULL;
-    fmt_ctx = NULL;
+    if (pkt) {
+        av_packet_free(&pkt);
+        pkt = nullptr;
+    }
+
+    if (swr_ctx) {
+        swr_free(&swr_ctx);
+        swr_ctx = nullptr;
+    }
+
+    if (audio_codec_ctx) {
+        avcodec_free_context(&audio_codec_ctx);
+        audio_codec_ctx = nullptr;
+    }
+
+    if (video_codec_ctx) {
+        avcodec_free_context(&video_codec_ctx);
+        video_codec_ctx = nullptr;
+    }
+
+    if (fmt_ctx) {
+        avformat_close_input(&fmt_ctx);
+        fmt_ctx = nullptr;
+    }
+
     ring_buffer_fill = 0;
     ring_buffer_read_pos = 0;
     ring_buffer_write_pos = 0;
-
+    current_pts_seconds = 0;
+    audio_stream_index = -1;
+    video_stream_index = -1;
+    playing_video = false;
 
     return 0;
 }

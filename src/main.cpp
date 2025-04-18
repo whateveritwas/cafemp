@@ -3,6 +3,7 @@
 #include <coreinit/time.h>
 #include <string>
 #include <thread>
+#include <SDL2/SDL.h>
 
 #include "config.hpp"
 #include "video_player.hpp"
@@ -16,7 +17,7 @@ SDL_AudioSpec wanted_spec;
 
 int init_sdl() {
     printf("Starting SDL...\n");
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) < 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
         printf("Failed to init SDL: %s\n", SDL_GetError());
         return -1;
     }

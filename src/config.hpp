@@ -1,8 +1,6 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include <SDL2/SDL.h>
-
 #define DRC_BUTTON_A 0x00008000
 #define DRC_BUTTON_START 0x00000008
 #define DRC_BUTTON_SELECT 0x00000004
@@ -29,8 +27,7 @@ struct frame_info {
     SDL_Texture* texture;
     int frame_width;
     int frame_height;
-    int total_time;
-    int current_time;
+    int64_t total_time;
 };
 
 #endif
