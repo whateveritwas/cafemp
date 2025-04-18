@@ -22,9 +22,9 @@ int ring_buffer_write_pos = 0;
 int ring_buffer_read_pos = 0;
 int ring_buffer_fill = 0;
 
-static int frame_counter = 0;
-const int frame_skip = 2;
 int64_t current_pts_seconds = 0;
+
+bool playing_video = false;
 
 void audio_callback(void *userdata, Uint8 *stream, int len) {
     SDL_LockMutex(audio_mutex);
@@ -158,13 +158,14 @@ void video_player_start(const char* path, AppState* app_state, SDL_Renderer& ren
 }
 
 void video_player_scrub(int dt) {
+    int64_t seek_target_seconds = current_pts_seconds + dt;
+
+    int64_t seek_target = seek_target_seconds * AV_TIME_BASE;
 
     if(dt > 0) {
-        int64_t seek_target = (current_pts_seconds + dt) * AV_TIME_BASE;
         av_seek_frame(fmt_ctx, -1, seek_target, AVSEEK_FLAG_ANY);
     }
     else {
-        int64_t seek_target = (current_pts_seconds - 4) * AV_TIME_BASE;
         av_seek_frame(fmt_ctx, -1, seek_target, AVSEEK_FLAG_BACKWARD);
     }
 
@@ -172,13 +173,21 @@ void video_player_scrub(int dt) {
     avcodec_flush_buffers(video_codec_ctx);
 }
 
+bool video_player_is_playing() {
+    return playing_video;
+}
+
+void video_player_play(bool new_state) {
+    playing_video = new_state;
+}
+
 int64_t video_player_get_current_time() {
     return current_pts_seconds;
 }
 
 void video_player_update(AppState* app_state, SDL_Renderer* renderer, SDL_Texture* texture) {
-    uint64_t ticks_per_frame = OSMillisecondsToTicks(1000) / av_q2d(framerate);
-    uint64_t last_frame_ticks = OSGetSystemTime();
+    if (!playing_video)
+        return;
 
     if ((av_read_frame(fmt_ctx, pkt)) >= 0) {
         if (pkt->stream_index == audio_stream_index) {
@@ -216,26 +225,12 @@ void video_player_update(AppState* app_state, SDL_Renderer* renderer, SDL_Textur
                         dst_rect.x = (screen_width - new_width) / 2;
                         dst_rect.y = (screen_height - new_height) / 2;
 
-                        SDL_RenderClear(renderer);
-                        if (frame_counter % frame_skip == 0) {
-                            SDL_UpdateYUVTexture(texture, NULL,
-                                frame->data[0], frame->linesize[0],
-                                frame->data[1], frame->linesize[1],
-                                frame->data[2], frame->linesize[2]);
-                        }
+                        SDL_UpdateYUVTexture(texture, NULL,
+                            frame->data[0], frame->linesize[0],
+                            frame->data[1], frame->linesize[1],
+                            frame->data[2], frame->linesize[2]);
 
-                        uint64_t now_ticks = OSGetSystemTime();
-                        uint64_t elapsed_ticks = now_ticks - last_frame_ticks;
-
-                        if (elapsed_ticks < ticks_per_frame) {
-                            OSSleepTicks(ticks_per_frame - elapsed_ticks);
-                        }
-
-                        last_frame_ticks = OSGetSystemTime();
-
-                        // Render the scaled video
                         SDL_RenderCopy(renderer, texture, NULL, &dst_rect);
-                        SDL_RenderPresent(renderer);
                     }
                 }
             }
