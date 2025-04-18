@@ -20,6 +20,8 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
 void video_player_start(const char* path, AppState* app_state, SDL_Renderer& renderer, SDL_Texture*& texture, SDL_mutex& _audio_mutex, SDL_AudioSpec wanted_spec);
 void video_player_scrub(int dt);
 int64_t video_player_get_current_time();
+bool video_player_is_playing();
+void video_player_play(bool new_state);
 void video_player_update(AppState* app_state, SDL_Renderer* renderer, SDL_Texture* texture);
 int video_player_cleanup();
 

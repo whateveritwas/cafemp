@@ -1,11 +1,53 @@
-#include <dirent.h>
 #include <vector>
 #include <string>
+#include "show.hpp"
+#include <dirent.h>
 #include <SDL2/SDL.h>
+#include <vpad/input.h>
 #include <SDL2/SDL_ttf.h>
 
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_STANDARD_IO
+#define NK_INCLUDE_STANDARD_VARARGS
+#define NK_INCLUDE_DEFAULT_ALLOCATOR
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+#define NK_INCLUDE_FONT_BAKING
+#define NK_INCLUDE_DEFAULT_FONT
+#define NK_IMPLEMENTATION
+#define NK_SDL_RENDERER_IMPLEMENTATION
+#define NK_SDL_RENDERER_SDL_H <SDL2/SDL.h>
+#include "nuklear.h"
+#include "nuklear_sdl_renderer.h"
+
 #include "config.hpp"
+#include "video_player.hpp"
 #include "menu.hpp"
+
+std::vector<std::string> video_files;
+int selected_index = 0;
+
+// Ui
+SDL_Window* ui_window;
+SDL_Renderer* ui_renderer;
+SDL_Texture* ui_texture;
+AppState* ui_app_state;
+SDL_AudioSpec ui_wanted_spec;
+
+struct nk_context *ctx;
+struct nk_colorf bg;
+
+// Input
+float touch_x = 0.0f;
+float touch_y = 0.0f;
+bool touched = false;
+
+std::string format_time(int seconds) {
+    int mins = seconds / 60;
+    int secs = seconds % 60;
+    char buffer[16];
+    snprintf(buffer, sizeof(buffer), "%02d:%02d", mins, secs);
+    return std::string(buffer);
+}
 
 void scan_directory(const char* path, std::vector<std::string>& video_files) {
     video_files.clear();
@@ -22,72 +64,116 @@ void scan_directory(const char* path, std::vector<std::string>& video_files) {
     closedir(dir);
 }
 
-std::string format_time(int seconds) {
-    int mins = seconds / 60;
-    int secs = seconds % 60;
-    char buffer[16];
-    snprintf(buffer, sizeof(buffer), "%02d:%02d", mins, secs);
-    return std::string(buffer);
-}
+void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_texture, AppState* _app_state, SDL_AudioSpec _wanted_spec) {
+    ui_window = _window;
+    ui_renderer = _renderer;
+    ui_texture = _texture;
+    ui_app_state = _app_state;
+    ui_wanted_spec = _wanted_spec;
 
-void render_file_browser(SDL_Renderer* renderer, TTF_Font* font, int selected_index, const std::vector<std::string>& video_files) {
-    // Set background color and clear screen
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
+    *ui_app_state = STATE_MENU;
 
-    SDL_Color white = {255, 255, 255};
-    SDL_Color yellow = {255, 255, 0};
+    ctx = nk_sdl_init(ui_window, ui_renderer);
 
-    int y = 20;
-    const int padding = 10;
-    const int start_x = 40;
+    {
+        struct nk_font_atlas *atlas;
+        struct nk_font_config config = nk_font_config(0);
+        struct nk_font *font;
 
-    for (int i = 0; i < static_cast<int>(video_files.size()); ++i) {
-        std::string display_str = video_files[i];
+        nk_sdl_font_stash_begin(&atlas);
+        font = nk_font_atlas_add_from_file(atlas, FONT_PATH, 32, &config);
+        nk_sdl_font_stash_end();
 
-        // Optional: truncate long filenames
-        const size_t max_chars = 50;
-        if (display_str.length() > max_chars) {
-            display_str = display_str.substr(0, max_chars - 3) + "...";
-        }
-
-        // Render text surface
-        SDL_Surface* text_surface = TTF_RenderText_Blended(
-            font,
-            display_str.c_str(),
-            (i == selected_index) ? yellow : white
-        );
-
-        if (!text_surface) {
-            continue; // Skip this item if rendering failed
-        }
-
-        SDL_Texture* text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
-        if (!text_texture) {
-            SDL_FreeSurface(text_surface);
-            continue;
-        }
-
-        // Stop rendering if items go off-screen
-        if (y + text_surface->h > SCREEN_WIDTH) {
-            SDL_FreeSurface(text_surface);
-            SDL_DestroyTexture(text_texture);
-            break;
-        }
-
-        SDL_Rect dst_rect = {start_x, y, text_surface->w, text_surface->h};
-        SDL_RenderCopy(renderer, text_texture, nullptr, &dst_rect);
-
-        y += text_surface->h + padding;
-
-        SDL_FreeSurface(text_surface);
-        SDL_DestroyTexture(text_texture);
+        nk_style_set_font(ctx, &font->handle);
     }
 
-    SDL_RenderPresent(renderer);
+    bg.r = 0.0f, bg.g = 0.0f, bg.b = 0.0f, bg.a = 1.0f;
+
+    scan_directory(VIDEO_PATH, video_files);
 }
 
-void render_video_hud(SDL_Renderer* renderer, TTF_Font* font, SDL_Texture* texture, int current_pts_seconds, int duration_seconds) {
+void ui_handle_vpad_input() {
+    VPADStatus buf;
+    int key_press = VPADRead(VPAD_CHAN_0, &buf, 1, nullptr);
+
+    touched = buf.tpNormal.touched;
+    if(touched) {
+        VPADGetTPCalibratedPoint(VPAD_CHAN_0, &buf.tpNormal, &buf.tpNormal);
+        touch_x = (float)buf.tpNormal.x;
+        touch_y = (float)buf.tpNormal.y;
+    } else {
+        touch_x = 0.0f;
+        touch_y = 0.0f;
+    }
+
+    if (key_press == 1) {
+        if(*ui_app_state == STATE_PLAYING) {
+            if(buf.trigger == DRC_BUTTON_A) {
+                video_player_play(!video_player_is_playing());
+            } else if(buf.trigger == DRC_BUTTON_SELECT) {
+                video_player_play(true);
+                video_player_cleanup();
+                video_player_play(false);
+                scan_directory(VIDEO_PATH, video_files);
+                *ui_app_state = STATE_MENU;
+            }
+        } else if (*ui_app_state == STATE_MENU) {
+        }
+    }
+}
+
+void ui_render() {
+    ui_handle_vpad_input();
+
+    nk_input_begin(ctx);
+    if(touched) {
+        nk_input_motion(ctx, (int)touch_x, (int)touch_y);
+        nk_input_button(ctx, NK_BUTTON_LEFT, (int)touch_x, (int)touch_y, true);
+    } else {
+        nk_input_button(ctx, NK_BUTTON_LEFT, (int)touch_x, (int)touch_y, false);
+        nk_input_motion(ctx, 0, 0);
+    }
+    nk_input_end(ctx);
+
+    switch(*ui_app_state) {
+        case STATE_PLAYING:
+        ui_render_video();
+        break;
+        case STATE_MENU:
+        ui_render_file_browser();
+        break;
+    }
+
+}
+
+void ui_render_file_browser() {
+    if (nk_begin(ctx, "File Browser", nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), NK_WINDOW_BORDER | NK_WINDOW_TITLE)) {
+        nk_layout_row_dynamic(ctx, 48, 1);
+        for (int i = 0; i < static_cast<int>(video_files.size()); ++i) {
+            std::string display_str = video_files[i];
+
+            if (nk_button_label(ctx, display_str.c_str())) {
+                std::string full_path = std::string(VIDEO_PATH) + video_files[i];
+                video_player_start(full_path.c_str(), ui_app_state, *ui_renderer, ui_texture, *SDL_CreateMutex(), ui_wanted_spec);
+                SDL_RenderClear(ui_renderer);
+                video_player_play(true);
+                *ui_app_state = STATE_PLAYING;
+            }
+        }
+    }
+    nk_end(ctx);
+
+    SDL_SetRenderDrawColor(ui_renderer, bg.r * 255, bg.g * 255, bg.b * 255, bg.a * 255);
+    SDL_RenderClear(ui_renderer);
+
+    nk_sdl_render(NK_ANTI_ALIASING_ON);
+}
+
+void ui_render_video() {
+    video_player_update(ui_app_state, ui_renderer, ui_texture);
+}
+
+void ui_render_video_hud(SDL_Renderer* renderer, TTF_Font* font, SDL_Texture* texture, int current_pts_seconds, int duration_seconds) {
     SDL_RenderCopy(renderer, texture, NULL, NULL);
 
     std::string time_str = format_time(current_pts_seconds) + " / " + format_time(duration_seconds);
@@ -104,4 +190,8 @@ void render_video_hud(SDL_Renderer* renderer, TTF_Font* font, SDL_Texture* textu
 
     SDL_FreeSurface(text_surface);
     SDL_DestroyTexture(text_texture);
+}
+
+void ui_shutodwn() {
+    nk_sdl_shutdown();
 }
