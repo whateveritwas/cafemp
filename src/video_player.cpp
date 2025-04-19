@@ -31,6 +31,7 @@ frame_info* current_frame_info;
 
 int64_t current_pts_seconds = 0;
 uint64_t ticks_per_frame = 0;
+int64_t start_time = 0;
 
 bool playing_video = false;
 
@@ -39,8 +40,10 @@ std::mutex video_frame_mutex;            // Mutex to protect the queue
 std::condition_variable video_frame_cv;  // Condition variable for synchronization
 bool video_thread_running = true;        // Flag to control the video thread
 std::thread video_thread;                // Thread for video decoding
-
-
+std::mutex playback_mutex;
+std::condition_variable playback_cv;
+int64_t pause_start_time = 0;
+int64_t total_paused_duration = 0;
 
 AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int stream_index) {
     AVCodecParameters* codecpar = fmt_ctx->streams[stream_index]->codecpar;
@@ -75,6 +78,18 @@ bool video_player_is_playing() {
 }
 
 void video_player_play(bool new_state) {
+    std::lock_guard<std::mutex> lock(playback_mutex);
+
+    if (!playing_video && new_state) {
+        int64_t now = av_gettime_relative();
+        int64_t pause_duration = now - pause_start_time;
+        start_time += pause_duration; // Shift start_time forward
+        playback_cv.notify_one();
+    } else if (playing_video && !new_state) {
+        // We are pausing
+        pause_start_time = av_gettime_relative();
+    }
+
     playing_video = new_state;
 }
 
@@ -153,23 +168,31 @@ void start_video_decoding_thread() {
 void process_video_frame_thread() {
     AVFrame* local_frame = av_frame_alloc();
     AVRational time_base = fmt_ctx->streams[video_stream_index]->time_base;
-    int64_t start_time = av_gettime_relative(); // microseconds
+    start_time = av_gettime_relative();  // microseconds
+    total_paused_duration = 0;
+    pause_start_time = 0;
+
 
     while (video_thread_running) {
+        {
+            std::unique_lock<std::mutex> lock(playback_mutex);
+            playback_cv.wait(lock, [] { return playing_video || !video_thread_running; });
+            if (!video_thread_running) break;
+        }
         AVPacket pkt;
-        if (av_read_frame(fmt_ctx, &pkt) >= 0 && playing_video) {
+        if (av_read_frame(fmt_ctx, &pkt) >= 0) {
             if (pkt.stream_index == video_stream_index) {
                 if (avcodec_send_packet(video_codec_ctx, &pkt) == 0) {
                     while (avcodec_receive_frame(video_codec_ctx, local_frame) == 0) {
                         if (local_frame->format == AV_PIX_FMT_YUV420P) {
                             // Convert PTS to real time
                             int64_t pts_us = local_frame->pts * av_q2d(time_base) * 1e6;
+                            
                             int64_t now_us = av_gettime_relative() - start_time;
-
                             int64_t delay = pts_us - now_us;
                             if (delay > 0) {
                                 av_usleep(delay);
-                            }
+                            }                           
 
                             current_pts_seconds = local_frame->pts * av_q2d(time_base);
 
@@ -285,6 +308,8 @@ int video_player_cleanup() {
     current_pts_seconds = 0;
     video_stream_index = -1;
     playing_video = false;
+    total_paused_duration = 0;
+    pause_start_time = 0;
 
     return 0;
 }
