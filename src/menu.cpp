@@ -144,7 +144,6 @@ void ui_render() {
         nk_input_button(ctx, NK_BUTTON_LEFT, (int)touch_x, (int)touch_y, true);
     } else {
         nk_input_button(ctx, NK_BUTTON_LEFT, (int)touch_x, (int)touch_y, false);
-        nk_input_motion(ctx, 0, 0);
     }
     nk_input_end(ctx);
 
@@ -160,7 +159,7 @@ void ui_render() {
 }
 
 void ui_render_file_browser() {
-    if (nk_begin(ctx, "File Browser", nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), NK_WINDOW_BORDER | NK_WINDOW_TITLE)) {
+    if (nk_begin(ctx, "File Browser", nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), NK_WINDOW_BORDER)) {
         nk_layout_row_dynamic(ctx, 64, 1);
         for (int i = 0; i < static_cast<int>(video_files.size()); ++i) {
             std::string display_str = video_files[i];
@@ -185,8 +184,8 @@ void ui_render_file_browser() {
 
 void ui_render_video() {
     uint64_t test_ticks = OSGetSystemTime();
-    video_player_update(ui_app_state, ui_renderer, ui_texture);
-    uint64_t decoding_time = OSTicksToMilliseconds(OSGetSystemTime() - test_ticks);
+    video_player_update(ui_app_state, ui_renderer);
+    uint64_t decoding_time = OSTicksToMicroseconds(OSGetSystemTime() - test_ticks);
 
     frame_info* current_frame_info = video_player_get_current_frame_info();
 
@@ -222,12 +221,12 @@ void ui_render_video() {
         nk_layout_row_dynamic(ctx, 30, 2);
     
         // Use the last decoding time if the current one is 0ms
-        if (decoding_time > 0) {
+        if (decoding_time > 100) {
             last_decoding_time = decoding_time;  // Update with the new decoding time
         }
     
-        // Display the last valid decoding time, even if current decoding time is 0ms
-        std::string decoding_time_str = std::to_string(last_decoding_time) + "ms";
+        // Display the last valid decoding time, even if current decoding time is 0
+        std::string decoding_time_str = std::to_string(last_decoding_time);
         nk_label(ctx, decoding_time_str.c_str(), NK_TEXT_LEFT);
     
         nk_end(ctx);
@@ -250,7 +249,6 @@ void ui_render_video() {
         }
     }
 }
-
 
 void ui_shutodwn() {
     if(video_player_is_playing()) video_player_cleanup();
