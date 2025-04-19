@@ -9,11 +9,8 @@
 #define DRC_BUTTON_DPAD_UP 0x00000200
 #define DRC_BUTTON_DPAD_DOWN 0x00000100
 
-#define RING_BUFFER_SIZE (192000*4)
-
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
-#define AUDIO_SAMPLE_RATE 48000
 
 #define FONT_PATH "/vol/external01/wiiu/apps/cafemp/Roboto-Regular.ttf"
 #define VIDEO_PATH "/vol/external01/wiiu/apps/cafemp/"

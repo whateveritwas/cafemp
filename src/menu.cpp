@@ -33,8 +33,6 @@ SDL_Window* ui_window;
 SDL_Renderer* ui_renderer;
 SDL_Texture* ui_texture;
 AppState* ui_app_state;
-SDL_AudioSpec ui_wanted_spec;
-static SDL_mutex* audio_mutex = NULL;
 
 struct nk_context *ctx;
 struct nk_colorf bg;
@@ -74,12 +72,11 @@ void scan_directory(const char* path, std::vector<std::string>& video_files) {
     closedir(dir);
 }
 
-void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_texture, AppState* _app_state, SDL_AudioSpec _wanted_spec) {
+void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_texture, AppState* _app_state) {
     ui_window = _window;
     ui_renderer = _renderer;
     ui_texture = _texture;
     ui_app_state = _app_state;
-    ui_wanted_spec = _wanted_spec;
 
     *ui_app_state = STATE_MENU;
 
@@ -166,8 +163,7 @@ void ui_render_file_browser() {
 
             if (nk_button_label(ctx, display_str.c_str())) {
                 std::string full_path = std::string(VIDEO_PATH) + video_files[i];
-                audio_mutex = SDL_CreateMutex();
-                video_player_start(full_path.c_str(), ui_app_state, *ui_renderer, ui_texture, *audio_mutex, ui_wanted_spec);
+                video_player_start(full_path.c_str(), ui_app_state, *ui_renderer, ui_texture);
                 video_player_play(true);
                 *ui_app_state = STATE_PLAYING;
                 SDL_RenderClear(ui_renderer);
@@ -256,10 +252,6 @@ void ui_shutodwn() {
     if (ui_texture) {
         SDL_DestroyTexture(ui_texture);
         ui_texture = nullptr;
-    }
-    if (audio_mutex) {
-        SDL_DestroyMutex(audio_mutex);
-        audio_mutex = NULL;
     }
     nk_sdl_shutdown();
 }
