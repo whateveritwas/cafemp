@@ -4,6 +4,7 @@
 #include <dirent.h>
 #include <SDL2/SDL.h>
 #include <vpad/input.h>
+#include <unordered_set>
 #include <SDL2/SDL_ttf.h>
 #include <coreinit/time.h>
 
@@ -51,6 +52,13 @@ std::string format_time(int seconds) {
     return std::string(buffer);
 }
 
+bool valid_file_ending(const std::string& file_ending) {
+    static const std::unordered_set<std::string> valid_endings = {
+        "mp4", "mov", "mkv", "avi", "webm", "flv", "asf", "mpegts"
+    };
+    return valid_endings.count(file_ending) > 0;
+}
+
 void scan_directory(const char* path, std::vector<std::string>& video_files) {
     video_files.clear();
     DIR* dir = opendir(path);
@@ -59,7 +67,7 @@ void scan_directory(const char* path, std::vector<std::string>& video_files) {
     struct dirent* ent;
     while ((ent = readdir(dir)) != NULL) {
         std::string name(ent->d_name);
-        if (name.length() > 4 && (name.substr(name.length() - 4) == ".mp4" || name.substr(name.length() - 4) == ".mkv")) {
+        if (name.length() > 4 &&  valid_file_ending(name.substr(name.length() - 3))) {
             video_files.push_back(name);
         }
     }
@@ -176,16 +184,16 @@ void ui_render_file_browser() {
 }
 
 void ui_render_video() {
-    // uint64_t test_ticks = OSGetSystemTime();
+    uint64_t test_ticks = OSGetSystemTime();
     video_player_update(ui_app_state, ui_renderer, ui_texture);
-    // printf("A/V Decoding: %" PRIu64 "ms\n", OSTicksToMilliseconds(OSGetSystemTime() - test_ticks));
+    uint64_t decoding_time = OSTicksToMilliseconds(OSGetSystemTime() - test_ticks);
 
     frame_info* current_frame_info = video_player_get_current_frame_info();
 
-    SDL_SetRenderDrawColor(ui_renderer, 0, 0, 0, 255);
-    SDL_RenderClear(ui_renderer);
-
     if (current_frame_info && current_frame_info->texture) {
+        SDL_SetRenderDrawColor(ui_renderer, 0, 0, 0, 255);
+        SDL_RenderClear(ui_renderer);
+
         int video_width = current_frame_info->frame_width;
         int video_height = current_frame_info->frame_height;
 
@@ -207,19 +215,42 @@ void ui_render_video() {
         SDL_RenderCopy(ui_renderer, current_frame_info->texture, NULL, &dest_rect);
     }
 
-    if(!video_player_is_playing()) {
+    static uint64_t last_decoding_time = 0;
+
+    struct nk_rect hud_rect = nk_rect(0, 0, 128, 64);
+    if (nk_begin(ctx, "DEBUG", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND)) {
+        nk_layout_row_dynamic(ctx, 30, 2);
+    
+        // Use the last decoding time if the current one is 0ms
+        if (decoding_time > 0) {
+            last_decoding_time = decoding_time;  // Update with the new decoding time
+        }
+    
+        // Display the last valid decoding time, even if current decoding time is 0ms
+        std::string decoding_time_str = std::to_string(last_decoding_time) + "ms";
+        nk_label(ctx, decoding_time_str.c_str(), NK_TEXT_LEFT);
+    
+        nk_end(ctx);
+        nk_sdl_render(NK_ANTI_ALIASING_ON);
+    }
+    
+
+    if (!video_player_is_playing()) {
         const int hud_height = 80;
         struct nk_rect hud_rect = nk_rect(0, SCREEN_HEIGHT - hud_height, SCREEN_WIDTH, hud_height);
 
         if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND)) {
             nk_layout_row_dynamic(ctx, 30, 2);
-            std::string hud_str = "Paused | " + format_time(video_player_get_current_time()) + " / " + format_time((int)current_frame_info->total_time);
-            nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
+            if (current_frame_info) {
+                std::string hud_str = "Paused | " + format_time(video_player_get_current_time()) + " / " + format_time(0);
+                nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
+            }
             nk_end(ctx);
             nk_sdl_render(NK_ANTI_ALIASING_ON);
         }
     }
 }
+
 
 void ui_shutodwn() {
     if(video_player_is_playing()) video_player_cleanup();
