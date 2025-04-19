@@ -1,19 +1,12 @@
-#include <string>
-#include <thread>
 #include <SDL2/SDL.h>
 #include <whb/proc.h>
-#include <coreinit/time.h>
-#include <coreinit/thread.h>
-
 #include "config.hpp"
-#include "video_player.hpp"
 #include "menu.hpp"
 
-AppState app_state = STATE_MENU;
-SDL_Window* window;
-SDL_Renderer* renderer;
-SDL_Texture* texture;
-SDL_AudioSpec wanted_spec;
+AppState main_app_state = STATE_MENU;
+SDL_Window* main_window;
+SDL_Renderer* main_renderer;
+SDL_Texture* main_texture;
 
 int init_sdl() {
     printf("Starting SDL...\n");
@@ -22,18 +15,10 @@ int init_sdl() {
         return -1;
     }
 
-    window = SDL_CreateWindow("", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, 0);
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH, SCREEN_HEIGHT);
+    main_window = SDL_CreateWindow("", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, 0);
+    main_renderer = SDL_CreateRenderer(main_window, -1, SDL_RENDERER_ACCELERATED);
+    SDL_RenderSetLogicalSize(main_renderer, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-    wanted_spec = create_audio_spec();
-
-    if (SDL_OpenAudio(&wanted_spec, NULL) < 0) {
-        printf("SDL_OpenAudio error: %s\n", SDL_GetError());
-        return -1;
-    }
-
-    avformat_network_init();
     return 0;
 }
 
@@ -42,18 +27,17 @@ int main(int argc, char **argv) {
 
     if (init_sdl() != 0) return -1;
 
-    ui_init(window, renderer, texture, &app_state, wanted_spec);
+    ui_init(main_window, main_renderer, main_texture, &main_app_state);
 
     while (WHBProcIsRunning()) {
         ui_render();
-        SDL_RenderPresent(renderer);
+        SDL_RenderPresent(main_renderer);
     }
     ui_shutodwn();
 
-    SDL_DestroyTexture(texture);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_CloseAudio();
+    SDL_DestroyTexture(main_texture);
+    SDL_DestroyRenderer(main_renderer);
+    SDL_DestroyWindow(main_window);
     SDL_Quit();
 
     WHBProcShutdown();
