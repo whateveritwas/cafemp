@@ -156,7 +156,7 @@ void ui_render() {
 }
 
 void ui_render_file_browser() {
-    if (nk_begin(ctx, "File Browser", nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), NK_WINDOW_BORDER)) {
+    if (nk_begin(ctx, "cafemp", nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), NK_WINDOW_BORDER|NK_WINDOW_TITLE)) {
         nk_layout_row_dynamic(ctx, 64, 1);
         for (int i = 0; i < static_cast<int>(video_files.size()); ++i) {
             std::string display_str = video_files[i];
@@ -213,7 +213,7 @@ void ui_render_video() {
     static uint64_t last_decoding_time = 0;
 
     struct nk_rect hud_rect = nk_rect(0, 0, 128, 64);
-    if (nk_begin(ctx, "DEBUG", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND)) {
+    if (nk_begin(ctx, "Decoding", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
         nk_layout_row_dynamic(ctx, 30, 2);
     
         // Use the last decoding time if the current one is 0ms
@@ -234,7 +234,7 @@ void ui_render_video() {
         const int hud_height = 80;
         struct nk_rect hud_rect = nk_rect(0, SCREEN_HEIGHT - hud_height, SCREEN_WIDTH, hud_height);
 
-        if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND)) {
+        if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
             nk_layout_row_dynamic(ctx, 30, 2);
             if (current_frame_info) {
                 std::string hud_str = "Paused | " + format_time(video_player_get_current_time()) + " / " + format_time(0);
