@@ -3,7 +3,7 @@
 Cafemp is a **work in progress** media player for wii u.
 
 ## Usage
-- Download the Lates release.
+- Download the latest release
 - Extract the `wiiu` folder to the root of your sd
 - Add you own movies / videos to the `cafemp` folder under `wiiu/apps/cafemp`
 - Open the app on the Wii U home menu
