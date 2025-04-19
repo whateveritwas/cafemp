@@ -11,6 +11,10 @@ extern "C" {
     #include <libavutil/frame.h>
 }
 
+#include <queue>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 
 #include "config.hpp"
 #include "video_player.hpp"
@@ -37,6 +41,12 @@ int64_t current_pts_seconds = 0;
 uint64_t ticks_per_frame = 0;
 
 bool playing_video = false;
+
+std::queue<AVFrame*> video_frame_queue;  // Queue to hold decoded video frames
+std::mutex video_frame_mutex;            // Mutex to protect the queue
+std::condition_variable video_frame_cv;  // Condition variable for synchronization
+bool video_thread_running = true;        // Flag to control the video thread
+std::thread video_thread;                // Thread for video decoding
 
 void audio_callback(void *userdata, Uint8 *stream, int len) {
     SDL_LockMutex(audio_mutex);
@@ -123,6 +133,46 @@ AVCodecContext* create_codec_context(AVFormatContext* fmt_ctx, int stream_index,
     return codec_ctx;
 }
 
+inline AVFrame* convert_nv12_to_yuv420p(AVFrame* src_frame) {
+    struct SwsContext* sws_ctx = sws_getContext(
+        src_frame->width, src_frame->height, AV_PIX_FMT_NV12,
+        src_frame->width, src_frame->height, AV_PIX_FMT_YUV420P,
+        SWS_BILINEAR, NULL, NULL, NULL
+    );
+
+    if (!sws_ctx) {
+        printf("Failed to create sws context.\n");
+        return NULL;
+    }
+
+    AVFrame* dst_frame = av_frame_alloc();
+    if (!dst_frame) {
+        sws_freeContext(sws_ctx);
+        return NULL;
+    }
+
+    dst_frame->format = AV_PIX_FMT_YUV420P;
+    dst_frame->width = src_frame->width;
+    dst_frame->height = src_frame->height;
+
+    if (av_frame_get_buffer(dst_frame, 32) < 0) {
+        printf("Could not allocate buffer for destination frame.\n");
+        av_frame_free(&dst_frame);
+        sws_freeContext(sws_ctx);
+        return NULL;
+    }
+
+    sws_scale(
+        sws_ctx,
+        (const uint8_t* const*)src_frame->data, src_frame->linesize,
+        0, src_frame->height,
+        dst_frame->data, dst_frame->linesize
+    );
+
+    sws_freeContext(sws_ctx);
+    return dst_frame;
+}
+
 int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*& texture) {
     printf("Starting Video Player...\n");
 
@@ -194,6 +244,7 @@ void video_player_start(const char* path, AppState* app_state, SDL_Renderer& ren
     current_pts_seconds = 0;
     audio_mutex = &_audio_mutex;
     video_player_init(path, &renderer, texture);
+    start_video_decoding_thread();
     *app_state = STATE_PLAYING;
 }
 
@@ -235,70 +286,149 @@ frame_info* video_player_get_current_frame_info() {
     return current_frame_info;
 }
 
-void video_player_update(AppState* app_state, SDL_Renderer* renderer, SDL_Texture* texture) {
-    if (!playing_video)
-        return;
-
-    uint64_t last_frame_ticks = OSGetSystemTime();
-
-    if ((av_read_frame(fmt_ctx, pkt)) >= 0) {
-        if (pkt->stream_index == audio_stream_index) {
-            if (avcodec_send_packet(audio_codec_ctx, pkt) == 0) {
-                while (avcodec_receive_frame(audio_codec_ctx, frame) == 0) {
-                    play_audio_frame(frame, swr_ctx, 2);
-                }
+void process_audio_frame(AppState* app_state, SDL_Renderer* renderer, SDL_Texture* texture, AVPacket* pkt) {
+    if (pkt->stream_index == audio_stream_index) {
+        if (avcodec_send_packet(audio_codec_ctx, pkt) == 0) {
+            while (avcodec_receive_frame(audio_codec_ctx, frame) == 0) {
+                play_audio_frame(frame, swr_ctx, 2);
             }
         }
-
-        if (pkt->stream_index == video_stream_index) {
-            if (avcodec_send_packet(video_codec_ctx, pkt) == 0) {
-                while (avcodec_receive_frame(video_codec_ctx, frame) == 0) {
-                    if (frame->format == AV_PIX_FMT_YUV420P) {
-                        AVRational time_base = fmt_ctx->streams[video_stream_index]->time_base;
-                        current_pts_seconds = frame->pts * av_q2d(time_base);
-                    
-                        if (!current_frame_info) {
-                            current_frame_info = new frame_info;
-                            current_frame_info->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, frame->width, frame->height);
-                            current_frame_info->frame_width = frame->width;
-                            current_frame_info->frame_height = frame->height;
-                            current_frame_info->total_time = 0;
-                        }
-                    
-                        if (frame->width != current_frame_info->frame_width || frame->height != current_frame_info->frame_height) {
-                            SDL_DestroyTexture(current_frame_info->texture);
-                            current_frame_info->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, frame->width, frame->height);
-                            current_frame_info->frame_width = frame->width;
-                            current_frame_info->frame_height = frame->height;
-                            current_frame_info->total_time = 0;
-                        }
-                    
-                        SDL_UpdateYUVTexture(current_frame_info->texture, NULL,
-                            frame->data[0], frame->linesize[0],
-                            frame->data[1], frame->linesize[1],
-                            frame->data[2], frame->linesize[2]);
-
-                        uint64_t elapsed_ticks = OSGetSystemTime() - last_frame_ticks;
-                        if (elapsed_ticks < ticks_per_frame) {
-                            printf("%llu\n", OSTicksToMilliseconds((ticks_per_frame - elapsed_ticks) / 1000));
-                            OSSleepTicks((ticks_per_frame - elapsed_ticks)/1000);
-                        }
-
-                        last_frame_ticks = OSGetSystemTime();
-                    }
-                }
-            }
-        }
-
-        av_packet_unref(pkt);
-    } else {
-        printf("Video playback ended.");
-        *app_state = STATE_MENU;
-        video_player_cleanup();
     }
 }
 
+void start_video_decoding_thread() {
+    printf("Starting video decoding thread...\n");
+    video_thread = std::thread(process_video_frame_thread);
+}
+
+void stop_video_decoding_thread() {
+    printf("Stopping video decoding thread...\n");
+    video_thread_running = false;
+    if (video_thread.joinable()) {
+        video_thread.join();  // Ensure the thread finishes before exiting
+    }
+}
+
+void process_video_frame_thread() {
+    AVFrame* local_frame = av_frame_alloc();
+    AVRational time_base = fmt_ctx->streams[video_stream_index]->time_base;
+    int64_t start_time = av_gettime_relative(); // microseconds
+
+    while (video_thread_running) {
+        AVPacket pkt;
+        if (av_read_frame(fmt_ctx, &pkt) >= 0) {
+            if (pkt.stream_index == video_stream_index) {
+                if (avcodec_send_packet(video_codec_ctx, &pkt) == 0) {
+                    while (avcodec_receive_frame(video_codec_ctx, local_frame) == 0) {
+                        if (local_frame->format == AV_PIX_FMT_YUV420P) {
+                            // Convert PTS to real time
+                            int64_t pts_us = local_frame->pts * av_q2d(time_base) * 1e6;
+                            int64_t now_us = av_gettime_relative() - start_time;
+
+                            int64_t delay = pts_us - now_us;
+                            if (delay > 0) {
+                                av_usleep(delay);
+                            }
+
+                            current_pts_seconds = local_frame->pts * av_q2d(time_base);
+
+                            AVFrame* cloned_frame = av_frame_clone(local_frame);
+                            if (cloned_frame) {
+                                std::lock_guard<std::mutex> lock(video_frame_mutex);
+                                video_frame_queue.push(cloned_frame);
+                            }
+                        }
+                    }
+                }
+            }
+            av_packet_unref(&pkt);
+        } else {
+            video_thread_running = false;
+        }
+    }
+
+    av_frame_free(&local_frame);
+}
+
+void render_video_frame(AppState* app_state, SDL_Renderer* renderer) {
+    AVFrame* frame = nullptr;
+
+    {
+        // Lock the mutex and check if there are frames in the queue
+        std::lock_guard<std::mutex> lock(video_frame_mutex);
+        if (!video_frame_queue.empty()) {
+            frame = video_frame_queue.front();
+            video_frame_queue.pop();
+        }
+    }
+
+    if (frame) {
+        // Create a texture if needed and render the frame
+        if (!current_frame_info) {
+            current_frame_info = new frame_info;
+            current_frame_info->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, frame->width, frame->height);
+            current_frame_info->frame_width = frame->width;
+            current_frame_info->frame_height = frame->height;
+        }
+
+        SDL_UpdateYUVTexture(current_frame_info->texture, NULL,
+            frame->data[0], frame->linesize[0],
+            frame->data[1], frame->linesize[1],
+            frame->data[2], frame->linesize[2]);
+
+        // SDL_RenderCopy(renderer, current_frame_info->texture, NULL, NULL);
+        //SDL_RenderPresent(renderer);
+    }
+}
+/*
+void process_video_frame(AppState* app_state, SDL_Renderer* renderer, SDL_Texture* texture, AVPacket* pkt, uint64_t* last_frame_ticks) {
+    if (pkt->stream_index == video_stream_index) {
+        if (avcodec_send_packet(video_codec_ctx, pkt) == 0) {
+            while (avcodec_receive_frame(video_codec_ctx, frame) == 0) {
+                if (frame->format == AV_PIX_FMT_YUV420P) {
+                    AVRational time_base = fmt_ctx->streams[video_stream_index]->time_base;
+                    current_pts_seconds = frame->pts * av_q2d(time_base);
+
+                    if (!current_frame_info) {
+                        current_frame_info = new frame_info;
+                        current_frame_info->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, frame->width, frame->height);
+                        current_frame_info->frame_width = frame->width;
+                        current_frame_info->frame_height = frame->height;
+                        current_frame_info->total_time = 0;
+                    }
+ 
+                    SDL_UpdateYUVTexture(current_frame_info->texture, NULL,
+                        frame->data[0], frame->linesize[0],
+                        frame->data[1], frame->linesize[1],
+                        frame->data[2], frame->linesize[2]);
+
+                    uint64_t elapsed_ticks = OSGetSystemTime() - *last_frame_ticks;
+                    if (elapsed_ticks < ticks_per_frame) {
+                        // printf("%llu\n", OSTicksToMilliseconds((ticks_per_frame - elapsed_ticks) / 1000));
+                        OSSleepTicks((ticks_per_frame - elapsed_ticks)/1000);
+                    }
+
+                    *last_frame_ticks = OSGetSystemTime();
+                }
+            }
+        }
+    }
+}
+*/
+void video_player_update(AppState* app_state, SDL_Renderer* renderer) {
+    if (!playing_video)
+        return;
+
+    // Process audio separately in the main thread or use another thread for audio
+    // process_audio_frame(app_state, renderer, nullptr, pkt); 
+
+    render_video_frame(app_state, renderer);  // Render the video frame
+}
+
 int video_player_cleanup() {
+
+    stop_video_decoding_thread();
+
     avcodec_send_packet(audio_codec_ctx, NULL);
     while (avcodec_receive_frame(audio_codec_ctx, frame) == 0) {
         play_audio_frame(frame, swr_ctx, 2);

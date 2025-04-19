@@ -1,9 +1,9 @@
-#include <whb/proc.h>
-#include <coreinit/thread.h>
-#include <coreinit/time.h>
 #include <string>
 #include <thread>
 #include <SDL2/SDL.h>
+#include <whb/proc.h>
+#include <coreinit/time.h>
+#include <coreinit/thread.h>
 
 #include "config.hpp"
 #include "video_player.hpp"
