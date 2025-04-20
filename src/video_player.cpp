@@ -143,7 +143,7 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
     pkt = av_packet_alloc();
     frame = av_frame_alloc();
 
-    audio_player_init(&audio_player, filepath);
+    audio_player_init(filepath);
     SDL_PauseAudio(0);
 
     return 0;
@@ -159,7 +159,6 @@ void video_player_start(const char* path, AppState* app_state, SDL_Renderer& ren
         current_frame_info = nullptr;
     }    
 
-    audio_player_play(&audio_player, true);
     video_player_init(path, &renderer, texture);
     start_video_decoding_thread();
     *app_state = STATE_PLAYING;
@@ -257,7 +256,7 @@ void video_player_update(AppState* app_state, SDL_Renderer* renderer) {
     if (!playing_video)
         return;
 
-    audio_player_decode_audio_frame(&audio_player);
+    audio_player_update();
     render_video_frame(app_state, renderer);
 }
 
@@ -271,7 +270,7 @@ void stop_video_decoding_thread() {
 }
 
 int video_player_cleanup() {
-    audio_player_cleanup(&audio_player);
+    audio_player_cleanup();
     stop_video_decoding_thread();
 
     {

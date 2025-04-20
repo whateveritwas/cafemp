@@ -6,29 +6,32 @@ extern "C" {
     #include <libavformat/avformat.h>
     #include <libavcodec/avcodec.h>
     #include <libswresample/swresample.h>
-    #include <libavutil/samplefmt.h>
-    #include <libavutil/opt.h>
-    #include <libavutil/channel_layout.h>
+    #include <libswscale/swscale.h>
+    #include <libavutil/imgutils.h>
+    #include <libavutil/frame.h>
 }
 
-typedef struct AudioPlayer {
-    AVFormatContext* fmt_ctx;
-    AVCodecContext* audio_codec_ctx;
-    SwrContext* swr_ctx;
-    AVFrame* audio_frame;
-    AVPacket* audio_packet;
-    uint8_t* audio_buf;
-    int audio_buf_size;
-    int audio_buf_index;
-    int audio_stream_index;
+
+#define AUDIO_BUFFER_SIZE 8192
+#define RING_BUFFER_SIZE (AUDIO_BUFFER_SIZE * 4)
+
+struct AudioPlayer {
+    AVFormatContext* fmt_ctx = nullptr;
+    AVCodecContext* audio_codec_ctx = nullptr;
+    SwrContext* swr_ctx = nullptr;
+    AVPacket* audio_packet = nullptr;
+    AVFrame* audio_frame = nullptr;
+    uint8_t* audio_buf = nullptr;
+    int audio_buf_size = 0;
+    int audio_buf_index = 0;
+    int audio_stream_index = -1;
+    bool playing = false;
     SDL_AudioDeviceID device_id;
-    bool playing;
-} AudioPlayer;
+    uint64_t current_audio_pts = 0;
+};
 
-
-int audio_player_init(AudioPlayer* player, const char* filepath);
-void audio_player_play(AudioPlayer* player, bool play);
-void audio_player_decode_audio_frame(AudioPlayer* player);
-void audio_player_cleanup(AudioPlayer* player);
+int audio_player_init(const char* filepath);
+void audio_player_update();
+void audio_player_cleanup();
 
 #endif
