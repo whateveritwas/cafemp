@@ -62,28 +62,22 @@ int audio_player_init(AudioPlayer* player, const char* filepath) {
         return -1;
     }
 
-    player->swr_ctx = nullptr;
-    AVChannelLayout out_ch_layout;
-    av_channel_layout_default(&out_ch_layout, 2); // stereo output
-
-    swr_alloc_set_opts2(
-        &player->swr_ctx,
-        &out_ch_layout,
+    player->swr_ctx = swr_alloc_set_opts(
+        NULL,
+        AV_CH_LAYOUT_STEREO,
         AV_SAMPLE_FMT_S16,
         AUDIO_SAMPLE_RATE,
-        &player->audio_codec_ctx->ch_layout,
+        player->audio_codec_ctx->channel_layout,
         player->audio_codec_ctx->sample_fmt,
-        AUDIO_SAMPLE_RATE,
+        player->audio_codec_ctx->sample_rate,
         0,
-        nullptr
+        NULL
     );
 
     if (swr_init(player->swr_ctx) < 0) {
         printf("Failed to initialize resampler\n");
         return -1;
     }
-
-    av_channel_layout_uninit(&out_ch_layout);
 
     player->audio_frame = av_frame_alloc();
     player->audio_packet = av_packet_alloc();
@@ -105,14 +99,13 @@ int audio_player_init(AudioPlayer* player, const char* filepath) {
     spec.callback = audio_callback;
     spec.userdata = player;
 
-    SDL_AudioDeviceID dev = SDL_OpenAudioDevice(NULL, 0, &spec, NULL, 0);
-    if (dev == 0) {
+    player->device_id = SDL_OpenAudioDevice(NULL, 0, &spec, NULL, 0);
+    if (player->device_id == 0) {
         printf("Failed to open audio device: %s\n", SDL_GetError());
         return -1;
     }
 
-    SDL_PauseAudio(0);
-    SDL_PauseAudioDevice(dev, 0);
+    SDL_PauseAudioDevice(player->device_id, 0);
 
     printf("Audio player initialized successfully.\n");
     return 0;
@@ -167,12 +160,37 @@ void audio_player_decode_audio_frame(AudioPlayer* player) {
 void audio_player_cleanup(AudioPlayer* player) {
     printf("Stopping Audio Player...\n");
 
-    SDL_CloseAudio();
+    if (SDL_WasInit(SDL_INIT_AUDIO)) {
+        SDL_CloseAudioDevice(player->device_id);
+    }
 
-    if (player->audio_buf) av_free(player->audio_buf);
-    if (player->audio_frame) av_frame_free(&player->audio_frame);
-    if (player->audio_packet) av_packet_free(&player->audio_packet);
-    if (player->swr_ctx) swr_free(&player->swr_ctx);
-    if (player->audio_codec_ctx) avcodec_free_context(&player->audio_codec_ctx);
-    if (player->fmt_ctx) avformat_close_input(&player->fmt_ctx);
+    if (player->audio_buf) {
+        av_free(player->audio_buf);
+        player->audio_buf = nullptr;
+    }
+
+    if (player->audio_frame) {
+        av_frame_free(&player->audio_frame);
+        player->audio_frame = nullptr;
+    }
+
+    if (player->audio_packet) {
+        av_packet_free(&player->audio_packet);
+        player->audio_packet = nullptr;
+    }
+
+    if (player->swr_ctx) {
+        swr_free(&player->swr_ctx);
+        player->swr_ctx = nullptr;
+    }
+
+    if (player->audio_codec_ctx) {
+        avcodec_free_context(&player->audio_codec_ctx);
+        player->audio_codec_ctx = nullptr;
+    }
+
+    if (player->fmt_ctx) {
+        avformat_close_input(&player->fmt_ctx);
+        player->fmt_ctx = nullptr;
+    }
 }

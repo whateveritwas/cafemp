@@ -264,6 +264,7 @@ void video_player_update(AppState* app_state, SDL_Renderer* renderer) {
 void stop_video_decoding_thread() {
     printf("Stopping video decoding thread...\n");
     video_thread_running = false;
+    playback_cv.notify_all();
     if (video_thread.joinable()) {
         video_thread.join();  // Ensure the thread finishes before exiting
     }
