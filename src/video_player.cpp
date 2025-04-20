@@ -18,6 +18,7 @@ extern "C" {
 
 #include "config.hpp"
 #include "video_player.hpp"
+#include "audio_player.hpp"
 
 int video_stream_index = -1;
 AVFormatContext* fmt_ctx = NULL;
@@ -44,6 +45,8 @@ std::mutex playback_mutex;
 std::condition_variable playback_cv;
 int64_t pause_start_time = 0;
 int64_t total_paused_duration = 0;
+
+AudioPlayer audio_player;
 
 AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int stream_index) {
     AVCodecParameters* codecpar = fmt_ctx->streams[stream_index]->codecpar;
@@ -140,6 +143,7 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
     pkt = av_packet_alloc();
     frame = av_frame_alloc();
 
+    audio_player_init(&audio_player, filepath);
     SDL_PauseAudio(0);
 
     return 0;
@@ -155,6 +159,7 @@ void video_player_start(const char* path, AppState* app_state, SDL_Renderer& ren
         current_frame_info = nullptr;
     }    
 
+    audio_player_play(&audio_player, true);
     video_player_init(path, &renderer, texture);
     start_video_decoding_thread();
     *app_state = STATE_PLAYING;
@@ -179,6 +184,7 @@ void process_video_frame_thread() {
             playback_cv.wait(lock, [] { return playing_video || !video_thread_running; });
             if (!video_thread_running) break;
         }
+
         AVPacket pkt;
         if (av_read_frame(fmt_ctx, &pkt) >= 0) {
             if (pkt.stream_index == video_stream_index) {
@@ -187,7 +193,7 @@ void process_video_frame_thread() {
                         if (local_frame->format == AV_PIX_FMT_YUV420P) {
                             // Convert PTS to real time
                             int64_t pts_us = local_frame->pts * av_q2d(time_base) * 1e6;
-                            
+
                             int64_t now_us = av_gettime_relative() - start_time;
                             int64_t delay = pts_us - now_us;
                             if (delay > 0) {
@@ -251,6 +257,7 @@ void video_player_update(AppState* app_state, SDL_Renderer* renderer) {
     if (!playing_video)
         return;
 
+    audio_player_decode_audio_frame(&audio_player);
     render_video_frame(app_state, renderer);
 }
 
@@ -263,6 +270,7 @@ void stop_video_decoding_thread() {
 }
 
 int video_player_cleanup() {
+    audio_player_cleanup(&audio_player);
     stop_video_decoding_thread();
 
     {
