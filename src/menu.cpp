@@ -1,6 +1,5 @@
 #include <vector>
 #include <string>
-#include "show.hpp"
 #include <dirent.h>
 #include <SDL2/SDL.h>
 #include <vpad/input.h>
