@@ -46,8 +46,6 @@ std::condition_variable playback_cv;
 int64_t pause_start_time = 0;
 int64_t total_paused_duration = 0;
 
-AudioPlayer audio_player;
-
 AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int stream_index) {
     AVCodecParameters* codecpar = fmt_ctx->streams[stream_index]->codecpar;
     const AVCodec* codec = avcodec_find_decoder(codecpar->codec_id);
@@ -144,7 +142,6 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
     frame = av_frame_alloc();
 
     audio_player_init(filepath);
-    SDL_PauseAudio(0);
 
     return 0;
 }
@@ -246,9 +243,6 @@ void render_video_frame(AppState* app_state, SDL_Renderer* renderer) {
             frame->data[2], frame->linesize[2]);
 
         av_frame_free(&frame);
-
-        // SDL_RenderCopy(renderer, current_frame_info->texture, NULL, NULL);
-        //SDL_RenderPresent(renderer);
     }
 }
 
@@ -256,7 +250,6 @@ void video_player_update(AppState* app_state, SDL_Renderer* renderer) {
     if (!playing_video)
         return;
 
-    audio_player_update();
     render_video_frame(app_state, renderer);
 }
 
@@ -270,6 +263,8 @@ void stop_video_decoding_thread() {
 }
 
 int video_player_cleanup() {
+    printf("Stopping Video Player...\n");
+
     audio_player_cleanup();
     stop_video_decoding_thread();
 
