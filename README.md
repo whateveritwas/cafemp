@@ -13,6 +13,7 @@ Cafemp is a **work in progress** media player for wii u.
 - `dpad` left or right to skip or rewind 5 seconds
 
 ## Credits
+- [Ambiance music](https://freesound.org/people/LightMister/sounds/769925/?)
 - [devkitPro](https://github.com/devkitPro)
 - [dkosmari stdout implementation](https://github.com/dkosmari/devkitpro-autoconf/blob/main/examples/wiiu/sdl2-swkbd/src/stdout.cpp)
 - [fatfs](https://github.com/abbrev/fatfs)
