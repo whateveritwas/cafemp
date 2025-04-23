@@ -160,7 +160,7 @@ void ui_render() {
 }
 
 void ui_render_file_browser() {
-    if (nk_begin(ctx, "cafemp", nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), NK_WINDOW_BORDER|NK_WINDOW_TITLE)) {
+    if (nk_begin(ctx, "café media player v0.3.1", nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), NK_WINDOW_BORDER|NK_WINDOW_TITLE)) {
         nk_layout_row_dynamic(ctx, 64, 1);
         for (int i = 0; i < static_cast<int>(video_files.size()); ++i) {
             std::string display_str = video_files[i];
