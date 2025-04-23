@@ -1,8 +1,10 @@
 dist/
 build/
 nuklear/
-ffmpeg/
 FFmpeg/
+FFmpeg-wiiu/
+logs/
+tools/
 
 *.elf
 *.rpx

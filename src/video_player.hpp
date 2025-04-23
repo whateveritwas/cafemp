@@ -8,7 +8,7 @@ extern "C" {
     #include <libswresample/swresample.h>
     #include <libavutil/time.h>
 }
-#include "config.hpp"
+#include "main.hpp"
 
 AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int stream_index);
 void video_player_scrub(int dt);

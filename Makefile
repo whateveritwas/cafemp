@@ -13,9 +13,9 @@ TOPDIR ?= $(CURDIR)
 # APP_SHORTNAME sets the short name of the application
 # APP_AUTHOR sets the author of the application
 #-------------------------------------------------------------------------------
-#APP_NAME	:= Super Tux for Wii U
-#APP_SHORTNAME	:= Supertux
-#APP_AUTHOR	:= Ported by Benja
+APP_NAME	:= café media player
+APP_SHORTNAME	:= cafémp
+APP_AUTHOR	:= whateveritwas
 
 include $(DEVKITPRO)/wut/share/wut_rules
 
@@ -32,28 +32,29 @@ include $(DEVKITPRO)/wut/share/wut_rules
 #-------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	src
+SOURCES		:=	src/ src/libexfat/
 DATA		:=	
-INCLUDES	:=	src
-CONTENT		:=
-ICON		:= 	icon.png
-TV_SPLASH	:=
-DRC_SPLASH	:=
+INCLUDES	:=	src/ src/libexfat/
+CONTENT		:=	content/
+ICON		:= 	branding/icon.png
+TV_SPLASH	:=	branding/splash_tv.png
+DRC_SPLASH	:=	branding/splash_drc.png
+BOOT_SOUND 	:=	branding/bootSound.btsnd
 
 #-------------------------------------------------------------------------------
 # options for code generation
 #-------------------------------------------------------------------------------
-CFLAGS := -O2 -ffast-math -funroll-loops -fexceptions -Wall -Werror \
-          -fdata-sections -ffunction-sections -fno-rtti -flto \
+CFLAGS := -O3 -ffast-math -funroll-loops -fexceptions -Wall -Werror \
+          -fdata-sections -ffunction-sections -flto \
           -fomit-frame-pointer -fno-common -falign-loops -falign-jumps \
-          -mcpu=750 -meabi -mhard-float $(INCLUDE) -D__WIIU__ -D__WUT__
+          -mcpu=750 -meabi -mhard-float $(INCLUDE) -D__WIIU__ -D__WUT__ \
 
 # Debug info strip for release builds
 CFLAGS += -g0
 
 LDFLAGS += -Wl,--gc-sections -flto
 
-CXXFLAGS	:= $(CFLAGS)
+CXXFLAGS	:= -fno-rtti $(CFLAGS)
 
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-g $(ARCH) $(RPXSPECS) -Wl,-Map,$(notdir $*.map)
@@ -143,6 +144,12 @@ else ifneq (,$(wildcard $(TOPDIR)/drc-splash.png))
 	export APP_DRC_SPLASH := $(TOPDIR)/drc-splash.png
 else ifneq (,$(wildcard $(TOPDIR)/splash.png))
 	export APP_DRC_SPLASH := $(TOPDIR)/splash.png
+endif
+
+ifneq (,$(strip $(BOOT_SOUND)))
+	export APP_BOOT_SOUND := $(TOPDIR)/$(BOOT_SOUND)
+else ifneq (,$(wildcard $(TOPDIR)/bootSound.btsnd))
+	export APP_BOOT_SOUND := $(TOPDIR)/bootSound.btsnd
 endif
 
 .PHONY: $(BUILD) clean all
