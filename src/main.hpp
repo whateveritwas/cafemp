@@ -1,5 +1,5 @@
-#ifndef CONFIG_H
-#define CONFIG_H
+#ifndef MAIN_H
+#define MAIN_H
 
 #define DRC_BUTTON_A 0x00008000
 #define DRC_BUTTON_START 0x00000008
@@ -12,7 +12,8 @@
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
 
-#define FONT_PATH "/vol/external01/wiiu/apps/cafemp/Roboto-Regular.ttf"
+#define FONT_PATH "/vol/content/Roboto-Regular.ttf"
+#define AMBIANCE_PATH "/vol/content/769925__lightmister__game-main-menu-fluids.mp3"
 #define VIDEO_PATH "/vol/external01/wiiu/apps/cafemp/"
 
 enum AppState {

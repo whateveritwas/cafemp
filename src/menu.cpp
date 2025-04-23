@@ -20,8 +20,9 @@
 #include "nuklear.h"
 #include "nuklear_sdl_renderer.h"
 
-#include "config.hpp"
+#include "main.hpp"
 #include "video_player.hpp"
+#include "audio_player.hpp"
 #include "menu.hpp"
 
 std::vector<std::string> video_files;
@@ -41,6 +42,8 @@ float touch_x = 0.0f;
 float touch_y = 0.0f;
 bool touched = false;
 
+bool ambiance_playing = false;
+
 std::string format_time(int seconds) {
     int mins = seconds / 60;
     int secs = seconds % 60;
@@ -58,6 +61,7 @@ bool valid_file_ending(const std::string& file_ending) {
 
 void scan_directory(const char* path, std::vector<std::string>& video_files) {
     video_files.clear();
+    printf("Opening folder %s\n", path);
     DIR* dir = opendir(path);
     if (!dir) return;
 
@@ -96,6 +100,11 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
     bg.r = 0.0f, bg.g = 0.0f, bg.b = 0.0f, bg.a = 1.0f;
 
     scan_directory(VIDEO_PATH, video_files);
+
+    if(!ambiance_playing) {
+        audio_player_init(AMBIANCE_PATH);
+        ambiance_playing = true;
+    }
 }
 
 void ui_handle_vpad_input() {
@@ -107,12 +116,9 @@ void ui_handle_vpad_input() {
         VPADGetTPCalibratedPoint(VPAD_CHAN_0, &buf.tpNormal, &buf.tpNormal);
         touch_x = (float)buf.tpNormal.x;
         touch_y = (float)buf.tpNormal.y;
-    } else {
-        touch_x = 0.0f;
-        touch_y = 0.0f;
     }
 
-    if (key_press == 1) {
+    if(key_press == 1) {
         if(*ui_app_state == STATE_PLAYING) {
             if(buf.trigger == DRC_BUTTON_A) {
                 video_player_play(!video_player_is_playing());
@@ -133,7 +139,6 @@ void ui_handle_vpad_input() {
 
 void ui_render() {
     ui_handle_vpad_input();
-
     nk_input_begin(ctx);
     if(touched) {
         nk_input_motion(ctx, (int)touch_x, (int)touch_y);
@@ -161,6 +166,11 @@ void ui_render_file_browser() {
             std::string display_str = video_files[i];
 
             if (nk_button_label(ctx, display_str.c_str())) {
+                if(ambiance_playing) {
+                    audio_player_cleanup();
+                    ambiance_playing = false;
+                }
+
                 std::string full_path = std::string(VIDEO_PATH) + video_files[i];
                 video_player_start(full_path.c_str(), ui_app_state, *ui_renderer, ui_texture);
                 video_player_play(true);
@@ -246,6 +256,7 @@ void ui_render_video() {
 }
 
 void ui_shutodwn() {
+    if(ambiance_playing) { audio_player_cleanup(); ambiance_playing = false; }
     if(video_player_is_playing()) video_player_cleanup();
 
     if (ui_texture) {

@@ -16,7 +16,7 @@ extern "C" {
 #include <mutex>
 #include <condition_variable>
 
-#include "config.hpp"
+#include "main.hpp"
 #include "video_player.hpp"
 #include "audio_player.hpp"
 
@@ -105,6 +105,7 @@ frame_info* video_player_get_current_frame_info() {
 int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*& texture) {
     printf("Starting Video Player...\n");
 
+    printf("Opening file %s\n", filepath);
     if (avformat_open_input(&fmt_ctx, filepath, NULL, NULL) != 0) {
         printf("Could not open file: %s\n", filepath);
         return -1;

@@ -58,10 +58,12 @@ static void audio_decode_loop() {
 }
 
 int audio_player_init(const char* filepath) {
+    printf("Starting Audio Player...\n");
     if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
         SDL_InitSubSystem(SDL_INIT_AUDIO);
     }
 
+    printf("Opening file %s\n", filepath);
     if (avformat_open_input(&fmt_ctx, filepath, nullptr, nullptr) != 0) {
         fprintf(stderr, "Could not open input: %s\n", filepath);
         return -1;
@@ -139,6 +141,7 @@ int audio_player_init(const char* filepath) {
 
 void audio_player_cleanup() {
     if (!audio_enabled) return;
+    printf("Stopping Audio Player...\n");
 
     audio_thread_running = false;
     if (audio_thread.joinable()) audio_thread.join();

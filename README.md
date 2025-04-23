@@ -15,6 +15,7 @@ Cafemp is a **work in progress** media player for wii u.
 ## Credits
 - [devkitPro](https://github.com/devkitPro)
 - [dkosmari stdout implementation](https://github.com/dkosmari/devkitpro-autoconf/blob/main/examples/wiiu/sdl2-swkbd/src/stdout.cpp)
+- [fatfs](https://github.com/abbrev/fatfs)
 - [FFmpeg](https://github.com/FFmpeg/FFmpeg/)
 - [GaryOderNichts FFmpeg configure script](https://github.com/GaryOderNichts/FFmpeg-wiiu/blob/master/configure-wiiu)
 - [Nuklear immediate-mode gui](https://github.com/Immediate-Mode-UI/Nuklear)
