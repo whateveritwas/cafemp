@@ -32,9 +32,9 @@ include $(DEVKITPRO)/wut/share/wut_rules
 #-------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	src/ src/libexfat/
+SOURCES		:=	src/
 DATA		:=	
-INCLUDES	:=	src/ src/libexfat/
+INCLUDES	:=	src/
 CONTENT		:=	content/
 ICON		:= 	branding/icon.png
 TV_SPLASH	:=	branding/splash_tv.png
