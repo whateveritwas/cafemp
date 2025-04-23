@@ -5,6 +5,7 @@ FFmpeg/
 FFmpeg-wiiu/
 logs/
 tools/
+src/libexfat/
 
 *.elf
 *.rpx
