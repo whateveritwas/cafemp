@@ -82,6 +82,7 @@ void start_selected_video() {
     }
     std::string full_path = std::string(VIDEO_PATH) + video_files[selected_index];
     video_player_start(full_path.c_str(), ui_app_state, *ui_renderer, ui_texture);
+    audio_player_audio_play(true);
     video_player_play(true);
     *ui_app_state = STATE_PLAYING_VIDEO;
     SDL_RenderClear(ui_renderer);
@@ -94,7 +95,7 @@ void start_selected_audio() {
     }
     std::string full_path = std::string(VIDEO_PATH) + video_files[selected_index];
     audio_player_init(full_path.c_str());
-    //video_player_play(true);
+    audio_player_audio_play(true);
     *ui_app_state = STATE_PLAYING_AUDIO;
     SDL_RenderClear(ui_renderer);
 }
@@ -165,10 +166,13 @@ void ui_settings_input(VPADStatus* buf) {}
 
 void ui_video_player_input(VPADStatus* buf) {
     if (buf->trigger == VPAD_BUTTON_A) {
+        audio_player_audio_play(!video_player_is_playing());
         video_player_play(!video_player_is_playing());
     } else if (buf->trigger == VPAD_BUTTON_B) {
+        audio_player_audio_play(true);
         video_player_play(true);
         video_player_cleanup();
+        audio_player_audio_play(false);
         video_player_play(false);
         scan_directory(VIDEO_PATH, video_files);
         *ui_app_state = STATE_MENU;
@@ -181,7 +185,7 @@ void ui_video_player_input(VPADStatus* buf) {
 
 void ui_audio_player_input(VPADStatus* buf) {
     if (buf->trigger == VPAD_BUTTON_A) {
-        // video_player_play(!video_player_is_playing());
+        audio_player_audio_play(!audio_player_get_audio_play_state());
     } else if (buf->trigger == VPAD_BUTTON_B) {
         audio_player_cleanup();
         scan_directory(VIDEO_PATH, video_files);
@@ -298,7 +302,7 @@ void ui_render_settings() {
 }
 
 void ui_render_file_browser() {
-    if (nk_begin(ctx, "café media player v0.3.2", nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), NK_WINDOW_BORDER|NK_WINDOW_TITLE)) {
+    if (nk_begin(ctx, "café media player v0.4.0", nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), NK_WINDOW_BORDER|NK_WINDOW_TITLE)) {
         nk_layout_row_dynamic(ctx, 64, 1);
         nk_window_set_scroll(ctx, 0, 64 * selected_index);
         for (int i = 0; i < static_cast<int>(video_files.size()); ++i) {
@@ -326,6 +330,28 @@ void ui_render_file_browser() {
         SDL_SetRenderDrawColor(ui_renderer, bg.r * 255, bg.g * 255, bg.b * 255, bg.a * 255);
         SDL_RenderClear(ui_renderer);
     
+        nk_sdl_render(NK_ANTI_ALIASING_ON);
+    }
+}
+
+void ui_render_player_hud(bool state, double current_time, double total_time) {
+    const int hud_height = 80;
+    struct nk_rect hud_rect = nk_rect(0, SCREEN_HEIGHT - hud_height, SCREEN_WIDTH, hud_height);
+
+    if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
+        nk_layout_row_dynamic(ctx, (hud_height / 2) - 5, 1);
+        nk_size progress = static_cast<nk_size>(current_time);
+        nk_size total_time = static_cast<nk_size>(total_time);
+        nk_progress(ctx, &progress, total_time, NK_FIXED);
+
+        nk_layout_row_dynamic(ctx, hud_height / 2, 2);
+        std::string hud_str = state ? "Playing > " : "Paused || ";
+        hud_str += format_time(current_time);
+        hud_str += " / ";
+        hud_str += format_time(total_time);
+        nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
+
+        nk_end(ctx);
         nk_sdl_render(NK_ANTI_ALIASING_ON);
     }
 }
@@ -383,37 +409,15 @@ void ui_render_video_player() {
     */
 
     if (!video_player_is_playing()) {
-        const int hud_height = 80;
-        struct nk_rect hud_rect = nk_rect(0, SCREEN_HEIGHT - hud_height, SCREEN_WIDTH, hud_height);
-
-        if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
-            nk_layout_row_dynamic(ctx, 30, 2);
-            if (current_frame_info) {
-                std::string hud_str = "Paused | " + format_time(video_player_get_current_time()) + " / " + format_time(0);
-                nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
-            }
-            nk_end(ctx);
-            nk_sdl_render(NK_ANTI_ALIASING_ON);
-        }
+        ui_render_player_hud(video_player_is_playing(), video_player_get_current_time(), 100);
     }
 }
 
 void ui_render_audio_player() {
-    const int hud_height = 80;
-    struct nk_rect hud_rect = nk_rect(0, SCREEN_HEIGHT - hud_height, SCREEN_WIDTH, hud_height);
-
-    SDL_SetRenderDrawColor(ui_renderer, 0, 0, 0, 255);
+    SDL_SetRenderDrawColor(ui_renderer, 30, 30, 30, 255);
     SDL_RenderClear(ui_renderer);
 
-    if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
-        nk_layout_row_dynamic(ctx, 30, 2);
-
-        std::string hud_str = "Playing audio | ";
-        nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
-
-        nk_end(ctx);
-        nk_sdl_render(NK_ANTI_ALIASING_ON);
-    }
+    ui_render_player_hud(audio_player_get_audio_play_state(), audio_player_get_current_play_time(), audio_player_get_total_play_time());
 }
 
 void ui_shutodwn() {
