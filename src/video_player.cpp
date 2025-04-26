@@ -159,7 +159,7 @@ void video_player_start(const char* path, AppState* app_state, SDL_Renderer& ren
 
     video_player_init(path, &renderer, texture);
     start_video_decoding_thread();
-    *app_state = STATE_PLAYING;
+    *app_state = STATE_PLAYING_VIDEO;
 }
 
 void start_video_decoding_thread() {
