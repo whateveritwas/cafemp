@@ -54,7 +54,7 @@ std::string format_time(int seconds) {
 
 bool valid_file_ending(const std::string& file_ending) {
     static const std::unordered_set<std::string> valid_endings = {
-        "mp4", "mov", "mkv", "avi", "webm", "flv", "asf", "mpegts"
+        "mp4", "mov", "mkv", "avi", "webm", "flv", "asf", "mpegts", "mp3", "wav", "ogg"
     };
     return valid_endings.count(file_ending) > 0;
 }
@@ -83,7 +83,19 @@ void start_selected_video() {
     std::string full_path = std::string(VIDEO_PATH) + video_files[selected_index];
     video_player_start(full_path.c_str(), ui_app_state, *ui_renderer, ui_texture);
     video_player_play(true);
-    *ui_app_state = STATE_PLAYING;
+    *ui_app_state = STATE_PLAYING_VIDEO;
+    SDL_RenderClear(ui_renderer);
+}
+
+void start_selected_audio() {
+    if (ambiance_playing) {
+        audio_player_cleanup();
+        ambiance_playing = false;
+    }
+    std::string full_path = std::string(VIDEO_PATH) + video_files[selected_index];
+    audio_player_init(full_path.c_str());
+    //video_player_play(true);
+    *ui_app_state = STATE_PLAYING_AUDIO;
     SDL_RenderClear(ui_renderer);
 }
 
@@ -115,54 +127,91 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
     scan_directory(VIDEO_PATH, video_files);
 }
 
+void start_file(int i) {
+    std::string full_path = std::string(VIDEO_PATH) + video_files[i];
+    std::string extension = full_path.substr(full_path.find_last_of(".") + 1);
+    
+    for (auto &c : extension) c = std::tolower(c);  // Make extension lowercase
+    
+    if (extension == "mp4" || extension == "mkv" || extension == "avi" || extension == "mov" || extension == "webm" || extension == "flv" || extension == "asf" || extension == "mpegts") {
+        start_selected_video();
+    } else if (extension == "mp3" || extension == "wav" || extension == "flac" || extension == "aac" || extension == "ogg") {
+        start_selected_audio();
+    }
+}
+
+void ui_menu_input(VPADStatus* buf) {
+    if (buf->trigger == VPAD_BUTTON_UP || buf->trigger == VPAD_STICK_L_EMULATION_UP) {
+        nk_input_key(ctx, NK_KEY_UP, 1);
+        nk_input_key(ctx, NK_KEY_UP, 0);
+        selected_index--;
+        if (selected_index < 0) selected_index = video_files.size() - 1;
+    }
+    if (buf->trigger == VPAD_BUTTON_DOWN || buf->trigger == VPAD_STICK_L_EMULATION_DOWN) {
+        nk_input_key(ctx, NK_KEY_DOWN, 1);
+        nk_input_key(ctx, NK_KEY_DOWN, 0);
+        selected_index++;
+        if (selected_index >= (int)video_files.size()) selected_index = 0;
+    }
+    if (buf->trigger == VPAD_BUTTON_A) {
+        nk_input_key(ctx, NK_KEY_ENTER, 1);
+        nk_input_key(ctx, NK_KEY_ENTER, 0);
+        start_file(selected_index);
+        //start_selected_video();
+    }
+}
+
+void ui_settings_input(VPADStatus* buf) {}
+
+void ui_video_player_input(VPADStatus* buf) {
+    if (buf->trigger == VPAD_BUTTON_A) {
+        video_player_play(!video_player_is_playing());
+    } else if (buf->trigger == VPAD_BUTTON_B) {
+        video_player_play(true);
+        video_player_cleanup();
+        video_player_play(false);
+        scan_directory(VIDEO_PATH, video_files);
+        *ui_app_state = STATE_MENU;
+    } else if (buf->trigger == VPAD_BUTTON_LEFT) {
+        video_player_scrub(-5);
+    } else if (buf->trigger == VPAD_BUTTON_RIGHT) {
+        video_player_scrub(5);
+    }
+}
+
+void ui_audio_player_input(VPADStatus* buf) {
+    if (buf->trigger == VPAD_BUTTON_A) {
+        // video_player_play(!video_player_is_playing());
+    } else if (buf->trigger == VPAD_BUTTON_B) {
+        audio_player_cleanup();
+        scan_directory(VIDEO_PATH, video_files);
+        *ui_app_state = STATE_MENU;
+    } else if (buf->trigger == VPAD_BUTTON_LEFT) {
+        // video_player_scrub(-5);
+    } else if (buf->trigger == VPAD_BUTTON_RIGHT) {
+        // video_player_scrub(5);
+    }
+}
+
 void ui_handle_vpad_input() {
     VPADStatus buf;
     int key_press = VPADRead(VPAD_CHAN_0, &buf, 1, nullptr);
 
+    /*
     touched = buf.tpNormal.touched;
     if (touched) {
         VPADGetTPCalibratedPoint(VPAD_CHAN_0, &buf.tpNormal, &buf.tpNormal);
         touch_x = (float)buf.tpNormal.x;
         touch_y = (float)buf.tpNormal.y;
     }
+    */
+    if(!key_press) return;
 
-    if (key_press == 1) {
-        if (*ui_app_state == STATE_PLAYING) {
-            if (buf.trigger == VPAD_BUTTON_A) {
-                video_player_play(!video_player_is_playing());
-            } else if (buf.trigger == VPAD_BUTTON_B) {
-                video_player_play(true);
-                video_player_cleanup();
-                video_player_play(false);
-                scan_directory(VIDEO_PATH, video_files);
-                *ui_app_state = STATE_MENU;
-            } else if (buf.trigger == VPAD_BUTTON_LEFT) {
-                video_player_scrub(-5);
-            } else if (buf.trigger == VPAD_BUTTON_RIGHT) {
-                video_player_scrub(5);
-            }
-        } else if (*ui_app_state == STATE_MENU) {
-            // if (buf.trigger == VPAD_BUTTON_R) *ui_app_state = STATE_SETTINGS;
-            if (buf.trigger == VPAD_BUTTON_UP || buf.trigger == VPAD_STICK_L_EMULATION_UP) {
-                nk_input_key(ctx, NK_KEY_UP, 1);
-                nk_input_key(ctx, NK_KEY_UP, 0);
-                selected_index--;
-                if (selected_index < 0) selected_index = video_files.size() - 1;
-            }
-            if (buf.trigger == VPAD_BUTTON_DOWN || buf.trigger == VPAD_STICK_L_EMULATION_DOWN) {
-                nk_input_key(ctx, NK_KEY_DOWN, 1);
-                nk_input_key(ctx, NK_KEY_DOWN, 0);
-                selected_index++;
-                if (selected_index >= (int)video_files.size()) selected_index = 0;
-            }
-            if (buf.trigger == VPAD_BUTTON_A) {
-                nk_input_key(ctx, NK_KEY_ENTER, 1);
-                nk_input_key(ctx, NK_KEY_ENTER, 0);
-                start_selected_video();
-            }
-        } else if (*ui_app_state == STATE_SETTINGS) {
-            // if (buf.trigger == VPAD_BUTTON_L) *ui_app_state = STATE_MENU;
-        }
+    switch(*ui_app_state) {
+        case STATE_PLAYING_VIDEO: ui_video_player_input(&buf); break;
+        case STATE_PLAYING_AUDIO: ui_audio_player_input(&buf); break;
+        case STATE_MENU: ui_menu_input(&buf); break;
+        case STATE_SETTINGS: ui_settings_input(&buf); break;
     }
 }
 
@@ -177,8 +226,11 @@ void ui_render() {
     nk_input_end(ctx);
 
     switch(*ui_app_state) {
-        case STATE_PLAYING:
-        ui_render_video();
+        case STATE_PLAYING_VIDEO:
+        ui_render_video_player();
+        break;
+        case STATE_PLAYING_AUDIO:
+        ui_render_audio_player();
         break;
         case STATE_MENU:
         if (!ambiance_playing) {
@@ -261,9 +313,9 @@ void ui_render_file_browser() {
             }
 
             if (nk_button_label(ctx, display_str.c_str())) {
-                // If clicked with touch
                 selected_index = i;
-                start_selected_video();
+                
+                start_file(selected_index);
             }
 
             // Reset button style after drawing
@@ -278,7 +330,7 @@ void ui_render_file_browser() {
     }
 }
 
-void ui_render_video() {
+void ui_render_video_player() {
     // uint64_t test_ticks = OSGetSystemTime();
     video_player_update(ui_app_state, ui_renderer);
     // uint64_t decoding_time = OSTicksToMicroseconds(OSGetSystemTime() - test_ticks);
@@ -343,6 +395,24 @@ void ui_render_video() {
             nk_end(ctx);
             nk_sdl_render(NK_ANTI_ALIASING_ON);
         }
+    }
+}
+
+void ui_render_audio_player() {
+    const int hud_height = 80;
+    struct nk_rect hud_rect = nk_rect(0, SCREEN_HEIGHT - hud_height, SCREEN_WIDTH, hud_height);
+
+    SDL_SetRenderDrawColor(ui_renderer, 0, 0, 0, 255);
+    SDL_RenderClear(ui_renderer);
+
+    if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
+        nk_layout_row_dynamic(ctx, 30, 2);
+
+        std::string hud_str = "Playing audio | ";
+        nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
+
+        nk_end(ctx);
+        nk_sdl_render(NK_ANTI_ALIASING_ON);
     }
 }
 

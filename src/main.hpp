@@ -10,7 +10,8 @@
 
 enum AppState {
     STATE_MENU,
-    STATE_PLAYING,
+    STATE_PLAYING_VIDEO,
+    STATE_PLAYING_AUDIO,
     STATE_SETTINGS
 };
 
