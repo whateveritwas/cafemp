@@ -66,7 +66,7 @@ void video_player_scrub(int dt) {
 
     int64_t seek_target = seek_target_seconds * AV_TIME_BASE;
 
-    if(dt > 0) {
+    if (dt > 0) {
         av_seek_frame(fmt_ctx, -1, seek_target, AVSEEK_FLAG_ANY);
     }
     else {
