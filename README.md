@@ -3,20 +3,20 @@
 Cafemp is a **work in progress** media player for the Wii U.
 
 ## Usage
-- Download the latest release
-- Extract the `wiiu` folder to the root of your SD card
+- [Download the latest release](https://github.com/whateveritwas/cafemp/releases/latest)
+- Extract the zip to the root of your SD card
 - Add your own movies/videos to the `cafemp` folder under `sd:/wiiu/apps/cafemp`
 - Open the app on the Wii U home menu
 - Launch a file from the file browser
 - Press `A` to play/pause
 - Press `B` to return to the file browser
-- Use the `dpad` left or right to skip or rewind 5 seconds
+- [DPAD L/R] skip/rewind 5 seconds
 
 ## Planned features
 - [x] Video player (most common video formats)
-- [ ] Playing video from network (DLNA, Jellyfin)
-- [ ] Playing video from USB flash drive (ext4/exFAT)
-- [ ] Audio player (most common audio formats)
+- [ ] Playing media from network (DLNA, Jellyfin)
+- [ ] Playing media from USB flash drive (ext4/exFAT)
+- [x] Audio player (most common audio formats)
 - [ ] Audio visualization
 - [ ] m3u IPTV
 
