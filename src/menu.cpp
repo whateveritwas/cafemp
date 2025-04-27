@@ -343,11 +343,10 @@ void ui_render_player_hud(bool state, double current_time, double total_time) {
     if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
         nk_layout_row_dynamic(ctx, (hud_height / 2) - 5, 1);
         nk_size progress = static_cast<nk_size>(current_time);
-        // nk_size total_time = static_cast<nk_size>(total_time);
         nk_progress(ctx, &progress, total_time, NK_FIXED);
 
         nk_layout_row_dynamic(ctx, hud_height / 2, 2);
-        std::string hud_str = state ? "Playing > " : "Paused || ";
+        std::string hud_str = state ? "> " : "|| ";
         hud_str += format_time(current_time);
         hud_str += " / ";
         hud_str += format_time(total_time);
@@ -411,14 +410,11 @@ void ui_render_video_player() {
     */
 
     if (!video_player_is_playing()) {
-        ui_render_player_hud(video_player_is_playing(), video_player_get_current_time(), 100);
+        ui_render_player_hud(video_player_is_playing(), video_player_get_current_time(), video_player_get_total_play_time());
     }
 }
 
 void ui_render_audio_player() {
-    SDL_SetRenderDrawColor(ui_renderer, 30, 30, 30, 255);
-    SDL_RenderClear(ui_renderer);
-
     ui_render_player_hud(audio_player_get_audio_play_state(), audio_player_get_current_play_time(), audio_player_get_total_play_time());
 }
 

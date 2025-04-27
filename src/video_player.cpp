@@ -36,11 +36,11 @@ int64_t start_time = 0;
 
 bool playing_video = false;
 
-std::queue<AVFrame*> video_frame_queue;  // Queue to hold decoded video frames
-std::mutex video_frame_mutex;            // Mutex to protect the queue
-std::condition_variable video_frame_cv;  // Condition variable for synchronization
-bool video_thread_running = true;        // Flag to control the video thread
-std::thread video_thread;                // Thread for video decoding
+std::queue<AVFrame*> video_frame_queue;
+std::mutex video_frame_mutex;
+std::condition_variable video_frame_cv;
+bool video_thread_running = true;
+std::thread video_thread;
 std::mutex playback_mutex;
 std::condition_variable playback_cv;
 int64_t pause_start_time = 0;
@@ -215,6 +215,26 @@ void process_video_frame_thread() {
     }
 
     av_frame_free(&local_frame);
+}
+
+int64_t video_player_get_total_play_time() {
+    if (!fmt_ctx || video_stream_index < 0) {
+        return 0;
+    }
+
+    AVStream* stream = fmt_ctx->streams[video_stream_index];
+    if (!stream) {
+        return 0;
+    }
+
+    int64_t duration = stream->duration;
+    if (duration <= 0) {
+        duration = fmt_ctx->duration * stream->time_base.den / (stream->time_base.num * AV_TIME_BASE);
+    } else {
+        duration = duration * av_q2d(stream->time_base);
+    }
+
+    return static_cast<int64_t>(duration);
 }
 
 void render_video_frame(AppState* app_state, SDL_Renderer* renderer) {
