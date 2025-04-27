@@ -25,7 +25,7 @@ static int out_sample_rate = 48000;
 
 static void audio_decode_loop() {
     while (audio_thread_running.load()) {
-        if (!fmt_ctx || !audio_enabled) {
+        if (!fmt_ctx || !audio_enabled || !audio_playing) {
             SDL_Delay(10);
             continue;
         }

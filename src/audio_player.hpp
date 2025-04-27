@@ -1,6 +1,7 @@
 #ifndef AUDIO_PLAYER_H
 #define AUDIO_PLAYER_H
 
+#include "main.hpp"
 #include <SDL2/SDL.h>
 extern "C" {
     #include <libavformat/avformat.h>
