@@ -16,10 +16,9 @@ static AVPacket* audio_packet = nullptr;
 static int audio_stream_index = -1;
 static std::thread audio_thread;
 static std::atomic<bool> audio_thread_running = false;
+static std::atomic<float> current_play_time(0.0f);
 bool audio_enabled = false;
 static bool audio_playing = false;
-
-static double last_valid_time = 0.0;
 
 static int out_channels = 2;
 static int out_sample_rate = 48000;
@@ -35,9 +34,6 @@ static void audio_decode_loop() {
             if (audio_packet->stream_index == audio_stream_index) {
                 if (avcodec_send_packet(audio_codec_ctx, audio_packet) == 0) {
                     while (avcodec_receive_frame(audio_codec_ctx, audio_frame) == 0) {
-                        // Überprüfe den PTS-Wert
-                        printf("Frame PTS: %lld\n", audio_frame->pts);
-
                         uint8_t temp_buffer[8192];
                         uint8_t* out_buffers[] = { temp_buffer };
 
@@ -53,16 +49,23 @@ static void audio_decode_loop() {
 
                         int data_size = out_samples * out_channels * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
 
-                        // Queue audio data nur wenn Audio abgespielt wird
                         if (audio_playing) {
                             SDL_QueueAudio(audio_device, temp_buffer, data_size);
+                        }
+
+                        if (audio_frame->pts != AV_NOPTS_VALUE) {
+                            AVRational time_base = fmt_ctx->streams[audio_stream_index]->time_base;
+                            double pts_time = (double)audio_frame->pts * av_q2d(time_base);
+                            if (pts_time >= 0) {
+                                current_play_time.store((float)pts_time);
+                            }
                         }
                     }
                 }
             }
             av_packet_unref(audio_packet);
         } else {
-            SDL_Delay(10); // Ende des Streams? Gib etwas Zeit
+            SDL_Delay(10);
         }
     }
 }
@@ -188,25 +191,20 @@ void audio_player_cleanup() {
 }
 
 double audio_player_get_current_play_time() {
-    if (!fmt_ctx || audio_stream_index < 0 || !audio_frame) return 0.0;
+    if (!audio_enabled) return 0.0;
 
-    if (audio_frame->pts == AV_NOPTS_VALUE) {
-        // Gib den vorherigen berechneten Wert zurück oder 0.0
-        last_valid_time = 0.0;
-        return last_valid_time;
-    }
+    float pts = current_play_time.load();
 
-    AVRational time_base = fmt_ctx->streams[audio_stream_index]->time_base;
-    double current_time = (double)audio_frame->pts * av_q2d(time_base);
+    Uint32 queued_bytes = SDL_GetQueuedAudioSize(audio_device);
 
-    if (current_time >= 0) {
-        last_valid_time = current_time;
-    } else {
-        fprintf(stderr, "Error: Calculated current_time is negative: %f\n", current_time);
-        return 0.0;
-    }
+    double queued_seconds = (double)queued_bytes / (audio_spec.freq * audio_spec.channels * (SDL_AUDIO_BITSIZE(audio_spec.format) / 8));
 
-    return current_time;
+    double corrected_time = (double)pts - queued_seconds;
+
+    if (corrected_time < 0.0)
+        corrected_time = 0.0;
+
+    return corrected_time;
 }
 
 double audio_player_get_total_play_time() {
