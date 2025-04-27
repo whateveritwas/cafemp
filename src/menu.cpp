@@ -239,6 +239,7 @@ void ui_render() {
         case STATE_MENU:
         if (!ambiance_playing) {
             audio_player_init(AMBIANCE_PATH);
+            audio_player_audio_play(true);
             ambiance_playing = true;
         }
         ui_render_file_browser();
@@ -246,6 +247,7 @@ void ui_render() {
         case STATE_SETTINGS:
         if (!ambiance_playing) {
             audio_player_init(AMBIANCE_PATH);
+            audio_player_audio_play(true);
             ambiance_playing = true;
         }
         ui_render_settings();
@@ -341,7 +343,7 @@ void ui_render_player_hud(bool state, double current_time, double total_time) {
     if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
         nk_layout_row_dynamic(ctx, (hud_height / 2) - 5, 1);
         nk_size progress = static_cast<nk_size>(current_time);
-        nk_size total_time = static_cast<nk_size>(total_time);
+        // nk_size total_time = static_cast<nk_size>(total_time);
         nk_progress(ctx, &progress, total_time, NK_FIXED);
 
         nk_layout_row_dynamic(ctx, hud_height / 2, 2);
