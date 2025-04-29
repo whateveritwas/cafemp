@@ -18,6 +18,7 @@ int audio_player_init(const char* filepath);
 double audio_player_get_current_play_time();
 double audio_player_get_total_play_time();
 void audio_player_audio_play(bool state);
+void audio_player_seek(float delta_time);
 bool audio_player_get_audio_play_state();
 void audio_player_cleanup();
 

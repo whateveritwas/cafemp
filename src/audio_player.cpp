@@ -228,3 +228,5 @@ void audio_player_audio_play(bool state) {
 bool audio_player_get_audio_play_state() {
     return audio_playing;
 }
+
+void audio_player_seek(float delta_time) { }

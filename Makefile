@@ -44,7 +44,7 @@ BOOT_SOUND 	:=	branding/bootSound.btsnd
 #-------------------------------------------------------------------------------
 # options for code generation
 #-------------------------------------------------------------------------------
-CFLAGS := -O3 -ffast-math -funroll-loops -fexceptions -Wall -Werror \
+CFLAGS := -O3 -Ofast -ffast-math -funroll-loops -fexceptions -Wall -Werror \
           -fdata-sections -ffunction-sections -flto \
           -fomit-frame-pointer -fno-common -falign-loops -falign-jumps \
           -mcpu=750 -meabi -mhard-float $(INCLUDE) -D__WIIU__ -D__WUT__ \

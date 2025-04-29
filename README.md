@@ -10,15 +10,18 @@ Cafemp is a **work in progress** media player for the Wii U.
 - Launch a file from the file browser
 - Press `A` to play/pause
 - Press `B` to return to the file browser
-- [DPAD L/R] skip/rewind 5 seconds
+- `[DPAD L/R]` skip/rewind 5 seconds
 
 ## Planned features
-- [x] Video player (most common video formats)
+- [x] Video player (most common video formats 720p@30)
 - [ ] Playing media from network (DLNA, Jellyfin)
 - [ ] Playing media from USB flash drive (ext4/exFAT)
 - [x] Audio player (most common audio formats)
 - [ ] Audio visualization
 - [ ] m3u IPTV
+- [ ] Tooltips
+- [ ] Miniplayer (Audio)
+- [ ] Touch input
 
 ## Credits
 - [Ambiance music](https://freesound.org/people/LightMister/sounds/769925/?)
