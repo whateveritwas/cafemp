@@ -36,6 +36,8 @@ AppState* ui_app_state;
 
 struct nk_context *ctx;
 struct nk_colorf bg;
+SDL_Rect dest_rect = (SDL_Rect){0, 0, 0, 0};
+bool dest_rect_initialised = false;
 
 // Input
 float touch_x = 0.0f;
@@ -43,6 +45,14 @@ float touch_y = 0.0f;
 bool touched = false;
 
 bool ambiance_playing = false;
+
+static const std::unordered_set<std::string> valid_video_endings = {
+    "mp4", "mov", "mkv", "avi", "webm", "flv", "asf", "mpegts"
+};
+
+static const std::unordered_set<std::string> valid_audio_endings = {
+    "mp3", "wav", "ogg", "flac", "aac"
+};
 
 std::string format_time(int seconds) {
     int mins = seconds / 60;
@@ -53,10 +63,7 @@ std::string format_time(int seconds) {
 }
 
 bool valid_file_ending(const std::string& file_ending) {
-    static const std::unordered_set<std::string> valid_endings = {
-        "mp4", "mov", "mkv", "avi", "webm", "flv", "asf", "mpegts", "mp3", "wav", "ogg"
-    };
-    return valid_endings.count(file_ending) > 0;
+    return valid_video_endings.count(file_ending) > 0 || valid_audio_endings.count(file_ending) > 0;
 }
 
 void scan_directory(const char* path, std::vector<std::string>& video_files) {
@@ -68,10 +75,14 @@ void scan_directory(const char* path, std::vector<std::string>& video_files) {
     struct dirent* ent;
     while ((ent = readdir(dir)) != NULL) {
         std::string name(ent->d_name);
-        if (name.length() > 4 &&  valid_file_ending(name.substr(name.length() - 3))) {
-            video_files.push_back(name);
+        if (name.length() > 4) {
+            std::string ext = name.substr(name.find_last_of(".") + 1);
+            for (auto& c : ext) c = std::tolower(c);
+            if (valid_file_ending(ext)) {
+                video_files.push_back(name);
+            }
         }
-    }
+    }    
     closedir(dir);
 }
 
@@ -116,7 +127,7 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
         struct nk_font *font;
 
         nk_sdl_font_stash_begin(&atlas);
-        font = nk_font_atlas_add_from_file(atlas, FONT_PATH, 32, &config);
+        font = nk_font_atlas_add_from_file(atlas, FONT_PATH, 32 * UI_SCALE, &config);
         nk_sdl_font_stash_end();
 
         nk_style_set_font(ctx, &font->handle);
@@ -129,15 +140,18 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
 }
 
 void start_file(int i) {
+    dest_rect_initialised = false;
     std::string full_path = std::string(VIDEO_PATH) + video_files[i];
-    std::string extension = full_path.substr(full_path.find_last_of(".") + 1);
+    std::string extension = full_path.substr(full_path.find_last_of('.') + 1);
     
-    for (auto &c : extension) c = std::tolower(c);  // Make extension lowercase
-    
-    if (extension == "mp4" || extension == "mkv" || extension == "avi" || extension == "mov" || extension == "webm" || extension == "flv" || extension == "asf" || extension == "mpegts") {
+    for (auto& c : extension) c = std::tolower(c);
+
+    if (valid_video_endings.count(extension)) {
         start_selected_video();
-    } else if (extension == "mp3" || extension == "wav" || extension == "flac" || extension == "aac" || extension == "ogg") {
+    } else if (valid_audio_endings.count(extension)) {
         start_selected_audio();
+    } else {
+        printf("Unsupported file type: %s\n", extension.c_str());
     }
 }
 
@@ -177,9 +191,9 @@ void ui_video_player_input(VPADStatus* buf) {
         scan_directory(VIDEO_PATH, video_files);
         *ui_app_state = STATE_MENU;
     } else if (buf->trigger == VPAD_BUTTON_LEFT) {
-        video_player_scrub(-5);
+        video_player_seek(-5.0f);
     } else if (buf->trigger == VPAD_BUTTON_RIGHT) {
-        video_player_scrub(5);
+        video_player_seek(5.0f);
     }
 }
 
@@ -191,9 +205,9 @@ void ui_audio_player_input(VPADStatus* buf) {
         scan_directory(VIDEO_PATH, video_files);
         *ui_app_state = STATE_MENU;
     } else if (buf->trigger == VPAD_BUTTON_LEFT) {
-        // video_player_scrub(-5);
+        audio_player_seek(-5.0f);
     } else if (buf->trigger == VPAD_BUTTON_RIGHT) {
-        // video_player_scrub(5);
+        audio_player_seek(5.0f);
     }
 }
 
@@ -253,7 +267,6 @@ void ui_render() {
         ui_render_settings();
         break;
     }
-
 }
 
 void ui_render_settings() {
@@ -304,27 +317,28 @@ void ui_render_settings() {
 }
 
 void ui_render_file_browser() {
-    if (nk_begin(ctx, "café media player v0.4.0", nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), NK_WINDOW_BORDER|NK_WINDOW_TITLE)) {
-        nk_layout_row_dynamic(ctx, 64, 1);
-        nk_window_set_scroll(ctx, 0, 64 * selected_index);
+    if (nk_begin(ctx, "café media player v0.5.0.this.is.pain", nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), NK_WINDOW_BORDER|NK_WINDOW_TITLE)) {
+        nk_layout_row_dynamic(ctx, 64 * UI_SCALE, 1);
+        nk_window_set_scroll(ctx, 0, 64 * UI_SCALE * selected_index);
         for (int i = 0; i < static_cast<int>(video_files.size()); ++i) {
             std::string display_str = video_files[i];
 
             // Highlight selected item
             struct nk_style_button button_style = ctx->style.button;
             if (i == selected_index) {
-                ctx->style.button.normal = nk_style_item_color(nk_rgb(39, 39, 39));   // Selected button background
-                ctx->style.button.hover = nk_style_item_color(nk_rgb(39, 39, 39));    // Hovered
-                ctx->style.button.active = nk_style_item_color(nk_rgb(39, 39, 39));   // Active
+                ctx->style.button.border_color = nk_rgb(13, 146, 244);
+                ctx->style.button.border = 4.0f;
             }
 
             if (nk_button_label(ctx, display_str.c_str())) {
                 selected_index = i;
+
+                SDL_SetRenderDrawColor(ui_renderer, 0, 0, 0, 255);
+                SDL_RenderClear(ui_renderer);
                 
                 start_file(selected_index);
             }
 
-            // Reset button style after drawing
             ctx->style.button = button_style;
         }
         nk_end(ctx);
@@ -337,7 +351,7 @@ void ui_render_file_browser() {
 }
 
 void ui_render_player_hud(bool state, double current_time, double total_time) {
-    const int hud_height = 80;
+    const int hud_height = 80 * UI_SCALE;
     struct nk_rect hud_rect = nk_rect(0, SCREEN_HEIGHT - hud_height, SCREEN_WIDTH, hud_height);
 
     if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
@@ -353,21 +367,25 @@ void ui_render_player_hud(bool state, double current_time, double total_time) {
         nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
 
         nk_end(ctx);
-        nk_sdl_render(NK_ANTI_ALIASING_ON);
     }
 }
 
 void ui_render_video_player() {
-    // uint64_t test_ticks = OSGetSystemTime();
+    uint64_t test_ticks = OSGetSystemTime();
     video_player_update(ui_app_state, ui_renderer);
-    // uint64_t decoding_time = OSTicksToMicroseconds(OSGetSystemTime() - test_ticks);
+    uint64_t decoding_time = OSTicksToMicroseconds(OSGetSystemTime() - test_ticks);
 
     frame_info* current_frame_info = video_player_get_current_frame_info();
+    if (!current_frame_info || !current_frame_info->texture) return;   
 
-    if (current_frame_info && current_frame_info->texture) {
-        SDL_SetRenderDrawColor(ui_renderer, 0, 0, 0, 255);
-        SDL_RenderClear(ui_renderer);
+    static uint64_t last_decoding_time = 0;
+    static uint64_t last_rendering_time = 0;
 
+    uint64_t rendering_ticks = 0;
+
+    rendering_ticks = OSGetSystemTime();  // Start timing
+
+    if(!dest_rect_initialised) {
         int video_width = current_frame_info->frame_width;
         int video_height = current_frame_info->frame_height;
 
@@ -382,36 +400,40 @@ void ui_render_video_player() {
             new_width = (video_width * new_height) / video_height;
         }
 
-        SDL_Rect dest_rect = { 0, 0, new_width, new_height };
+        dest_rect = { 0, 0, new_width, new_height };
 
         dest_rect.x = (screen_width - new_width) / 2;
         dest_rect.y = (screen_height - new_height) / 2;
-        SDL_RenderCopy(ui_renderer, current_frame_info->texture, NULL, &dest_rect);
-    }
-    /*
-    static uint64_t last_decoding_time = 0;
 
-    struct nk_rect hud_rect = nk_rect(0, 0, 128, 64);
+        dest_rect_initialised = true;
+    }
+    SDL_RenderCopy(ui_renderer, current_frame_info->texture, NULL, &dest_rect);
+
+    uint64_t current_rendering_time = OSTicksToMicroseconds(OSGetSystemTime() - rendering_ticks);
+    if (current_rendering_time > 10) {
+        last_rendering_time = current_rendering_time;
+    }
+
+    struct nk_rect hud_rect = nk_rect(0, 0, 512 * UI_SCALE, 30 * UI_SCALE);
     if (nk_begin(ctx, "Decoding", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
-        nk_layout_row_dynamic(ctx, 30, 2);
+        nk_layout_row_dynamic(ctx, 30 * UI_SCALE, 2);
     
-        // Use the last decoding time if the current one is 0ms
-        if (decoding_time > 100) {
-            last_decoding_time = decoding_time;  // Update with the new decoding time
+        if (decoding_time > 10) {
+            last_decoding_time = decoding_time;
         }
-    
-        // Display the last valid decoding time, even if current decoding time is 0
-        std::string decoding_time_str = std::to_string(last_decoding_time);
-        nk_label(ctx, decoding_time_str.c_str(), NK_TEXT_LEFT);
-    
-        nk_end(ctx);
-        nk_sdl_render(NK_ANTI_ALIASING_ON);
-    }
-    */
 
-    if (!video_player_is_playing()) {
-        ui_render_player_hud(video_player_is_playing(), video_player_get_current_time(), video_player_get_total_play_time());
+        std::string decoding_time_str = "Decode: " + std::to_string(last_decoding_time) + "us";
+        nk_label(ctx, decoding_time_str.c_str(), NK_TEXT_LEFT);
+
+        std::string rendering_time_str = "Render: " + std::to_string(last_rendering_time) + "us";
+        nk_label(ctx, rendering_time_str.c_str(), NK_TEXT_LEFT);
+
+        nk_end(ctx);
     }
+
+    if (!video_player_is_playing()) ui_render_player_hud(video_player_is_playing(), video_player_get_current_time(), video_player_get_total_play_time());
+
+    nk_sdl_render(NK_ANTI_ALIASING_ON);
 }
 
 void ui_render_audio_player() {
@@ -420,6 +442,7 @@ void ui_render_audio_player() {
 
 void ui_shutodwn() {
     if (ambiance_playing) { audio_player_cleanup(); ambiance_playing = false; }
+    if(!video_player_is_playing()) video_player_play(true);
     if (video_player_is_playing()) video_player_cleanup();
 
     if (ui_texture) {

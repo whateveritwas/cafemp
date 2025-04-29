@@ -52,8 +52,6 @@ AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int 
     AVCodecContext* codec_ctx = avcodec_alloc_context3(codec);
     avcodec_parameters_to_context(codec_ctx, codecpar);
 
-    codec_ctx->skip_frame = AVDISCARD_NONREF;
-
     if (avcodec_open2(codec_ctx, codec, NULL) < 0) {
         printf("Failed to open codec.\n");
         return NULL;
@@ -61,17 +59,46 @@ AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int 
     return codec_ctx;
 }
 
-void video_player_scrub(int dt) {
-    int64_t seek_target_seconds = current_pts_seconds + dt;
-
-    int64_t seek_target = seek_target_seconds * AV_TIME_BASE;
-
-    if (dt > 0) {
-        av_seek_frame(fmt_ctx, -1, seek_target, AVSEEK_FLAG_ANY);
+void clear_video_frames() {
+    std::lock_guard<std::mutex> lock(video_frame_mutex);
+    while (!video_frame_queue.empty()) {
+        AVFrame* f = video_frame_queue.front();
+        av_frame_free(&f);
+        video_frame_queue.pop();
     }
-    else {
-        av_seek_frame(fmt_ctx, -1, seek_target, AVSEEK_FLAG_BACKWARD);
+}
+
+void video_player_seek(float delta_seconds) {
+    if (!fmt_ctx || video_stream_index < 0) return;
+
+    int64_t current_time = static_cast<int64_t>(current_pts_seconds * AV_TIME_BASE);
+    int64_t target_time = current_time + static_cast<int64_t>(delta_seconds * AV_TIME_BASE);
+
+    // Clamp target_time
+    if (target_time < 0) target_time = 0;
+    if (target_time > fmt_ctx->duration) target_time = fmt_ctx->duration;
+
+    if (av_seek_frame(fmt_ctx, video_stream_index, target_time, AVSEEK_FLAG_BACKWARD) < 0) {
+        printf("Seek failed!\n");
+        return;
     }
+    printf("Seek success!\n");
+
+    avcodec_flush_buffers(video_codec_ctx);
+
+    clear_video_frames();
+
+    if (current_frame_info) {
+        SDL_DestroyTexture(current_frame_info->texture);
+        delete current_frame_info;
+        current_frame_info = nullptr;
+    }
+
+    start_time = av_gettime_relative() - target_time;
+    current_pts_seconds = target_time / (double)AV_TIME_BASE;
+
+    audio_player_seek(current_pts_seconds);
+    printf("Seek done!\n");
 }
 
 bool video_player_is_playing() {
@@ -99,6 +126,10 @@ int64_t video_player_get_current_time() {
 }
 
 frame_info* video_player_get_current_frame_info() {
+    if (!current_frame_info) {
+        printf("No current_frame_info\n");
+        return NULL;
+    }
     return current_frame_info;
 }
 
@@ -174,31 +205,25 @@ void process_video_frame_thread() {
     total_paused_duration = 0;
     pause_start_time = 0;
 
-
     while (video_thread_running) {
         {
             std::unique_lock<std::mutex> lock(playback_mutex);
             playback_cv.wait(lock, [] { return playing_video || !video_thread_running; });
-            if (!video_thread_running) break;
         }
 
         AVPacket pkt;
         if (av_read_frame(fmt_ctx, &pkt) >= 0) {
             if (pkt.stream_index == video_stream_index) {
-                if (avcodec_send_packet(video_codec_ctx, &pkt) == 0) {
-                    while (avcodec_receive_frame(video_codec_ctx, local_frame) == 0) {
-                        if (local_frame->format == AV_PIX_FMT_YUV420P) {
-                            // Convert PTS to real time
-                            int64_t pts_us = local_frame->pts * av_q2d(time_base) * 1e6;
+                if (!avcodec_send_packet(video_codec_ctx, &pkt)) {
+                    while (!avcodec_receive_frame(video_codec_ctx, local_frame)) {
+                        int64_t pts_us = local_frame->pts * av_q2d(time_base) * 1e6;
 
-                            int64_t now_us = av_gettime_relative() - start_time;
-                            int64_t delay = pts_us - now_us;
-                            if (delay > 0) {
-                                av_usleep(delay);
-                            }                           
+                        int64_t now_us = av_gettime_relative() - start_time;
+                        int64_t delay = pts_us - now_us;
+                        if (delay > 0) av_usleep(delay);                
 
-                            current_pts_seconds = local_frame->pts * av_q2d(time_base);
-
+                        current_pts_seconds = local_frame->pts * av_q2d(time_base);
+                        if (video_frame_queue.size() < 10) {
                             AVFrame* cloned_frame = av_frame_clone(local_frame);
                             if (cloned_frame) {
                                 std::lock_guard<std::mutex> lock(video_frame_mutex);
@@ -241,7 +266,6 @@ void render_video_frame(AppState* app_state, SDL_Renderer* renderer) {
     AVFrame* frame = nullptr;
 
     {
-        // Lock the mutex and check if there are frames in the queue
         std::lock_guard<std::mutex> lock(video_frame_mutex);
         if (!video_frame_queue.empty()) {
             frame = video_frame_queue.front();
@@ -249,22 +273,23 @@ void render_video_frame(AppState* app_state, SDL_Renderer* renderer) {
         }
     }
 
-    if (frame) {
-        // Create a texture if needed and render the frame
-        if (!current_frame_info) {
-            current_frame_info = new frame_info;
-            current_frame_info->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, frame->width, frame->height);
-            current_frame_info->frame_width = frame->width;
-            current_frame_info->frame_height = frame->height;
-        }
+    if (!frame) return; // Nothing to render safely
 
+    if (!current_frame_info) {
+        current_frame_info = new frame_info;
+        current_frame_info->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, frame->width, frame->height);
+        current_frame_info->frame_width = frame->width;
+        current_frame_info->frame_height = frame->height;
+    }
+
+    if (current_frame_info->texture) {
         SDL_UpdateYUVTexture(current_frame_info->texture, NULL,
             frame->data[0], frame->linesize[0],
             frame->data[1], frame->linesize[1],
             frame->data[2], frame->linesize[2]);
-
-        av_frame_free(&frame);
     }
+
+    av_frame_free(&frame); // Free the cloned frame
 }
 
 void video_player_update(AppState* app_state, SDL_Renderer* renderer) {

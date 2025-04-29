@@ -11,7 +11,7 @@ extern "C" {
 #include "main.hpp"
 
 AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int stream_index);
-void video_player_scrub(int dt);
+void video_player_seek(float delta_time);
 bool video_player_is_playing();
 void video_player_play(bool new_state);
 int64_t video_player_get_current_time();

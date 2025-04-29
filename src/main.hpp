@@ -3,8 +3,13 @@
 
 #include <SDL2/SDL.h>
 
+// #define SCREEN_WIDTH 1920
+// #define SCREEN_HEIGHT 1080
+// #define UI_SCALE 1.5
+
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
+#define UI_SCALE 1
 
 #define FONT_PATH "/vol/content/Roboto-Regular.ttf"
 #define AMBIANCE_PATH "/vol/content/769925__lightmister__game-main-menu-fluids.mp3"
