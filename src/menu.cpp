@@ -46,7 +46,7 @@ bool touched = false;
 bool ambiance_playing = false;
 
 static const std::unordered_set<std::string> valid_video_endings = {
-    "mp4", "mov", "mkv", "avi", "webm", "flv", "asf", "mpegts"
+    "mp4", "mov", "mkv", "avi"
 };
 
 static const std::unordered_set<std::string> valid_audio_endings = {
@@ -186,9 +186,9 @@ void ui_video_player_input(VPADStatus* buf) {
         scan_directory(VIDEO_PATH, video_files);
         *ui_app_state = STATE_MENU;
     } else if (buf->trigger == VPAD_BUTTON_LEFT) {
-        // video_player_seek(-5.0f);
+        video_player_seek(-5.0f);
     } else if (buf->trigger == VPAD_BUTTON_RIGHT) {
-        // video_player_seek(5.0f);
+        video_player_seek(5.0f);
     }
 }
 
@@ -200,9 +200,9 @@ void ui_audio_player_input(VPADStatus* buf) {
         scan_directory(VIDEO_PATH, video_files);
         *ui_app_state = STATE_MENU;
     } else if (buf->trigger == VPAD_BUTTON_LEFT) {
-        // audio_player_seek(-5.0f);
+        audio_player_seek(-5.0f);
     } else if (buf->trigger == VPAD_BUTTON_RIGHT) {
-        // audio_player_seek(5.0f);
+        audio_player_seek(5.0f);
     }
 }
 
@@ -352,19 +352,19 @@ void ui_render_player_hud(bool state, double current_time, double total_time) {
 }
 
 void ui_render_video_player() {
-    // uint64_t test_ticks = OSGetSystemTime();
+    uint64_t test_ticks = OSGetSystemTime();
     video_player_update(ui_app_state, ui_renderer);
-    // uint64_t decoding_time = OSTicksToMicroseconds(OSGetSystemTime() - test_ticks);
+    uint64_t decoding_time = OSTicksToMicroseconds(OSGetSystemTime() - test_ticks);
 
     frame_info* current_frame_info = video_player_get_current_frame_info();
     if (!current_frame_info || !current_frame_info->texture) return;   
 
-    // static uint64_t last_decoding_time = 0;
-    // static uint64_t last_rendering_time = 0;
+    static uint64_t last_decoding_time = 0;
+    static uint64_t last_rendering_time = 0;
 
-    // uint64_t rendering_ticks = 0;
+    uint64_t rendering_ticks = 0;
 
-    // rendering_ticks = OSGetSystemTime();  // Start timing
+    rendering_ticks = OSGetSystemTime();  // Start timing
 
     if(!dest_rect_initialised) {
         int video_width = current_frame_info->frame_width;
@@ -389,7 +389,7 @@ void ui_render_video_player() {
         dest_rect_initialised = true;
     }
     SDL_RenderCopy(ui_renderer, current_frame_info->texture, NULL, &dest_rect);
-    /*
+
     uint64_t current_rendering_time = OSTicksToMicroseconds(OSGetSystemTime() - rendering_ticks);
     if (current_rendering_time > 10) {
         last_rendering_time = current_rendering_time;
@@ -411,7 +411,7 @@ void ui_render_video_player() {
 
         nk_end(ctx);
     }
-    */
+
     if (!video_player_is_playing()) ui_render_player_hud(video_player_is_playing(), video_player_get_current_time(), video_player_get_total_play_time());
 }
 
