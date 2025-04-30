@@ -35,7 +35,6 @@ SDL_Texture* ui_texture;
 AppState* ui_app_state;
 
 struct nk_context *ctx;
-struct nk_colorf bg;
 SDL_Rect dest_rect = (SDL_Rect){0, 0, 0, 0};
 bool dest_rect_initialised = false;
 
@@ -133,8 +132,6 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
         nk_style_set_font(ctx, &font->handle);
     }
 
-    bg.r = 0.0f, bg.g = 0.0f, bg.b = 0.0f, bg.a = 1.0f;
-
     // Scan local directories
     scan_directory(VIDEO_PATH, video_files);
 }
@@ -145,6 +142,9 @@ void start_file(int i) {
     std::string extension = full_path.substr(full_path.find_last_of('.') + 1);
     
     for (auto& c : extension) c = std::tolower(c);
+
+    SDL_SetRenderDrawColor(ui_renderer, 0, 0, 0, 255);
+    SDL_RenderClear(ui_renderer);
 
     if (valid_video_endings.count(extension)) {
         start_selected_video();
@@ -157,22 +157,16 @@ void start_file(int i) {
 
 void ui_menu_input(VPADStatus* buf) {
     if (buf->trigger == VPAD_BUTTON_UP || buf->trigger == VPAD_STICK_L_EMULATION_UP) {
-        nk_input_key(ctx, NK_KEY_UP, 1);
-        nk_input_key(ctx, NK_KEY_UP, 0);
         selected_index--;
         if (selected_index < 0) selected_index = video_files.size() - 1;
-    }
-    if (buf->trigger == VPAD_BUTTON_DOWN || buf->trigger == VPAD_STICK_L_EMULATION_DOWN) {
-        nk_input_key(ctx, NK_KEY_DOWN, 1);
-        nk_input_key(ctx, NK_KEY_DOWN, 0);
+    } else if (buf->trigger == VPAD_BUTTON_DOWN || buf->trigger == VPAD_STICK_L_EMULATION_DOWN) {
         selected_index++;
         if (selected_index >= (int)video_files.size()) selected_index = 0;
-    }
-    if (buf->trigger == VPAD_BUTTON_A) {
-        nk_input_key(ctx, NK_KEY_ENTER, 1);
-        nk_input_key(ctx, NK_KEY_ENTER, 0);
+    } else if (buf->trigger == VPAD_BUTTON_A) {
         start_file(selected_index);
         //start_selected_video();
+    } else if(buf->trigger == VPAD_BUTTON_PLUS) {
+        scan_directory(VIDEO_PATH, video_files);
     }
 }
 
@@ -182,6 +176,7 @@ void ui_video_player_input(VPADStatus* buf) {
     if (buf->trigger == VPAD_BUTTON_A) {
         audio_player_audio_play(!video_player_is_playing());
         video_player_play(!video_player_is_playing());
+        SDL_RenderClear(ui_renderer);
     } else if (buf->trigger == VPAD_BUTTON_B) {
         audio_player_audio_play(true);
         video_player_play(true);
@@ -191,9 +186,9 @@ void ui_video_player_input(VPADStatus* buf) {
         scan_directory(VIDEO_PATH, video_files);
         *ui_app_state = STATE_MENU;
     } else if (buf->trigger == VPAD_BUTTON_LEFT) {
-        video_player_seek(-5.0f);
+        // video_player_seek(-5.0f);
     } else if (buf->trigger == VPAD_BUTTON_RIGHT) {
-        video_player_seek(5.0f);
+        // video_player_seek(5.0f);
     }
 }
 
@@ -205,9 +200,9 @@ void ui_audio_player_input(VPADStatus* buf) {
         scan_directory(VIDEO_PATH, video_files);
         *ui_app_state = STATE_MENU;
     } else if (buf->trigger == VPAD_BUTTON_LEFT) {
-        audio_player_seek(-5.0f);
+        // audio_player_seek(-5.0f);
     } else if (buf->trigger == VPAD_BUTTON_RIGHT) {
-        audio_player_seek(5.0f);
+        // audio_player_seek(5.0f);
     }
 }
 
@@ -221,8 +216,11 @@ void ui_handle_vpad_input() {
         VPADGetTPCalibratedPoint(VPAD_CHAN_0, &buf.tpNormal, &buf.tpNormal);
         touch_x = (float)buf.tpNormal.x;
         touch_y = (float)buf.tpNormal.y;
+        
     }
-    */
+    nk_input_motion(ctx, (int)touch_x, (int)touch_y);
+    nk_input_button(ctx, NK_BUTTON_LEFT, (int)touch_x, (int)touch_y, touched);
+    */   
     if(!key_press) return;
 
     switch(*ui_app_state) {
@@ -237,9 +235,6 @@ void ui_render() {
     nk_input_begin(ctx);
 
     ui_handle_vpad_input();
-
-    nk_input_motion(ctx, (int)touch_x, (int)touch_y);
-    nk_input_button(ctx, NK_BUTTON_LEFT, (int)touch_x, (int)touch_y, touched);
 
     nk_input_end(ctx);
 
@@ -267,6 +262,8 @@ void ui_render() {
         ui_render_settings();
         break;
     }
+
+    nk_sdl_render(NK_ANTI_ALIASING_ON);
 }
 
 void ui_render_settings() {
@@ -306,24 +303,17 @@ void ui_render_settings() {
         }
 
         nk_end(ctx);
-
-        // Background clear
-        SDL_SetRenderDrawColor(ui_renderer, bg.r * 255, bg.g * 255, bg.b * 255, bg.a * 255);
-        SDL_RenderClear(ui_renderer);
-
-        // Render GUI
-        nk_sdl_render(NK_ANTI_ALIASING_ON);
     }
 }
 
 void ui_render_file_browser() {
-    if (nk_begin(ctx, "café media player v0.5.0.this.is.pain", nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), NK_WINDOW_BORDER|NK_WINDOW_TITLE)) {
+    // if (nk_begin(ctx, "café media player v0.5.0.this.is.pain " __DATE__ " " __TIME__, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), NK_WINDOW_BORDER|NK_WINDOW_TITLE)) {
+    if (nk_begin(ctx, "café media player v0.4.1 " __DATE__ " " __TIME__, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), NK_WINDOW_BORDER|NK_WINDOW_TITLE)) {
         nk_layout_row_dynamic(ctx, 64 * UI_SCALE, 1);
         nk_window_set_scroll(ctx, 0, 64 * UI_SCALE * selected_index);
         for (int i = 0; i < static_cast<int>(video_files.size()); ++i) {
             std::string display_str = video_files[i];
 
-            // Highlight selected item
             struct nk_style_button button_style = ctx->style.button;
             if (i == selected_index) {
                 ctx->style.button.border_color = nk_rgb(13, 146, 244);
@@ -332,21 +322,12 @@ void ui_render_file_browser() {
 
             if (nk_button_label(ctx, display_str.c_str())) {
                 selected_index = i;
-
-                SDL_SetRenderDrawColor(ui_renderer, 0, 0, 0, 255);
-                SDL_RenderClear(ui_renderer);
-                
                 start_file(selected_index);
             }
 
             ctx->style.button = button_style;
         }
         nk_end(ctx);
-
-        SDL_SetRenderDrawColor(ui_renderer, bg.r * 255, bg.g * 255, bg.b * 255, bg.a * 255);
-        SDL_RenderClear(ui_renderer);
-    
-        nk_sdl_render(NK_ANTI_ALIASING_ON);
     }
 }
 
@@ -371,19 +352,19 @@ void ui_render_player_hud(bool state, double current_time, double total_time) {
 }
 
 void ui_render_video_player() {
-    uint64_t test_ticks = OSGetSystemTime();
+    // uint64_t test_ticks = OSGetSystemTime();
     video_player_update(ui_app_state, ui_renderer);
-    uint64_t decoding_time = OSTicksToMicroseconds(OSGetSystemTime() - test_ticks);
+    // uint64_t decoding_time = OSTicksToMicroseconds(OSGetSystemTime() - test_ticks);
 
     frame_info* current_frame_info = video_player_get_current_frame_info();
     if (!current_frame_info || !current_frame_info->texture) return;   
 
-    static uint64_t last_decoding_time = 0;
-    static uint64_t last_rendering_time = 0;
+    // static uint64_t last_decoding_time = 0;
+    // static uint64_t last_rendering_time = 0;
 
-    uint64_t rendering_ticks = 0;
+    // uint64_t rendering_ticks = 0;
 
-    rendering_ticks = OSGetSystemTime();  // Start timing
+    // rendering_ticks = OSGetSystemTime();  // Start timing
 
     if(!dest_rect_initialised) {
         int video_width = current_frame_info->frame_width;
@@ -408,7 +389,7 @@ void ui_render_video_player() {
         dest_rect_initialised = true;
     }
     SDL_RenderCopy(ui_renderer, current_frame_info->texture, NULL, &dest_rect);
-
+    /*
     uint64_t current_rendering_time = OSTicksToMicroseconds(OSGetSystemTime() - rendering_ticks);
     if (current_rendering_time > 10) {
         last_rendering_time = current_rendering_time;
@@ -430,10 +411,8 @@ void ui_render_video_player() {
 
         nk_end(ctx);
     }
-
+    */
     if (!video_player_is_playing()) ui_render_player_hud(video_player_is_playing(), video_player_get_current_time(), video_player_get_total_play_time());
-
-    nk_sdl_render(NK_ANTI_ALIASING_ON);
 }
 
 void ui_render_audio_player() {

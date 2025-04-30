@@ -229,4 +229,16 @@ bool audio_player_get_audio_play_state() {
     return audio_playing;
 }
 
-void audio_player_seek(float delta_time) { }
+void audio_player_seek(float delta_time) {
+    if (!fmt_ctx || !audio_enabled) return;
+
+    int64_t seek_target = (int64_t)(delta_time / av_q2d(fmt_ctx->streams[audio_stream_index]->time_base));
+
+    if (av_seek_frame(fmt_ctx, audio_stream_index, seek_target, AVSEEK_FLAG_BACKWARD) < 0) {
+        printf("Seek failed\n");
+        return;
+    }
+
+    avcodec_flush_buffers(audio_codec_ctx);
+    SDL_ClearQueuedAudio(audio_device);
+}
