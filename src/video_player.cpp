@@ -243,14 +243,10 @@ void process_video_frame_thread() {
 }
 
 int64_t video_player_get_total_play_time() {
-    if (!fmt_ctx || video_stream_index < 0) {
-        return 0;
-    }
+    if (!fmt_ctx || video_stream_index < 0) return 0;
 
     AVStream* stream = fmt_ctx->streams[video_stream_index];
-    if (!stream) {
-        return 0;
-    }
+    if (!stream) return 0;
 
     int64_t duration = stream->duration;
     if (duration <= 0) {
@@ -293,8 +289,7 @@ void render_video_frame(AppState* app_state, SDL_Renderer* renderer) {
 }
 
 void video_player_update(AppState* app_state, SDL_Renderer* renderer) {
-    if (!playing_video)
-        return;
+    if (!playing_video) return;
 
     render_video_frame(app_state, renderer);
 }
