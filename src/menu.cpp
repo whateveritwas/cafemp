@@ -51,7 +51,7 @@ int current_page = 0;
 #define GRID_COLS 4
 #define GRID_ROWS 3
 #define ITEMS_PER_PAGE (GRID_COLS * GRID_ROWS)
-#define CELL_HEIGHT (160 * UI_SCALE)
+#define CELL_HEIGHT (((SCREEN_HEIGHT / 3) - TOOLTIP_BAR_HEIGHT) * UI_SCALE)
 
 static const std::unordered_set<std::string> valid_video_endings = {
     "mp4", "mov", "mkv", "avi"
@@ -365,8 +365,8 @@ void ui_render_settings() {
 }
 
 void ui_render_tooltip(int _current_page, AppState* _app_state) {
-    if (nk_begin(ctx, "tooltip_bar", nk_rect(0, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT, SCREEN_WIDTH, TOOLTIP_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND)) {
-        nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT, 2);
+    if (nk_begin(ctx, "tooltip_bar", nk_rect(0, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE, SCREEN_WIDTH, TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER | NK_WINDOW_BACKGROUND)) {
+        nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
 
         nk_label(ctx, "(A) Start (-) Refresh (+) Settings", NK_TEXT_LEFT);
         nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page + 1)).c_str(), NK_TEXT_RIGHT);
@@ -376,7 +376,7 @@ void ui_render_tooltip(int _current_page, AppState* _app_state) {
 }
 
 void ui_render_file_browser() {
-    if (nk_begin(ctx, "café media player v0.4.3 " __DATE__ " " __TIME__, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT), NK_WINDOW_TITLE)) {
+    if (nk_begin(ctx, "café media player v0.4.3 " __DATE__ " " __TIME__, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR)) {
 
         nk_layout_row_dynamic(ctx, CELL_HEIGHT, GRID_COLS);
 
