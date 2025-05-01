@@ -45,6 +45,14 @@ bool touched = false;
 
 bool ambiance_playing = false;
 
+int current_page = 0;
+
+#define TOOLTIP_BAR_HEIGHT (48)
+#define ITEMS_PER_PAGE 12
+#define GRID_COLS 4
+#define GRID_ROWS 5
+#define CELL_HEIGHT (160 * UI_SCALE)
+
 static const std::unordered_set<std::string> valid_video_endings = {
     "mp4", "mov", "mkv", "avi"
 };
@@ -137,14 +145,13 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
 }
 
 void start_file(int i) {
+    SDL_SetRenderDrawColor(ui_renderer, 0, 0, 0, 255);
+
     dest_rect_initialised = false;
     std::string full_path = std::string(VIDEO_PATH) + video_files[i];
     std::string extension = full_path.substr(full_path.find_last_of('.') + 1);
     
     for (auto& c : extension) c = std::tolower(c);
-
-    SDL_SetRenderDrawColor(ui_renderer, 0, 0, 0, 255);
-    SDL_RenderClear(ui_renderer);
 
     if (valid_video_endings.count(extension)) {
         start_selected_video();
@@ -156,17 +163,46 @@ void start_file(int i) {
 }
 
 void ui_menu_input(VPADStatus* buf) {
+    int total_items = static_cast<int>(video_files.size());
+    int total_pages = (total_items + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
+
+    int start = current_page * ITEMS_PER_PAGE;
+    int end = std::min(start + ITEMS_PER_PAGE, total_items);
+
+    int local_index = selected_index - start;
+
     if (buf->trigger == VPAD_BUTTON_UP || buf->trigger == VPAD_STICK_L_EMULATION_UP) {
-        selected_index--;
-        if (selected_index < 0) selected_index = video_files.size() - 1;
+        if (local_index >= GRID_COLS) {
+            selected_index -= GRID_COLS;
+        }
     } else if (buf->trigger == VPAD_BUTTON_DOWN || buf->trigger == VPAD_STICK_L_EMULATION_DOWN) {
-        selected_index++;
-        if (selected_index >= (int)video_files.size()) selected_index = 0;
+        if (local_index + GRID_COLS < (end - start)) {
+            selected_index += GRID_COLS;
+        }
+    } else if (buf->trigger == VPAD_BUTTON_LEFT || buf->trigger == VPAD_STICK_L_EMULATION_LEFT) {
+        if (local_index % GRID_COLS != 0) {
+            selected_index--;
+        }
+    } else if (buf->trigger == VPAD_BUTTON_RIGHT || buf->trigger == VPAD_STICK_L_EMULATION_RIGHT) {
+        if ((local_index + 1) % GRID_COLS != 0 && selected_index + 1 < end) {
+            selected_index++;
+        }
     } else if (buf->trigger == VPAD_BUTTON_A) {
         start_file(selected_index);
-        //start_selected_video();
-    } else if(buf->trigger == VPAD_BUTTON_PLUS) {
+    } else if (buf->trigger == VPAD_BUTTON_L) {
+        if (current_page > 0) {
+            current_page--;
+            selected_index = current_page * ITEMS_PER_PAGE;
+        }
+    } else if (buf->trigger == VPAD_BUTTON_R) {
+        if (current_page < total_pages - 1) {
+            current_page++;
+            selected_index = current_page * ITEMS_PER_PAGE;
+        }
+    } else if (buf->trigger == VPAD_BUTTON_MINUS) {
         scan_directory(VIDEO_PATH, video_files);
+        selected_index = 0;
+        current_page = 0;
     }
 }
 
@@ -210,7 +246,7 @@ void ui_handle_vpad_input() {
     VPADStatus buf;
     int key_press = VPADRead(VPAD_CHAN_0, &buf, 1, nullptr);
 
-    /*
+    
     touched = buf.tpNormal.touched;
     if (touched) {
         VPADGetTPCalibratedPoint(VPAD_CHAN_0, &buf.tpNormal, &buf.tpNormal);
@@ -220,7 +256,7 @@ void ui_handle_vpad_input() {
     }
     nk_input_motion(ctx, (int)touch_x, (int)touch_y);
     nk_input_button(ctx, NK_BUTTON_LEFT, (int)touch_x, (int)touch_y, touched);
-    */   
+    
     if(!key_press) return;
 
     switch(*ui_app_state) {
@@ -307,11 +343,15 @@ void ui_render_settings() {
 }
 
 void ui_render_file_browser() {
-    // if (nk_begin(ctx, "café media player v0.5.0.this.is.pain " __DATE__ " " __TIME__, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), NK_WINDOW_BORDER|NK_WINDOW_TITLE)) {
-    if (nk_begin(ctx, "café media player v0.4.1 " __DATE__ " " __TIME__, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), NK_WINDOW_BORDER|NK_WINDOW_TITLE)) {
-        nk_layout_row_dynamic(ctx, 64 * UI_SCALE, 1);
-        nk_window_set_scroll(ctx, 0, 64 * UI_SCALE * selected_index);
-        for (int i = 0; i < static_cast<int>(video_files.size()); ++i) {
+    if (nk_begin(ctx, "café media player v0.4.2 " __DATE__ " " __TIME__, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT), NK_WINDOW_TITLE)) {
+
+        nk_layout_row_dynamic(ctx, CELL_HEIGHT, GRID_COLS);
+
+        int total_files = static_cast<int>(video_files.size());
+        int start = current_page * ITEMS_PER_PAGE;
+        int end = std::min(start + ITEMS_PER_PAGE, total_files);
+
+        for (int i = start; i < end; ++i) {
             std::string display_str = video_files[i];
 
             struct nk_style_button button_style = ctx->style.button;
@@ -326,9 +366,29 @@ void ui_render_file_browser() {
             }
 
             ctx->style.button = button_style;
+
+            if ((i - start + 1) % GRID_COLS == 0 && i + 1 < end) {
+                nk_layout_row_dynamic(ctx, CELL_HEIGHT, GRID_COLS);
+            }
         }
+
         nk_end(ctx);
     }
+
+    // Tooltip bar
+    if (nk_begin(ctx, "tooltip_bar", nk_rect(0, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT, SCREEN_WIDTH, TOOLTIP_BAR_HEIGHT),
+        NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND)) {
+
+        nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT, 4);
+
+        nk_label(ctx, "A Start", NK_TEXT_LEFT);
+        nk_label(ctx, "- Refresh", NK_TEXT_LEFT);
+        nk_label(ctx, "+ Settings", NK_TEXT_LEFT);
+        nk_label(ctx, ("L/R Page " + std::to_string(current_page + 1)).c_str(), NK_TEXT_RIGHT);
+
+        nk_end(ctx);
+    }
+
 }
 
 void ui_render_player_hud(bool state, double current_time, double total_time) {
@@ -352,6 +412,7 @@ void ui_render_player_hud(bool state, double current_time, double total_time) {
 }
 
 void ui_render_video_player() {
+    SDL_RenderClear(ui_renderer);
     uint64_t test_ticks = OSGetSystemTime();
     video_player_update(ui_app_state, ui_renderer);
     uint64_t decoding_time = OSTicksToMicroseconds(OSGetSystemTime() - test_ticks);
@@ -416,6 +477,7 @@ void ui_render_video_player() {
 }
 
 void ui_render_audio_player() {
+    SDL_RenderClear(ui_renderer);
     ui_render_player_hud(audio_player_get_audio_play_state(), audio_player_get_current_play_time(), audio_player_get_total_play_time());
 }
 
