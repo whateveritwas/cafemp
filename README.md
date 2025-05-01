@@ -21,7 +21,7 @@ Cafemp is a **work in progress** media player for the Wii U.
 - [ ] m3u IPTV
 - [ ] Tooltips
 - [ ] Miniplayer (Audio)
-- [ ] Touch input
+- [x] Touch input
 
 ## Credits
 - [Ambiance music](https://freesound.org/people/LightMister/sounds/769925/?)
