@@ -46,10 +46,10 @@
 ---
 
 ## Credits
-- **Ambiance Music**: [LightMister on Freesound](https://freesound.org/people/LightMister/sounds/769925/?)
-- **devkitPro**: [GitHub Link](https://github.com/devkitPro)
-- **dkosmari stdout implementation**: [GitHub Link](https://github.com/dkosmari/devkitpro-autoconf/blob/main/examples/wiiu/sdl2-swkbd/src/stdout.cpp)
-- **FFmpeg**: [Official Website](https://github.com/FFmpeg/FFmpeg/)
-- **GaryOderNichts FFmpeg Configure Script**: [GitHub Link](https://github.com/GaryOderNichts/FFmpeg-wiiu/blob/master/configure-wiiu)
-- **Nuklear Immediate-Mode GUI**: [GitHub Link](https://github.com/Immediate-Mode-UI/Nuklear)
-- **WiiU Toolchain**: [GitHub Link](https://github.com/devkitPro/wut)
+- **Ambiance Music**: [Link](https://freesound.org/people/LightMister/sounds/769925/?)
+- **devkitPro**: [Link](https://github.com/devkitPro)
+- **dkosmari stdout implementation**: [Link](https://github.com/dkosmari/devkitpro-autoconf/blob/main/examples/wiiu/sdl2-swkbd/src/stdout.cpp)
+- **FFmpeg**: [Link](https://github.com/FFmpeg/FFmpeg/)
+- **GaryOderNichts FFmpeg Configure Script**: [Link](https://github.com/GaryOderNichts/FFmpeg-wiiu/blob/master/configure-wiiu)
+- **Nuklear Immediate-Mode GUI**: [Link](https://github.com/Immediate-Mode-UI/Nuklear)
+- **WiiU Toolchain**: [Link](https://github.com/devkitPro/wut)
