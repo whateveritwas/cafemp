@@ -29,17 +29,24 @@ int main(int argc, char **argv) {
 
     if (init_sdl() != 0) return -1;
 
+    if (!main_window || !main_renderer) {
+        printf("Failed to initialize SDL window or renderer.\n");
+        SDL_Quit();
+        return -1;
+    }
+
     ui_init(main_window, main_renderer, main_texture, &main_app_state);
 
     while (WHBProcIsRunning()) {
         ui_render();
         SDL_RenderPresent(main_renderer);
     }
-    ui_shutodwn();
 
-    SDL_DestroyTexture(main_texture);
-    SDL_DestroyRenderer(main_renderer);
-    SDL_DestroyWindow(main_window);
+    ui_shutdown();
+
+    if (main_texture) SDL_DestroyTexture(main_texture);
+    if (main_renderer) SDL_DestroyRenderer(main_renderer);
+    if (main_window) SDL_DestroyWindow(main_window);
     SDL_Quit();
 
     printf("=======================END=======================\n");

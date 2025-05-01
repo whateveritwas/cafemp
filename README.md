@@ -1,35 +1,55 @@
-# cafemp
+# Cafemp: Experimental Media Player for the Wii U
+
 ## About
-Cafemp is a **work in progress** media player for the Wii U.
+**Cafemp** is an **experimental** media player designed for the **Wii U**. It supports most common video and audio formats at resolutions up to 720p at 30 FPS. However, be aware that not all videos will run smoothly, and there are some limitations due to the experimental nature of the software. Higher resolutions may cause issues like video and audio desynchronization.
 
-## Usage
-- [Download the latest release](https://github.com/whateveritwas/cafemp/releases/latest)
-- Extract the zip to the root of your SD card
-- Add your own movies/videos to the `cafemp` folder under `sd:/wiiu/apps/cafemp`
-- Open the app on the Wii U home menu
-- Launch a file from the file browser
-- Press `A` to play/pause
-- Press `B` to return to the file browser
-- `[DPAD L/R]` skip/rewind 5 seconds
+### Current Resolution Target:
+- **720p at 30 FPS** (not guaranteed to work smoothly with all videos)
 
-## Planned features
-- [x] Video player (most common video formats 720p@30)
-- [ ] Playing media from network (DLNA, Jellyfin)
-- [ ] Playing media from USB flash drive (ext4/exFAT)
-- [x] Audio player (most common audio formats)
-- [ ] Audio visualization
-- [ ] m3u IPTV
-- [ ] Tooltips
-- [ ] Miniplayer (Audio)
-- [x] Touch input
+## Installation & Usage
+
+### Steps:
+1. **Download** the latest release from [here](https://github.com/whateveritwas/cafemp/releases/latest).
+2. **Extract** the contents of the zip file to the **root of your SD card**.
+3. **Place your media files** in the `cafemp` folder located at `sd:/wiiu/apps/cafemp`.
+4. On your **Wii U**, open **Cafemp** from the Home Menu.
+5. Navigate through the file browser to select a media file.
+6. Press `A` to **play/pause** the media.
+7. Press `B` to **return** to the file browser.
+
+---
+
+## Features
+
+### Currently Supported:
+- **Video playback**: Most common video formats at lower than 720p resolution.
+- **Audio playback**: Most common audio formats.
+- **Touch input**: Interact with the app via the Wii U GamePad's touch screen.
+  
+### Planned Features:
+- [ ] Skip/Rewind for audio and video playback
+- [ ] Support for network media (DLNA, Jellyfin)
+- [ ] USB flash drive media playback (ext4/exFAT)
+- [ ] Audio visualization (for better audio feedback)
+- [ ] m3u IPTV support
+- [ ] Tooltips for better navigation
+- [ ] Miniplayer for audio
+- [ ] Wiimote input support
+
+---
+
+## Known Issues:
+- **Video sync problems**: Higher resolutions may cause audio and video to become out of sync.
+- **Crashes**: The app may crash when exiting.
+- **General instability**: As an experimental project, the app is still under development and may encounter various bugs.
+
+---
 
 ## Credits
-- [Ambiance music](https://freesound.org/people/LightMister/sounds/769925/?)
-- [devkitPro](https://github.com/devkitPro)
-- [dkosmari stdout implementation](https://github.com/dkosmari/devkitpro-autoconf/blob/main/examples/wiiu/sdl2-swkbd/src/stdout.cpp)
-- [exfat](https://github.com/relan/exfat/)
-- [FFmpeg](https://github.com/FFmpeg/FFmpeg/)
-- [GaryOderNichts FFmpeg configure script](https://github.com/GaryOderNichts/FFmpeg-wiiu/blob/master/configure-wiiu)
-- [libiosuhax](https://github.com/dimok789/libiosuhax)
-- [Nuklear immediate-mode GUI](https://github.com/Immediate-Mode-UI/Nuklear)
-- [WiiU toolchain](https://github.com/devkitPro/wut)
+- **Ambiance Music**: [LightMister on Freesound](https://freesound.org/people/LightMister/sounds/769925/?)
+- **devkitPro**: [GitHub Link](https://github.com/devkitPro)
+- **dkosmari stdout implementation**: [GitHub Link](https://github.com/dkosmari/devkitpro-autoconf/blob/main/examples/wiiu/sdl2-swkbd/src/stdout.cpp)
+- **FFmpeg**: [Official Website](https://github.com/FFmpeg/FFmpeg/)
+- **GaryOderNichts FFmpeg Configure Script**: [GitHub Link](https://github.com/GaryOderNichts/FFmpeg-wiiu/blob/master/configure-wiiu)
+- **Nuklear Immediate-Mode GUI**: [GitHub Link](https://github.com/Immediate-Mode-UI/Nuklear)
+- **WiiU Toolchain**: [GitHub Link](https://github.com/devkitPro/wut)

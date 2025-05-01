@@ -69,6 +69,13 @@ std::string format_time(int seconds) {
     return std::string(buffer);
 }
 
+std::string truncate_filename(const std::string& name, size_t max_length) {
+    if (name.length() <= max_length) {
+        return name;
+    }
+    return name.substr(0, max_length - 3) + "...";
+}
+
 bool valid_file_ending(const std::string& file_ending) {
     return valid_video_endings.count(file_ending) > 0 || valid_audio_endings.count(file_ending) > 0;
 }
@@ -170,22 +177,37 @@ void ui_menu_input(VPADStatus* buf) {
     int end = std::min(start + ITEMS_PER_PAGE, total_items);
 
     int local_index = selected_index - start;
+    int row = local_index / GRID_COLS;
+    int col = local_index % GRID_COLS;
 
     if (buf->trigger == VPAD_BUTTON_UP || buf->trigger == VPAD_STICK_L_EMULATION_UP) {
-        if (local_index >= GRID_COLS) {
+        if (row > 0) {
             selected_index -= GRID_COLS;
         }
     } else if (buf->trigger == VPAD_BUTTON_DOWN || buf->trigger == VPAD_STICK_L_EMULATION_DOWN) {
-        if (local_index + GRID_COLS < (end - start)) {
+        if ((row + 1) * GRID_COLS < (end - start)) {
             selected_index += GRID_COLS;
         }
     } else if (buf->trigger == VPAD_BUTTON_LEFT || buf->trigger == VPAD_STICK_L_EMULATION_LEFT) {
-        if (local_index % GRID_COLS != 0) {
+        if (col > 0) {
             selected_index--;
+        } else if (current_page > 0) {
+            current_page--;
+            start = current_page * ITEMS_PER_PAGE;
+            end = std::min(start + ITEMS_PER_PAGE, total_items);
+            selected_index = start + std::min(row * GRID_COLS + (GRID_COLS - 1), end - start - 1);
         }
     } else if (buf->trigger == VPAD_BUTTON_RIGHT || buf->trigger == VPAD_STICK_L_EMULATION_RIGHT) {
-        if ((local_index + 1) % GRID_COLS != 0 && selected_index + 1 < end) {
+        if (col < GRID_COLS - 1 && selected_index + 1 < end) {
             selected_index++;
+        } else if (current_page < total_pages - 1) {
+            current_page++;
+            start = current_page * ITEMS_PER_PAGE;
+            end = std::min(start + ITEMS_PER_PAGE, total_items);
+            selected_index = start + row * GRID_COLS;
+            if (selected_index >= end) {
+                selected_index = end - 1;
+            }
         }
     } else if (buf->trigger == VPAD_BUTTON_A) {
         start_file(selected_index);
@@ -354,7 +376,7 @@ void ui_render_tooltip(int _current_page, AppState* _app_state) {
 }
 
 void ui_render_file_browser() {
-    if (nk_begin(ctx, "café media player v0.4.2 " __DATE__ " " __TIME__, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT), NK_WINDOW_TITLE)) {
+    if (nk_begin(ctx, "café media player v0.4.3 " __DATE__ " " __TIME__, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT), NK_WINDOW_TITLE)) {
 
         nk_layout_row_dynamic(ctx, CELL_HEIGHT, GRID_COLS);
 
@@ -362,8 +384,10 @@ void ui_render_file_browser() {
         int start = current_page * ITEMS_PER_PAGE;
         int end = std::min(start + ITEMS_PER_PAGE, total_files);
 
+        size_t max_name_length = 15;
+
         for (int i = start; i < end; ++i) {
-            std::string display_str = video_files[i];
+            std::string display_str = truncate_filename(video_files[i], max_name_length); // Truncate long filenames
 
             struct nk_style_button button_style = ctx->style.button;
             if (i == selected_index) {
@@ -378,6 +402,7 @@ void ui_render_file_browser() {
 
             ctx->style.button = button_style;
 
+            // Handle row changes when the grid is full
             if ((i - start + 1) % GRID_COLS == 0 && i + 1 < end) {
                 nk_layout_row_dynamic(ctx, CELL_HEIGHT, GRID_COLS);
             }
@@ -385,6 +410,8 @@ void ui_render_file_browser() {
 
         nk_end(ctx);
     }
+
+    // Render tooltip or other UI elements
     ui_render_tooltip(current_page, ui_app_state);
 }
 
@@ -478,7 +505,7 @@ void ui_render_audio_player() {
     ui_render_player_hud(audio_player_get_audio_play_state(), audio_player_get_current_play_time(), audio_player_get_total_play_time());
 }
 
-void ui_shutodwn() {
+void ui_shutdown() {
     if (ambiance_playing) { audio_player_cleanup(); ambiance_playing = false; }
     if(!video_player_is_playing()) video_player_play(true);
     if (video_player_is_playing()) video_player_cleanup();

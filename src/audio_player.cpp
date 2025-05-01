@@ -152,44 +152,6 @@ int audio_player_init(const char* filepath) {
     return 0;
 }
 
-void audio_player_cleanup() {
-    if (!audio_enabled) return;
-    printf("[Audio player] Stopping Audio Player...\n");
-
-    audio_thread_running = false;
-    if (audio_thread.joinable()) audio_thread.join();
-
-    SDL_PauseAudioDevice(audio_device, 1);
-    SDL_ClearQueuedAudio(audio_device);
-    SDL_CloseAudioDevice(audio_device);
-    audio_device = 0;
-
-    if (audio_frame) {
-        av_frame_free(&audio_frame);
-        audio_frame = nullptr;
-    }
-
-    if (audio_packet) {
-        av_packet_free(&audio_packet);
-        audio_packet = nullptr;
-    }
-
-    if (swr_ctx) {
-        swr_free(&swr_ctx);
-        swr_ctx = nullptr;
-    }
-
-    if (audio_codec_ctx) {
-        avcodec_free_context(&audio_codec_ctx);
-        audio_codec_ctx = nullptr;
-    }
-
-    if (fmt_ctx) {
-        avformat_close_input(&fmt_ctx);
-        fmt_ctx = nullptr;
-    }
-}
-
 double audio_player_get_current_play_time() {
     if (!audio_enabled) return 0.0;
 
@@ -241,4 +203,65 @@ void audio_player_seek(float delta_time) {
 
     avcodec_flush_buffers(audio_codec_ctx);
     SDL_ClearQueuedAudio(audio_device);
+}
+
+void audio_player_cleanup() {
+    if (!audio_enabled) return;
+
+    printf("[Audio player] Stopping Audio Player...\n");
+
+    // Stop decoding thread
+    audio_thread_running = false;
+    if (audio_thread.joinable()) {
+        audio_thread.join();
+    }
+
+    // Stop and close SDL audio
+    if (audio_device != 0) {
+        SDL_PauseAudioDevice(audio_device, 1);
+        SDL_ClearQueuedAudio(audio_device);
+        SDL_CloseAudioDevice(audio_device);
+        audio_device = 0;
+    }
+
+    // Free audio frame
+    if (audio_frame) {
+        av_frame_free(&audio_frame);
+        audio_frame = nullptr;
+    }
+
+    // Free audio packet
+    if (audio_packet) {
+        av_packet_free(&audio_packet);
+        audio_packet = nullptr;
+    }
+
+    // Free software resampler
+    if (swr_ctx) {
+        swr_free(&swr_ctx);
+        swr_ctx = nullptr;
+    }
+
+    // Free codec context
+    if (audio_codec_ctx) {
+        avcodec_free_context(&audio_codec_ctx);
+        audio_codec_ctx = nullptr;
+    }
+
+    // Close input format context
+    if (fmt_ctx) {
+        avformat_close_input(&fmt_ctx);
+        fmt_ctx = nullptr;
+    }
+
+    // Optionally shut down SDL audio subsystem if no longer needed
+    if (SDL_WasInit(SDL_INIT_AUDIO)) {
+        SDL_QuitSubSystem(SDL_INIT_AUDIO);
+    }
+
+    // Reset states
+    audio_enabled = false;
+    audio_playing = false;
+    audio_stream_index = -1;
+    current_play_time.store(0.0f);
 }
