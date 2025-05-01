@@ -225,10 +225,16 @@ void ui_menu_input(VPADStatus* buf) {
         scan_directory(VIDEO_PATH, video_files);
         selected_index = 0;
         current_page = 0;
+    } else if(buf->trigger == VPAD_BUTTON_PLUS) {
+        *ui_app_state = STATE_SETTINGS;
     }
 }
 
-void ui_settings_input(VPADStatus* buf) {}
+void ui_settings_input(VPADStatus* buf) {
+    if(buf->trigger == VPAD_BUTTON_PLUS) {
+        *ui_app_state = STATE_MENU;
+    }
+}
 
 void ui_video_player_input(VPADStatus* buf) {
     if (buf->trigger == VPAD_BUTTON_A) {
@@ -244,9 +250,9 @@ void ui_video_player_input(VPADStatus* buf) {
         scan_directory(VIDEO_PATH, video_files);
         *ui_app_state = STATE_MENU;
     } else if (buf->trigger == VPAD_BUTTON_LEFT) {
-        video_player_seek(-5.0f);
+        // video_player_seek(-5.0f);
     } else if (buf->trigger == VPAD_BUTTON_RIGHT) {
-        video_player_seek(5.0f);
+        // video_player_seek(5.0f);
     }
 }
 
@@ -258,9 +264,9 @@ void ui_audio_player_input(VPADStatus* buf) {
         scan_directory(VIDEO_PATH, video_files);
         *ui_app_state = STATE_MENU;
     } else if (buf->trigger == VPAD_BUTTON_LEFT) {
-        audio_player_seek(-5.0f);
+        // audio_player_seek(-5.0f);
     } else if (buf->trigger == VPAD_BUTTON_RIGHT) {
-        audio_player_seek(5.0f);
+        // audio_player_seek(5.0f);
     }
 }
 
@@ -325,51 +331,33 @@ void ui_render() {
 }
 
 void ui_render_settings() {
-    if (nk_begin(ctx, "café media player v0.4.0 |  Files  [Settings]", nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), NK_WINDOW_BORDER | NK_WINDOW_TITLE)) {
-
-        nk_layout_row_dynamic(ctx, SCREEN_HEIGHT - 20, 1);
-        if (nk_group_begin(ctx, "settings_group", NK_WINDOW_BORDER | NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE)) {
-
-            // --- Video Playback ---
-            nk_layout_row_dynamic(ctx, 30, 1);
-            nk_label(ctx, "Settings", NK_TEXT_LEFT);
-
-            // --- Storage ---
-            nk_layout_row_dynamic(ctx, 30, 1);
-            nk_label(ctx, "Network Storage Setup", NK_TEXT_LEFT);
-            static char net_ip[64] = "192.168.1.100";
-            static char net_path[256] = "/share/media/";
-            static char net_pass[64] = "password";
-
-            nk_label(ctx, "IP Address", NK_TEXT_LEFT);
-            nk_edit_string_zero_terminated(ctx, NK_EDIT_FIELD, net_ip, sizeof(net_ip), nk_filter_default);
-
-            nk_label(ctx, "Password", NK_TEXT_LEFT);
-            nk_edit_string_zero_terminated(ctx, NK_EDIT_FIELD, net_pass, sizeof(net_pass), nk_filter_default);
-
-            nk_label(ctx, "Path", NK_TEXT_LEFT);
-            nk_edit_string_zero_terminated(ctx, NK_EDIT_FIELD, net_path, sizeof(net_path), nk_filter_default);
-
-            // --- Debug ---
-            nk_layout_row_dynamic(ctx, 30, 1);
-            nk_label(ctx, "Debug", NK_TEXT_LEFT);
-
-            static int debug_ui = 0;
-            nk_checkbox_label(ctx, "Toggle debug UI", &debug_ui);
-
-            nk_group_end(ctx);
-        }
-
+    if (nk_begin(ctx, "café media player v0.4.3 " __DATE__ " " __TIME__, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE)) {
+        nk_layout_row_dynamic(ctx, 30, 1);
+        nk_label(ctx, "Nothing here yet :)", NK_TEXT_LEFT);
         nk_end(ctx);
     }
+
+    ui_render_tooltip(current_page, ui_app_state);
 }
 
 void ui_render_tooltip(int _current_page, AppState* _app_state) {
     if (nk_begin(ctx, "tooltip_bar", nk_rect(0, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE, SCREEN_WIDTH, TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER | NK_WINDOW_BACKGROUND)) {
-        nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
-
-        nk_label(ctx, "(A) Start (-) Refresh (+) Settings", NK_TEXT_LEFT);
-        nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page + 1)).c_str(), NK_TEXT_RIGHT);
+        switch(*_app_state) {
+            case STATE_PLAYING_VIDEO:
+            break;
+            case STATE_PLAYING_AUDIO:
+            break;
+            case STATE_MENU:
+            nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
+            nk_label(ctx, "(A) Start (-) Refresh (+) Settings", NK_TEXT_LEFT);
+            nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page + 1)).c_str(), NK_TEXT_RIGHT);
+            break;
+            case STATE_SETTINGS:
+            nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
+            nk_label(ctx, "(A) Select (+) File browser", NK_TEXT_LEFT);
+            nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page + 1)).c_str(), NK_TEXT_RIGHT);
+            break;
+        }
 
         nk_end(ctx);
     }
@@ -387,7 +375,7 @@ void ui_render_file_browser() {
         size_t max_name_length = 15;
 
         for (int i = start; i < end; ++i) {
-            std::string display_str = truncate_filename(video_files[i], max_name_length); // Truncate long filenames
+            std::string display_str = truncate_filename(video_files[i], max_name_length);
 
             struct nk_style_button button_style = ctx->style.button;
             if (i == selected_index) {
@@ -401,8 +389,6 @@ void ui_render_file_browser() {
             }
 
             ctx->style.button = button_style;
-
-            // Handle row changes when the grid is full
             if ((i - start + 1) % GRID_COLS == 0 && i + 1 < end) {
                 nk_layout_row_dynamic(ctx, CELL_HEIGHT, GRID_COLS);
             }
@@ -425,14 +411,17 @@ void ui_render_player_hud(bool state, double current_time, double total_time) {
         nk_progress(ctx, &progress, total_time, NK_FIXED);
 
         nk_layout_row_dynamic(ctx, hud_height / 2, 2);
+        size_t max_filename_length = 10;
+
+        std::string filename = truncate_filename(video_files[selected_index].c_str(), max_filename_length);
         std::string hud_str = state ? "> " : "|| ";
         hud_str += format_time(current_time);
         hud_str += " / ";
         hud_str += format_time(total_time);
         hud_str += " Playing: ";
-        hud_str += video_files[selected_index];
-        nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
+        hud_str += filename;
 
+        nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
         nk_end(ctx);
     }
 }
