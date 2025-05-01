@@ -429,6 +429,8 @@ void ui_render_player_hud(bool state, double current_time, double total_time) {
         hud_str += format_time(current_time);
         hud_str += " / ";
         hud_str += format_time(total_time);
+        hud_str += " Playing: ";
+        hud_str += video_files[selected_index];
         nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
 
         nk_end(ctx);
