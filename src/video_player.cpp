@@ -23,10 +23,8 @@ extern "C" {
 int video_stream_index = -1;
 AVFormatContext* fmt_ctx = NULL;
 AVCodecContext* video_codec_ctx = NULL;
-SwrContext* swr_ctx = NULL;
 AVPacket* pkt = NULL;
 AVFrame* frame = NULL;
-AVRational framerate;
 
 frame_info* current_frame_info;
 
@@ -39,12 +37,20 @@ bool playing_video = false;
 std::queue<AVFrame*> video_frame_queue;
 std::mutex video_frame_mutex;
 std::condition_variable video_frame_cv;
-bool video_thread_running = true;
 std::thread video_thread;
 std::mutex playback_mutex;
 std::condition_variable playback_cv;
 int64_t pause_start_time = 0;
 int64_t total_paused_duration = 0;
+
+std::queue<AVPacket*> video_packet_queue;
+std::mutex packet_mutex;
+std::condition_variable packet_cv;
+bool demux_thread_running = false;
+bool decode_thread_running = false;
+
+std::thread demux_thread_handle;
+std::thread decode_thread_handle;
 
 AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int stream_index) {
     AVCodecParameters* codecpar = fmt_ctx->streams[stream_index]->codecpar;
@@ -164,11 +170,7 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
         video_codec_ctx->height
     );
 
-    framerate = fmt_ctx->streams[video_stream_index]->r_frame_rate;
-    double frameRate = av_q2d(framerate);
-    printf("FPS: %f\n", frameRate);
-
-    ticks_per_frame = frameRate * OSMillisecondsToTicks(1000);
+    ticks_per_frame = av_q2d(fmt_ctx->streams[video_stream_index]->r_frame_rate) * OSMillisecondsToTicks(1000);
 
     pkt = av_packet_alloc();
     frame = av_frame_alloc();
@@ -178,65 +180,71 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
     return 0;
 }
 
-void video_player_start(const char* path, AppState* app_state, SDL_Renderer& renderer, SDL_Texture*& texture) {
-    current_pts_seconds = 0;
-    video_thread_running = true;
+void demux_thread_func() {
+    AVPacket* pkt = av_packet_alloc();
 
-    if (current_frame_info) {
-        SDL_DestroyTexture(current_frame_info->texture);
-        delete current_frame_info;
-        current_frame_info = nullptr;
-    }    
+    while (demux_thread_running && av_read_frame(fmt_ctx, pkt) >= 0) {
+        if (pkt->stream_index == video_stream_index) {
+            AVPacket* copy = av_packet_alloc();
+            av_packet_ref(copy, pkt);
 
-    video_player_init(path, &renderer, texture);
-    start_video_decoding_thread();
-    *app_state = STATE_PLAYING_VIDEO;
+            {
+                std::lock_guard<std::mutex> lock(packet_mutex);
+                video_packet_queue.push(copy);
+            }
+            packet_cv.notify_one();
+        }
+        av_packet_unref(pkt);
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(packet_mutex);
+        demux_thread_running = false;
+    }
+    packet_cv.notify_all();
+    av_packet_free(&pkt);
 }
 
-void start_video_decoding_thread() {
-    printf("Starting video decoding thread...\n");
-    video_thread = std::thread(process_video_frame_thread);
-}
-
-void process_video_frame_thread() {
+void decode_thread_func() {
     AVFrame* local_frame = av_frame_alloc();
     AVRational time_base = fmt_ctx->streams[video_stream_index]->time_base;
-    start_time = av_gettime_relative();  // microseconds
-    total_paused_duration = 0;
-    pause_start_time = 0;
 
-    while (video_thread_running) {
+    while (decode_thread_running) {
+        AVPacket* pkt = nullptr;
+
         {
-            std::unique_lock<std::mutex> lock(playback_mutex);
-            playback_cv.wait(lock, [] { return playing_video || !video_thread_running; });
+            std::unique_lock<std::mutex> lock(packet_mutex);
+            packet_cv.wait(lock, [] {
+                return !video_packet_queue.empty() || !demux_thread_running;
+            });
+
+            if (video_packet_queue.empty() && !demux_thread_running) break;
+
+            pkt = video_packet_queue.front();
+            video_packet_queue.pop();
         }
 
-        AVPacket pkt;
-        if (av_read_frame(fmt_ctx, &pkt) >= 0) {
-            if (pkt.stream_index == video_stream_index) {
-                if (!avcodec_send_packet(video_codec_ctx, &pkt)) {
-                    while (!avcodec_receive_frame(video_codec_ctx, local_frame)) {
-                        int64_t pts_us = local_frame->pts * av_q2d(time_base) * 1e6;
+        if (avcodec_send_packet(video_codec_ctx, pkt) == 0) {
+            while (avcodec_receive_frame(video_codec_ctx, local_frame) == 0) {
+                int64_t pts_us = local_frame->pts * av_q2d(time_base) * 1e6;
+                int64_t now_us = av_gettime_relative() - start_time;
+                int64_t delay = pts_us - now_us;
+                if (delay > 0) av_usleep(delay);
 
-                        int64_t now_us = av_gettime_relative() - start_time;
-                        int64_t delay = pts_us - now_us;
-                        if (delay > 0) av_usleep(delay);                
+                current_pts_seconds = local_frame->pts * av_q2d(time_base);
 
-                        current_pts_seconds = local_frame->pts * av_q2d(time_base);
-                        if (video_frame_queue.size() < 10) {
-                            AVFrame* cloned_frame = av_frame_clone(local_frame);
-                            if (cloned_frame) {
-                                std::lock_guard<std::mutex> lock(video_frame_mutex);
-                                video_frame_queue.push(cloned_frame);
-                            }
-                        }
-                    }
+                AVFrame* cloned = av_frame_clone(local_frame);
+                if (cloned) {
+                    std::lock_guard<std::mutex> lock(video_frame_mutex);
+                    if (video_frame_queue.size() < 10)
+                        video_frame_queue.push(cloned);
+                    else
+                        av_frame_free(&cloned);
                 }
             }
-            av_packet_unref(&pkt);
-        } else {
-            video_thread_running = false;
         }
+
+        av_packet_free(&pkt);
     }
 
     av_frame_free(&local_frame);
@@ -256,6 +264,24 @@ int64_t video_player_get_total_play_time() {
     }
 
     return static_cast<int64_t>(duration);
+}
+
+void video_player_start(const char* path, AppState* app_state, SDL_Renderer& renderer, SDL_Texture*& texture) {
+    current_pts_seconds = 0;
+    if (current_frame_info) {
+        SDL_DestroyTexture(current_frame_info->texture);
+        delete current_frame_info;
+        current_frame_info = nullptr;
+    }    
+
+    video_player_init(path, &renderer, texture);
+    demux_thread_running = true;
+    decode_thread_running = true;
+
+    demux_thread_handle = std::thread(demux_thread_func);
+    decode_thread_handle = std::thread(decode_thread_func);
+
+    *app_state = STATE_PLAYING_VIDEO;
 }
 
 void render_video_frame(AppState* app_state, SDL_Renderer* renderer) {
@@ -296,10 +322,24 @@ void video_player_update(AppState* app_state, SDL_Renderer* renderer) {
 
 void stop_video_decoding_thread() {
     printf("Stopping video decoding thread...\n");
-    video_thread_running = false;
-    playback_cv.notify_all();
-    if (video_thread.joinable()) {
-        video_thread.join();  // Ensure the thread finishes before exiting
+    {
+        std::lock_guard<std::mutex> lock(packet_mutex);
+        demux_thread_running = false;
+        decode_thread_running = false;
+    }
+    packet_cv.notify_all(); // ensure waiting threads wake up
+
+    if (demux_thread_handle.joinable()) {
+        demux_thread_handle.join();
+    }
+    if (decode_thread_handle.joinable()) {
+        decode_thread_handle.join();
+    }
+
+    while (!video_packet_queue.empty()) {
+        AVPacket* pkt = video_packet_queue.front();
+        av_packet_free(&pkt);
+        video_packet_queue.pop();
     }
 }
 
@@ -332,11 +372,6 @@ int video_player_cleanup() {
     if (pkt) {
         av_packet_free(&pkt);
         pkt = nullptr;
-    }
-
-    if (swr_ctx) {
-        swr_free(&swr_ctx);
-        swr_ctx = nullptr;
     }
 
     if (video_codec_ctx) {

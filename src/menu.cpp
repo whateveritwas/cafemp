@@ -48,9 +48,9 @@ bool ambiance_playing = false;
 int current_page = 0;
 
 #define TOOLTIP_BAR_HEIGHT (48)
-#define ITEMS_PER_PAGE 12
 #define GRID_COLS 4
-#define GRID_ROWS 5
+#define GRID_ROWS 3
+#define ITEMS_PER_PAGE (GRID_COLS * GRID_ROWS)
 #define CELL_HEIGHT (160 * UI_SCALE)
 
 static const std::unordered_set<std::string> valid_video_endings = {
@@ -342,6 +342,17 @@ void ui_render_settings() {
     }
 }
 
+void ui_render_tooltip(int _current_page, AppState* _app_state) {
+    if (nk_begin(ctx, "tooltip_bar", nk_rect(0, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT, SCREEN_WIDTH, TOOLTIP_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND)) {
+        nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT, 2);
+
+        nk_label(ctx, "(A) Start (-) Refresh (+) Settings", NK_TEXT_LEFT);
+        nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page + 1)).c_str(), NK_TEXT_RIGHT);
+
+        nk_end(ctx);
+    }
+}
+
 void ui_render_file_browser() {
     if (nk_begin(ctx, "café media player v0.4.2 " __DATE__ " " __TIME__, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT), NK_WINDOW_TITLE)) {
 
@@ -374,21 +385,7 @@ void ui_render_file_browser() {
 
         nk_end(ctx);
     }
-
-    // Tooltip bar
-    if (nk_begin(ctx, "tooltip_bar", nk_rect(0, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT, SCREEN_WIDTH, TOOLTIP_BAR_HEIGHT),
-        NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND)) {
-
-        nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT, 4);
-
-        nk_label(ctx, "A Start", NK_TEXT_LEFT);
-        nk_label(ctx, "- Refresh", NK_TEXT_LEFT);
-        nk_label(ctx, "+ Settings", NK_TEXT_LEFT);
-        nk_label(ctx, ("L/R Page " + std::to_string(current_page + 1)).c_str(), NK_TEXT_RIGHT);
-
-        nk_end(ctx);
-    }
-
+    ui_render_tooltip(current_page, ui_app_state);
 }
 
 void ui_render_player_hud(bool state, double current_time, double total_time) {
