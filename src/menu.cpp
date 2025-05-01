@@ -75,7 +75,7 @@ bool valid_file_ending(const std::string& file_ending) {
 
 void scan_directory(const char* path, std::vector<std::string>& video_files) {
     video_files.clear();
-    printf("Opening folder %s\n", path);
+    printf("[Menu] Opening folder %s\n", path);
     DIR* dir = opendir(path);
     if (!dir) return;
 
@@ -158,7 +158,7 @@ void start_file(int i) {
     } else if (valid_audio_endings.count(extension)) {
         start_selected_audio();
     } else {
-        printf("Unsupported file type: %s\n", extension.c_str());
+        printf("[Menu] Unsupported file type: %s\n", extension.c_str());
     }
 }
 
