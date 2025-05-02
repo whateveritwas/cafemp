@@ -325,20 +325,23 @@ void ui_audio_player_input(VPADStatus* buf) {
 
 void ui_handle_vpad_input() {
     VPADStatus buf;
+    VPADTouchData touchpoint_calibrated;
     int key_press = VPADRead(VPAD_CHAN_0, &buf, 1, nullptr);
 
     if(!key_press) return;
-    touched = buf.tpFiltered2.touched;
+    
+    VPADGetTPCalibratedPoint(VPAD_CHAN_0, &touchpoint_calibrated, &buf.tpNormal);
+    touched = touchpoint_calibrated.touched;
     if (touched) {
-        VPADGetTPCalibratedPoint(VPAD_CHAN_0, &buf.tpFiltered2, &buf.tpFiltered2);
-        touch_x = (float)buf.tpFiltered2.x;
-        touch_y = (float)buf.tpFiltered2.y;
-        
+        touch_x = (float)touchpoint_calibrated.x;
+        touch_y = (float)touchpoint_calibrated.y;
+    } else {
+        touch_x = 0;
+        touch_y = 0;
     }
     nk_input_motion(ctx, (int)touch_x, (int)touch_y);
     nk_input_button(ctx, NK_BUTTON_LEFT, (int)touch_x, (int)touch_y, touched);
     
-
     switch(*ui_app_state) {
         case STATE_PLAYING_VIDEO: ui_video_player_input(&buf); break;
         case STATE_PLAYING_AUDIO: ui_audio_player_input(&buf); break;
@@ -404,12 +407,6 @@ void ui_render_settings() {
         if (nk_button_label(ctx, background_music_enabled ? "Background Music: On" : "Background Music: Off")) {
             background_music_enabled = !background_music_enabled;
         }
-
-        nk_layout_row_dynamic(ctx, 64 * UI_SCALE, 3);
-        if (nk_button_label(ctx, "Save")) {
-            save_settings();
-        }
-
         nk_end(ctx);
     }
 
@@ -430,7 +427,7 @@ void ui_render_tooltip(int _current_page_file_browser, AppState* _app_state) {
             break;
             case STATE_SETTINGS:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
-            nk_label(ctx, "(A) Select (+) / (B) File browser", NK_TEXT_LEFT);
+            nk_label(ctx, "(A) Select (+) / (B) File browser & Save", NK_TEXT_LEFT);
             nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page_file_browser + 1)).c_str(), NK_TEXT_RIGHT);
             break;
         }
@@ -440,7 +437,7 @@ void ui_render_tooltip(int _current_page_file_browser, AppState* _app_state) {
 }
 
 void ui_render_file_browser() {
-    if (nk_begin(ctx, "café media player v0.4.3 " __DATE__ " " __TIME__, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR)) {
+    if (nk_begin(ctx, VERSION_STRING, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR)) {
 
         nk_layout_row_dynamic(ctx, CELL_HEIGHT, GRID_COLS);
 
@@ -504,19 +501,19 @@ void ui_render_player_hud(bool state, double current_time, double total_time) {
 
 void ui_render_video_player() {
     SDL_RenderClear(ui_renderer);
-    // uint64_t test_ticks = OSGetSystemTime();
+    uint64_t test_ticks = OSGetSystemTime();
     video_player_update(ui_app_state, ui_renderer);
-    // uint64_t decoding_time = OSTicksToMicroseconds(OSGetSystemTime() - test_ticks);
+    uint64_t decoding_time = OSTicksToMicroseconds(OSGetSystemTime() - test_ticks);
 
     frame_info* current_frame_info = video_player_get_current_frame_info();
     if (!current_frame_info || !current_frame_info->texture) return;   
 
-    // static uint64_t last_decoding_time = 0;
-    // static uint64_t last_rendering_time = 0;
+    static uint64_t last_decoding_time = 0;
+    static uint64_t last_rendering_time = 0;
 
-    // uint64_t rendering_ticks = 0;
+    uint64_t rendering_ticks = 0;
 
-    // rendering_ticks = OSGetSystemTime();  // Start timing
+    rendering_ticks = OSGetSystemTime();  // Start timing
 
     if(!dest_rect_initialised) {
         int video_width = current_frame_info->frame_width;
@@ -541,7 +538,7 @@ void ui_render_video_player() {
         dest_rect_initialised = true;
     }
     SDL_RenderCopy(ui_renderer, current_frame_info->texture, NULL, &dest_rect);
-/*
+
     if(video_player_get_current_time() == video_player_get_total_play_time()) {
         audio_player_audio_play(true);
         video_player_play(true);
@@ -573,8 +570,8 @@ void ui_render_video_player() {
 
         nk_end(ctx);
     }
-*/
-    if (!video_player_is_playing()) ui_render_player_hud(video_player_is_playing(), video_player_get_current_time(), video_player_get_total_play_time());
+
+    if (!video_player_is_playing() || touched) ui_render_player_hud(video_player_is_playing(), video_player_get_current_time(), video_player_get_total_play_time());
 }
 
 void ui_render_audio_player() {
