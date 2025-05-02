@@ -134,11 +134,14 @@ frame_info* video_player_get_current_frame_info() {
 }
 
 int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*& texture) {
-    printf("Starting Video Player...\n");
-
-    printf("Opening file %s\n", filepath);
+    #ifdef DEBUG_VIDEO
+    printf("[Video player] Starting Video Player...\n");
+    printf("[Video player] Opening file %s\n", filepath);
+    #endif
     if (avformat_open_input(&fmt_ctx, filepath, NULL, NULL) != 0) {
-        printf("Could not open file: %s\n", filepath);
+    #ifdef DEBUG_VIDEO
+        printf("[Video player] Could not open file: %s\n", filepath);
+    #endif
         return -1;
     }
 
@@ -147,31 +150,36 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
     video_stream_index = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
 
     if (video_stream_index < 0) {
-        printf("Could not find video stream.\n");
+    #ifdef DEBUG_VIDEO
+        printf("[Video player] Could not find video stream.\n");
+    #endif
         return -1;
     }
 
-    video_codec_ctx = video_player_create_codec_context(fmt_ctx, video_stream_index);
+    #ifdef DEBUG_VIDEO
+    printf("[Video player] Video stream found: index %d\n", video_stream_index);
+    #endif
 
+    video_codec_ctx = video_player_create_codec_context(fmt_ctx, video_stream_index);
     if (!video_codec_ctx) return -1;
 
     SDL_DestroyTexture(texture);
-    texture = SDL_CreateTexture(
-        renderer,
-        SDL_PIXELFORMAT_IYUV,
-        SDL_TEXTUREACCESS_STREAMING,
-        video_codec_ctx->width,
-        video_codec_ctx->height
-    );
+    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
+                                 video_codec_ctx->width, video_codec_ctx->height);
 
     framerate = fmt_ctx->streams[video_stream_index]->r_frame_rate;
     double frameRate = av_q2d(framerate);
-    printf("FPS: %f\n", frameRate);
-
+    #ifdef DEBUG_VIDEO
+    printf("[Video player] FPS: %f\n", frameRate);
+    #endif
     ticks_per_frame = frameRate * OSMillisecondsToTicks(1000);
 
     pkt = av_packet_alloc();
     frame = av_frame_alloc();
+
+    #ifdef DEBUG_VIDEO
+    printf("[Video player] Codec, packet, and frame initialized\n");
+    #endif
 
     audio_player_init(filepath);
 
@@ -179,6 +187,10 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
 }
 
 void video_player_start(const char* path, AppState* app_state, SDL_Renderer& renderer, SDL_Texture*& texture) {
+    #ifdef DEBUG_VIDEO
+    printf("[Video player] Starting video playback\n");
+    #endif
+
     current_pts_seconds = 0;
     video_thread_running = true;
 
@@ -186,7 +198,7 @@ void video_player_start(const char* path, AppState* app_state, SDL_Renderer& ren
         SDL_DestroyTexture(current_frame_info->texture);
         delete current_frame_info;
         current_frame_info = nullptr;
-    }    
+    }
 
     video_player_init(path, &renderer, texture);
     start_video_decoding_thread();
@@ -194,7 +206,9 @@ void video_player_start(const char* path, AppState* app_state, SDL_Renderer& ren
 }
 
 void start_video_decoding_thread() {
-    printf("Starting video decoding thread...\n");
+    #ifdef DEBUG_VIDEO
+    printf("[Video player] Starting video decoding thread...\n");
+    #endif
     video_thread = std::thread(process_video_frame_thread);
 }
 
@@ -295,22 +309,28 @@ void video_player_update(AppState* app_state, SDL_Renderer* renderer) {
 }
 
 void stop_video_decoding_thread() {
-    printf("Stopping video decoding thread...\n");
+    #ifdef DEBUG_VIDEO
+    printf("[Video player] Stopping video decoding thread...\n");
+    #endif
     video_thread_running = false;
     playback_cv.notify_all();
     if (video_thread.joinable()) {
-        video_thread.join();  // Ensure the thread finishes before exiting
+        video_thread.join();
+    #ifdef DEBUG_VIDEO
+        printf("[Video player] Video decoding thread joined\n");
+    #endif
     }
 }
 
-int video_player_cleanup() {
-    printf("Stopping Video Player...\n");
 
-    // Stop audio and video threads
+int video_player_cleanup() {
+    #ifdef DEBUG_VIDEO
+    printf("[Video player] Stopping Video Player...\n");
+    #endif
+
     audio_player_cleanup();
     stop_video_decoding_thread();
 
-    // Clear queued frames
     {
         std::lock_guard<std::mutex> lock(video_frame_mutex);
         while (!video_frame_queue.empty()) {
@@ -318,46 +338,63 @@ int video_player_cleanup() {
             av_frame_free(&f);
             video_frame_queue.pop();
         }
+    #ifdef DEBUG_VIDEO
+        printf("[Video player] Cleared video frame queue\n");
+    #endif
     }
 
-    // Destroy frame texture and info
     if (current_frame_info) {
         if (current_frame_info->texture) {
             SDL_DestroyTexture(current_frame_info->texture);
         }
         delete current_frame_info;
         current_frame_info = nullptr;
+    #ifdef DEBUG_VIDEO
+        printf("[Video player] Freed current_frame_info\n");
+    #endif
     }
 
-    // Free last decoded frame and packet
     if (frame) {
         av_frame_free(&frame);
         frame = nullptr;
+    #ifdef DEBUG_VIDEO
+        printf("[Video player] Freed last video frame\n");
+    #endif
     }
 
     if (pkt) {
         av_packet_free(&pkt);
         pkt = nullptr;
+    #ifdef DEBUG_VIDEO
+        printf("[Video player] Freed packet\n");
+    #endif
     }
 
-    // Free decoder context
     if (video_codec_ctx) {
         avcodec_free_context(&video_codec_ctx);
         video_codec_ctx = nullptr;
+    #ifdef DEBUG_VIDEO
+        printf("[Video player] Freed codec context\n");
+    #endif
     }
 
-    // Close input file
     if (fmt_ctx) {
         avformat_close_input(&fmt_ctx);
         fmt_ctx = nullptr;
+    #ifdef DEBUG_VIDEO
+        printf("[Video player] Closed input file\n");
+    #endif
     }
 
-    // Reset playback state
     current_pts_seconds = 0;
     video_stream_index = -1;
     playing_video = false;
     total_paused_duration = 0;
     pause_start_time = 0;
+
+    #ifdef DEBUG_VIDEO
+    printf("[Video player] Cleanup complete\n");
+    #endif
 
     return 0;
 }

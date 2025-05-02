@@ -71,48 +71,92 @@ static void audio_decode_loop() {
 }
 
 int audio_player_init(const char* filepath) {
+    #ifdef DEBUG_AUDIO
     printf("[Audio player] Starting Audio Player...\n");
+    #endif
+
     if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
-        SDL_InitSubSystem(SDL_INIT_AUDIO);
+        if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
+    #ifdef DEBUG_AUDIO
+            printf("[Audio player] SDL_InitSubSystem failed: %s\n", SDL_GetError());
+    #endif
+            return -1;
+        }
+    #ifdef DEBUG_AUDIO
+        printf("[Audio player] SDL audio subsystem initialized\n");
+    #endif
+    } else {
+    #ifdef DEBUG_AUDIO
+        printf("[Audio player] SDL audio subsystem already initialized\n");
+    #endif
     }
 
+    #ifdef DEBUG_AUDIO
     printf("[Audio player] Opening file %s\n", filepath);
+    #endif
     if (avformat_open_input(&fmt_ctx, filepath, nullptr, nullptr) != 0) {
+    #ifdef DEBUG_AUDIO
         printf("[Audio player] Could not open input: %s\n", filepath);
+    #endif
         return -1;
     }
+    #ifdef DEBUG_AUDIO
+    printf("[Audio player] File opened successfully\n");
+    #endif
 
     if (avformat_find_stream_info(fmt_ctx, nullptr) < 0) {
+    #ifdef DEBUG_AUDIO
         printf("[Audio player] Could not find stream info\n");
+    #endif
         return -1;
     }
+    #ifdef DEBUG_AUDIO
+    printf("[Audio player] Stream info loaded\n");
+    #endif
 
     audio_stream_index = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
     if (audio_stream_index < 0) {
+    #ifdef DEBUG_AUDIO
         printf("[Audio player] No audio stream found\n");
+    #endif
         audio_enabled = false;
         return 0;
     }
+    #ifdef DEBUG_AUDIO
+    printf("[Audio player] Audio stream found: index %d\n", audio_stream_index);
+    #endif
 
     audio_enabled = true;
 
     AVCodecParameters* codecpar = fmt_ctx->streams[audio_stream_index]->codecpar;
     const AVCodec* codec = avcodec_find_decoder(codecpar->codec_id);
     if (!codec) {
+    #ifdef DEBUG_AUDIO
         printf("[Audio player] Unsupported codec\n");
+    #endif
         return -1;
     }
+    #ifdef DEBUG_AUDIO
+    printf("[Audio player] Codec found: %s\n", codec->name);
+    #endif
 
     audio_codec_ctx = avcodec_alloc_context3(codec);
     if (avcodec_parameters_to_context(audio_codec_ctx, codecpar) < 0) {
+    #ifdef DEBUG_AUDIO
         printf("[Audio player] Failed to copy codec parameters\n");
+    #endif
         return -1;
     }
 
     if (avcodec_open2(audio_codec_ctx, codec, nullptr) < 0) {
+    #ifdef DEBUG_AUDIO
         printf("[Audio player] Failed to open codec\n");
+    #endif
         return -1;
     }
+    #ifdef DEBUG_AUDIO
+    printf("[Audio player] Codec opened successfully\n");
+    #endif
 
     SDL_AudioSpec wanted_spec;
     SDL_zero(wanted_spec);
@@ -124,9 +168,14 @@ int audio_player_init(const char* filepath) {
 
     audio_device = SDL_OpenAudioDevice(nullptr, 0, &wanted_spec, &audio_spec, 0);
     if (!audio_device) {
+    #ifdef DEBUG_AUDIO
         printf("[Audio player] SDL_OpenAudioDevice failed: %s\n", SDL_GetError());
+    #endif
         return -1;
     }
+    #ifdef DEBUG_AUDIO
+    printf("[Audio player] SDL audio device opened\n");
+    #endif
 
     swr_ctx = swr_alloc_set_opts(
         nullptr,
@@ -138,16 +187,39 @@ int audio_player_init(const char* filepath) {
         audio_codec_ctx->sample_rate,
         0, nullptr
     );
-    swr_init(swr_ctx);
+    if (!swr_ctx || swr_init(swr_ctx) < 0) {
+    #ifdef DEBUG_AUDIO
+        printf("[Audio player] Failed to initialize resampler\n");
+    #endif
+        return -1;
+    }
+    #ifdef DEBUG_AUDIO
+    printf("[Audio player] Resampler initialized\n");
+    #endif
 
     audio_frame = av_frame_alloc();
     audio_packet = av_packet_alloc();
+    if (!audio_frame || !audio_packet) {
+    #ifdef DEBUG_AUDIO
+        printf("[Audio player] Failed to allocate frame or packet\n");
+    #endif
+        return -1;
+    }
+    #ifdef DEBUG_AUDIO
+    printf("[Audio player] Frame and packet allocated\n");
+    #endif
 
     SDL_ClearQueuedAudio(audio_device);
     SDL_PauseAudioDevice(audio_device, 0);
+    #ifdef DEBUG_AUDIO
+    printf("[Audio player] Audio playback started\n");
+    #endif
 
     audio_thread_running = true;
     audio_thread = std::thread(audio_decode_loop);
+    #ifdef DEBUG_AUDIO
+    printf("[Audio player] Decode thread started\n");
+    #endif
 
     return 0;
 }
@@ -205,63 +277,89 @@ void audio_player_seek(float delta_time) {
     SDL_ClearQueuedAudio(audio_device);
 }
 
+
 void audio_player_cleanup() {
-    if (!audio_enabled) return;
+    if (!audio_enabled) {
+    #ifdef DEBUG_AUDIO
+        printf("[Audio player] Audio already disabled, cleanup skipped\n");
+    #endif
+        return;
+    }
 
+    #ifdef DEBUG_AUDIO
     printf("[Audio player] Stopping Audio Player...\n");
+    #endif
 
-    // Stop decoding thread
     audio_thread_running = false;
     if (audio_thread.joinable()) {
         audio_thread.join();
+    #ifdef DEBUG_AUDIO
+        printf("[Audio player] Decode thread stopped\n");
+    #endif
     }
 
-    // Stop and close SDL audio
     if (audio_device != 0) {
         SDL_PauseAudioDevice(audio_device, 1);
         SDL_ClearQueuedAudio(audio_device);
         SDL_CloseAudioDevice(audio_device);
         audio_device = 0;
+    #ifdef DEBUG_AUDIO
+        printf("[Audio player] SDL audio device closed\n");
+    #endif
     }
 
-    // Free audio frame
     if (audio_frame) {
         av_frame_free(&audio_frame);
         audio_frame = nullptr;
+    #ifdef DEBUG_AUDIO
+        printf("[Audio player] Audio frame freed\n");
+    #endif
     }
 
-    // Free audio packet
     if (audio_packet) {
         av_packet_free(&audio_packet);
         audio_packet = nullptr;
+    #ifdef DEBUG_AUDIO
+        printf("[Audio player] Audio packet freed\n");
+    #endif
     }
 
-    // Free software resampler
     if (swr_ctx) {
         swr_free(&swr_ctx);
         swr_ctx = nullptr;
+    #ifdef DEBUG_AUDIO
+        printf("[Audio player] Resampler freed\n");
+    #endif
     }
 
-    // Free codec context
     if (audio_codec_ctx) {
         avcodec_free_context(&audio_codec_ctx);
         audio_codec_ctx = nullptr;
+    #ifdef DEBUG_AUDIO
+        printf("[Audio player] Codec context freed\n");
+    #endif
     }
 
-    // Close input format context
     if (fmt_ctx) {
         avformat_close_input(&fmt_ctx);
         fmt_ctx = nullptr;
+    #ifdef DEBUG_AUDIO
+        printf("[Audio player] Format context closed\n");
+    #endif
     }
 
-    // Optionally shut down SDL audio subsystem if no longer needed
     if (SDL_WasInit(SDL_INIT_AUDIO)) {
         SDL_QuitSubSystem(SDL_INIT_AUDIO);
+    #ifdef DEBUG_AUDIO
+        printf("[Audio player] SDL audio subsystem shut down\n");
+    #endif
     }
 
-    // Reset states
     audio_enabled = false;
     audio_playing = false;
     audio_stream_index = -1;
     current_play_time.store(0.0f);
+    #ifdef DEBUG_AUDIO
+    printf("[Audio player] Cleanup complete\n");
+    #endif
 }

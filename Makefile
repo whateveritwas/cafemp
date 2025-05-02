@@ -50,7 +50,7 @@ CFLAGS := -O3 -Ofast -ffast-math -funroll-loops -fexceptions -Wall -Werror \
           -mcpu=750 -meabi -mhard-float $(INCLUDE) -D__WIIU__ -D__WUT__ \
 
 # Debug info strip for release builds
-CFLAGS += -g0
+CFLAGS += -g0 -DDEBUG_AUDIO -DDEBUG_VIDEO
 
 LDFLAGS += -Wl,--gc-sections -flto
 
