@@ -466,6 +466,16 @@ void ui_render_video_player() {
     }
     SDL_RenderCopy(ui_renderer, current_frame_info->texture, NULL, &dest_rect);
 
+    if(video_player_get_current_time() == video_player_get_total_play_time()) {
+        audio_player_audio_play(true);
+        video_player_play(true);
+        video_player_cleanup();
+        audio_player_audio_play(false);
+        video_player_play(false);
+        scan_directory(VIDEO_PATH, video_files);
+        *ui_app_state = STATE_MENU;
+    }
+
     uint64_t current_rendering_time = OSTicksToMicroseconds(OSGetSystemTime() - rendering_ticks);
     if (current_rendering_time > 10) {
         last_rendering_time = current_rendering_time;
@@ -493,6 +503,14 @@ void ui_render_video_player() {
 
 void ui_render_audio_player() {
     SDL_RenderClear(ui_renderer);
+
+    if(audio_player_get_current_play_time() == audio_player_get_total_play_time()) {
+        audio_player_audio_play(true);
+        audio_player_cleanup();
+        video_player_play(false);
+        scan_directory(VIDEO_PATH, video_files);
+        *ui_app_state = STATE_MENU;
+    }
     ui_render_player_hud(audio_player_get_audio_play_state(), audio_player_get_current_play_time(), audio_player_get_total_play_time());
 }
 
