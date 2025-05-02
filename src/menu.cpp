@@ -1,6 +1,7 @@
 #include <vector>
 #include <string>
 #include <dirent.h>
+#include <jansson.h>
 #include <SDL2/SDL.h>
 #include <vpad/input.h>
 #include <unordered_set>
@@ -44,6 +45,7 @@ float touch_y = 0.0f;
 bool touched = false;
 
 bool ambiance_playing = false;
+static int background_music_enabled = 1;
 
 int current_page_file_browser = 0;
 int current_page_settings = 0;
@@ -77,6 +79,45 @@ std::string truncate_filename(const std::string& name, size_t max_length) {
     return name.substr(0, max_length - 3) + "...";
 }
 
+void save_settings() {
+
+    json_t *root = json_object();
+
+    json_object_set_new(root, "background_music_enabled", json_boolean(background_music_enabled));
+
+    FILE *file = fopen(SETTINGS_PATH, "w");
+    if (file) {
+        json_dumpf(root, file, JSON_INDENT(4));
+        fclose(file);
+    } else {
+        printf("[Settings] Failed to save settings to file.\n");
+    }
+
+    json_decref(root);
+}
+
+void load_settings() {
+    FILE *file = fopen(SETTINGS_PATH, "r");
+    if (file) {
+        json_error_t error;
+        json_t *root = json_loadf(file, 0, &error);
+        fclose(file);
+
+        if (root) {
+            json_t *bg_music = json_object_get(root, "background_music_enabled");
+            if (json_is_boolean(bg_music)) {
+                background_music_enabled = json_is_true(bg_music);
+            }
+
+            json_decref(root);  // Free the JSON object
+        } else {
+            printf("[Settings] Failed to load settings: %s\n", error.text);
+        }
+    } else {
+        printf("[Settings] No settings file found, using default settings.\n");
+    }
+}
+
 bool valid_file_ending(const std::string& file_ending) {
     return valid_video_endings.count(file_ending) > 0 || valid_audio_endings.count(file_ending) > 0;
 }
@@ -106,7 +147,7 @@ void start_selected_video() {
         audio_player_cleanup();
         ambiance_playing = false;
     }
-    std::string full_path = std::string(VIDEO_PATH) + video_files[selected_index];
+    std::string full_path = std::string(MEDIA_PATH) + video_files[selected_index];
     video_player_start(full_path.c_str(), ui_app_state, *ui_renderer, ui_texture);
     audio_player_audio_play(true);
     video_player_play(true);
@@ -119,7 +160,7 @@ void start_selected_audio() {
         audio_player_cleanup();
         ambiance_playing = false;
     }
-    std::string full_path = std::string(VIDEO_PATH) + video_files[selected_index];
+    std::string full_path = std::string(MEDIA_PATH) + video_files[selected_index];
     audio_player_init(full_path.c_str());
     audio_player_audio_play(true);
     *ui_app_state = STATE_PLAYING_AUDIO;
@@ -133,6 +174,12 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
     ui_app_state = _app_state;
 
     *ui_app_state = STATE_MENU;
+
+    try {
+        load_settings();
+    } catch(...) {
+        printf("[Menu] Unable to load settings.\n");
+    }
 
     ctx = nk_sdl_init(ui_window, ui_renderer);
 
@@ -149,14 +196,14 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
     }
 
     // Scan local directories
-    scan_directory(VIDEO_PATH, video_files);
+    scan_directory(MEDIA_PATH, video_files);
 }
 
 void start_file(int i) {
     SDL_SetRenderDrawColor(ui_renderer, 0, 0, 0, 255);
 
     dest_rect_initialised = false;
-    std::string full_path = std::string(VIDEO_PATH) + video_files[i];
+    std::string full_path = std::string(MEDIA_PATH) + video_files[i];
     std::string extension = full_path.substr(full_path.find_last_of('.') + 1);
     
     for (auto& c : extension) c = std::tolower(c);
@@ -223,7 +270,7 @@ void ui_menu_input(VPADStatus* buf) {
             selected_index = current_page_file_browser * ITEMS_PER_PAGE;
         }
     } else if (buf->trigger == VPAD_BUTTON_MINUS) {
-        scan_directory(VIDEO_PATH, video_files);
+        scan_directory(MEDIA_PATH, video_files);
         selected_index = 0;
         current_page_file_browser = 0;
     } else if(buf->trigger == VPAD_BUTTON_PLUS) {
@@ -232,7 +279,7 @@ void ui_menu_input(VPADStatus* buf) {
 }
 
 void ui_settings_input(VPADStatus* buf) {
-    if(buf->trigger == VPAD_BUTTON_PLUS) {
+    if(buf->trigger == VPAD_BUTTON_PLUS || buf->trigger == VPAD_BUTTON_B) {
         *ui_app_state = STATE_MENU;
     }
 }
@@ -248,7 +295,7 @@ void ui_video_player_input(VPADStatus* buf) {
         video_player_cleanup();
         audio_player_audio_play(false);
         video_player_play(false);
-        scan_directory(VIDEO_PATH, video_files);
+        scan_directory(MEDIA_PATH, video_files);
         *ui_app_state = STATE_MENU;
     } else if (buf->trigger == VPAD_BUTTON_LEFT) {
         // video_player_seek(-5.0f);
@@ -262,7 +309,7 @@ void ui_audio_player_input(VPADStatus* buf) {
         audio_player_audio_play(!audio_player_get_audio_play_state());
     } else if (buf->trigger == VPAD_BUTTON_B) {
         audio_player_cleanup();
-        scan_directory(VIDEO_PATH, video_files);
+        scan_directory(MEDIA_PATH, video_files);
         *ui_app_state = STATE_MENU;
     } else if (buf->trigger == VPAD_BUTTON_LEFT) {
         // audio_player_seek(-5.0f);
@@ -276,11 +323,11 @@ void ui_handle_vpad_input() {
     int key_press = VPADRead(VPAD_CHAN_0, &buf, 1, nullptr);
 
     if(!key_press) return;
-    touched = buf.tpNormal.touched;
+    touched = buf.tpFiltered2.touched;
     if (touched) {
-        VPADGetTPCalibratedPoint(VPAD_CHAN_0, &buf.tpNormal, &buf.tpNormal);
-        touch_x = (float)buf.tpNormal.x;
-        touch_y = (float)buf.tpNormal.y;
+        VPADGetTPCalibratedPoint(VPAD_CHAN_0, &buf.tpFiltered2, &buf.tpFiltered2);
+        touch_x = (float)buf.tpFiltered2.x;
+        touch_y = (float)buf.tpFiltered2.y;
         
     }
     nk_input_motion(ctx, (int)touch_x, (int)touch_y);
@@ -292,6 +339,24 @@ void ui_handle_vpad_input() {
         case STATE_PLAYING_AUDIO: ui_audio_player_input(&buf); break;
         case STATE_MENU: ui_menu_input(&buf); break;
         case STATE_SETTINGS: ui_settings_input(&buf); break;
+    }
+}
+
+void ui_handle_ambiance() {
+    if (!ambiance_playing && background_music_enabled) {
+        audio_player_init(AMBIANCE_PATH);
+        audio_player_audio_play(true);
+        ambiance_playing = true;
+    } else if((int)audio_player_get_current_play_time() == (int)audio_player_get_total_play_time() && ambiance_playing && background_music_enabled) {
+        audio_player_audio_play(true);
+        audio_player_cleanup();
+        audio_player_audio_play(false);
+        audio_player_init(AMBIANCE_PATH);
+        audio_player_audio_play(true);
+    } else if(ambiance_playing && !background_music_enabled) {
+        audio_player_audio_play(true);
+        audio_player_cleanup();
+        audio_player_audio_play(false);
     }
 }
 
@@ -310,31 +375,11 @@ void ui_render() {
         ui_render_audio_player();
         break;
         case STATE_MENU:
-        if (!ambiance_playing) {
-            audio_player_init(AMBIANCE_PATH);
-            audio_player_audio_play(true);
-            ambiance_playing = true;
-        } else if((int)audio_player_get_current_play_time() == (int)audio_player_get_total_play_time() && ambiance_playing) {
-            audio_player_audio_play(true);
-            audio_player_cleanup();
-            audio_player_audio_play(false);
-            audio_player_init(AMBIANCE_PATH);
-            audio_player_audio_play(true);
-        }
+        ui_handle_ambiance();
         ui_render_file_browser();
         break;
         case STATE_SETTINGS:
-        if (!ambiance_playing) {
-            audio_player_init(AMBIANCE_PATH);
-            audio_player_audio_play(true);
-            ambiance_playing = true;
-        } else if((int)audio_player_get_current_play_time() == (int)audio_player_get_total_play_time() && ambiance_playing) {
-            audio_player_audio_play(true);
-            audio_player_cleanup();
-            audio_player_audio_play(false);
-            audio_player_init(AMBIANCE_PATH);
-            audio_player_audio_play(true);
-        }
+        ui_handle_ambiance();
         ui_render_settings();
         break;
     }
@@ -343,9 +388,23 @@ void ui_render() {
 }
 
 void ui_render_settings() {
-    if (nk_begin(ctx, "café media player v0.4.3 " __DATE__ " " __TIME__, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE)) {
-        nk_layout_row_dynamic(ctx, 30, 1);
-        nk_label(ctx, "Nothing here yet :)", NK_TEXT_LEFT);
+    if (nk_begin(ctx, VERSION_STRING, 
+                 nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), 
+                 NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE)) {
+
+        nk_layout_row_dynamic(ctx, 64 * UI_SCALE, 1);
+        nk_label(ctx, "Settings", NK_TEXT_LEFT);
+
+        nk_layout_row_dynamic(ctx, 64 * UI_SCALE, 3);
+        if (nk_button_label(ctx, background_music_enabled ? "Background Music: On" : "Background Music: Off")) {
+            background_music_enabled = !background_music_enabled;
+        }
+
+        nk_layout_row_dynamic(ctx, 64 * UI_SCALE, 3);
+        if (nk_button_label(ctx, "Save")) {
+            save_settings();
+        }
+
         nk_end(ctx);
     }
 
@@ -366,7 +425,7 @@ void ui_render_tooltip(int _current_page_file_browser, AppState* _app_state) {
             break;
             case STATE_SETTINGS:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
-            nk_label(ctx, "(A) Select (+) File browser", NK_TEXT_LEFT);
+            nk_label(ctx, "(A) Select (+) / (B) File browser", NK_TEXT_LEFT);
             nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page_file_browser + 1)).c_str(), NK_TEXT_RIGHT);
             break;
         }
@@ -484,7 +543,7 @@ void ui_render_video_player() {
         video_player_cleanup();
         audio_player_audio_play(false);
         video_player_play(false);
-        scan_directory(VIDEO_PATH, video_files);
+        scan_directory(MEDIA_PATH, video_files);
         *ui_app_state = STATE_MENU;
     }
 
@@ -520,7 +579,7 @@ void ui_render_audio_player() {
         audio_player_audio_play(true);
         audio_player_cleanup();
         audio_player_audio_play(false);
-        scan_directory(VIDEO_PATH, video_files);
+        scan_directory(MEDIA_PATH, video_files);
         *ui_app_state = STATE_MENU;
     }
     ui_render_player_hud(audio_player_get_audio_play_state(), audio_player_get_current_play_time(), audio_player_get_total_play_time());
