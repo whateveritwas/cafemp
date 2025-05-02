@@ -16,7 +16,7 @@
 #define MEDIA_PATH "/vol/external01/wiiu/apps/cafemp/"
 #define SETTINGS_PATH "/vol/external01/wiiu/apps/cafemp/settings.json"
 
-#define VERSION_STRING "café media player v0.4.4 " __DATE__ " " __TIME__
+#define VERSION_STRING "café media player v0.4.5 " __DATE__ " " __TIME__
 
 enum AppState {
     STATE_MENU,

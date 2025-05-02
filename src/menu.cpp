@@ -168,6 +168,11 @@ void start_selected_audio() {
 }
 
 void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_texture, AppState* _app_state) {
+    audio_player_init("/vol/content/empty.mp3");
+    audio_player_audio_play(true);
+    audio_player_cleanup();
+    audio_player_audio_play(false);
+
     ui_window = _window;
     ui_renderer = _renderer;
     ui_texture = _texture;
@@ -499,19 +504,19 @@ void ui_render_player_hud(bool state, double current_time, double total_time) {
 
 void ui_render_video_player() {
     SDL_RenderClear(ui_renderer);
-    uint64_t test_ticks = OSGetSystemTime();
+    // uint64_t test_ticks = OSGetSystemTime();
     video_player_update(ui_app_state, ui_renderer);
-    uint64_t decoding_time = OSTicksToMicroseconds(OSGetSystemTime() - test_ticks);
+    // uint64_t decoding_time = OSTicksToMicroseconds(OSGetSystemTime() - test_ticks);
 
     frame_info* current_frame_info = video_player_get_current_frame_info();
     if (!current_frame_info || !current_frame_info->texture) return;   
 
-    static uint64_t last_decoding_time = 0;
-    static uint64_t last_rendering_time = 0;
+    // static uint64_t last_decoding_time = 0;
+    // static uint64_t last_rendering_time = 0;
 
-    uint64_t rendering_ticks = 0;
+    // uint64_t rendering_ticks = 0;
 
-    rendering_ticks = OSGetSystemTime();  // Start timing
+    // rendering_ticks = OSGetSystemTime();  // Start timing
 
     if(!dest_rect_initialised) {
         int video_width = current_frame_info->frame_width;
@@ -536,7 +541,7 @@ void ui_render_video_player() {
         dest_rect_initialised = true;
     }
     SDL_RenderCopy(ui_renderer, current_frame_info->texture, NULL, &dest_rect);
-
+/*
     if(video_player_get_current_time() == video_player_get_total_play_time()) {
         audio_player_audio_play(true);
         video_player_play(true);
@@ -568,7 +573,7 @@ void ui_render_video_player() {
 
         nk_end(ctx);
     }
-
+*/
     if (!video_player_is_playing()) ui_render_player_hud(video_player_is_playing(), video_player_get_current_time(), video_player_get_total_play_time());
 }
 
