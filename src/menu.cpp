@@ -45,7 +45,8 @@ bool touched = false;
 
 bool ambiance_playing = false;
 
-int current_page = 0;
+int current_page_file_browser = 0;
+int current_page_settings = 0;
 
 #define TOOLTIP_BAR_HEIGHT (48)
 #define GRID_COLS 4
@@ -173,7 +174,7 @@ void ui_menu_input(VPADStatus* buf) {
     int total_items = static_cast<int>(video_files.size());
     int total_pages = (total_items + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
 
-    int start = current_page * ITEMS_PER_PAGE;
+    int start = current_page_file_browser * ITEMS_PER_PAGE;
     int end = std::min(start + ITEMS_PER_PAGE, total_items);
 
     int local_index = selected_index - start;
@@ -191,18 +192,18 @@ void ui_menu_input(VPADStatus* buf) {
     } else if (buf->trigger == VPAD_BUTTON_LEFT || buf->trigger == VPAD_STICK_L_EMULATION_LEFT) {
         if (col > 0) {
             selected_index--;
-        } else if (current_page > 0) {
-            current_page--;
-            start = current_page * ITEMS_PER_PAGE;
+        } else if (current_page_file_browser > 0) {
+            current_page_file_browser--;
+            start = current_page_file_browser * ITEMS_PER_PAGE;
             end = std::min(start + ITEMS_PER_PAGE, total_items);
             selected_index = start + std::min(row * GRID_COLS + (GRID_COLS - 1), end - start - 1);
         }
     } else if (buf->trigger == VPAD_BUTTON_RIGHT || buf->trigger == VPAD_STICK_L_EMULATION_RIGHT) {
         if (col < GRID_COLS - 1 && selected_index + 1 < end) {
             selected_index++;
-        } else if (current_page < total_pages - 1) {
-            current_page++;
-            start = current_page * ITEMS_PER_PAGE;
+        } else if (current_page_file_browser < total_pages - 1) {
+            current_page_file_browser++;
+            start = current_page_file_browser * ITEMS_PER_PAGE;
             end = std::min(start + ITEMS_PER_PAGE, total_items);
             selected_index = start + row * GRID_COLS;
             if (selected_index >= end) {
@@ -212,19 +213,19 @@ void ui_menu_input(VPADStatus* buf) {
     } else if (buf->trigger == VPAD_BUTTON_A) {
         start_file(selected_index);
     } else if (buf->trigger == VPAD_BUTTON_L) {
-        if (current_page > 0) {
-            current_page--;
-            selected_index = current_page * ITEMS_PER_PAGE;
+        if (current_page_file_browser > 0) {
+            current_page_file_browser--;
+            selected_index = current_page_file_browser * ITEMS_PER_PAGE;
         }
     } else if (buf->trigger == VPAD_BUTTON_R) {
-        if (current_page < total_pages - 1) {
-            current_page++;
-            selected_index = current_page * ITEMS_PER_PAGE;
+        if (current_page_file_browser < total_pages - 1) {
+            current_page_file_browser++;
+            selected_index = current_page_file_browser * ITEMS_PER_PAGE;
         }
     } else if (buf->trigger == VPAD_BUTTON_MINUS) {
         scan_directory(VIDEO_PATH, video_files);
         selected_index = 0;
-        current_page = 0;
+        current_page_file_browser = 0;
     } else if(buf->trigger == VPAD_BUTTON_PLUS) {
         *ui_app_state = STATE_SETTINGS;
     }
@@ -274,7 +275,7 @@ void ui_handle_vpad_input() {
     VPADStatus buf;
     int key_press = VPADRead(VPAD_CHAN_0, &buf, 1, nullptr);
 
-    
+    if(!key_press) return;
     touched = buf.tpNormal.touched;
     if (touched) {
         VPADGetTPCalibratedPoint(VPAD_CHAN_0, &buf.tpNormal, &buf.tpNormal);
@@ -285,7 +286,6 @@ void ui_handle_vpad_input() {
     nk_input_motion(ctx, (int)touch_x, (int)touch_y);
     nk_input_button(ctx, NK_BUTTON_LEFT, (int)touch_x, (int)touch_y, touched);
     
-    if(!key_press) return;
 
     switch(*ui_app_state) {
         case STATE_PLAYING_VIDEO: ui_video_player_input(&buf); break;
@@ -314,6 +314,12 @@ void ui_render() {
             audio_player_init(AMBIANCE_PATH);
             audio_player_audio_play(true);
             ambiance_playing = true;
+        } else if((int)audio_player_get_current_play_time() == (int)audio_player_get_total_play_time() && ambiance_playing) {
+            audio_player_audio_play(true);
+            audio_player_cleanup();
+            audio_player_audio_play(false);
+            audio_player_init(AMBIANCE_PATH);
+            audio_player_audio_play(true);
         }
         ui_render_file_browser();
         break;
@@ -322,6 +328,12 @@ void ui_render() {
             audio_player_init(AMBIANCE_PATH);
             audio_player_audio_play(true);
             ambiance_playing = true;
+        } else if((int)audio_player_get_current_play_time() == (int)audio_player_get_total_play_time() && ambiance_playing) {
+            audio_player_audio_play(true);
+            audio_player_cleanup();
+            audio_player_audio_play(false);
+            audio_player_init(AMBIANCE_PATH);
+            audio_player_audio_play(true);
         }
         ui_render_settings();
         break;
@@ -337,10 +349,10 @@ void ui_render_settings() {
         nk_end(ctx);
     }
 
-    ui_render_tooltip(current_page, ui_app_state);
+    ui_render_tooltip(current_page_file_browser, ui_app_state);
 }
 
-void ui_render_tooltip(int _current_page, AppState* _app_state) {
+void ui_render_tooltip(int _current_page_file_browser, AppState* _app_state) {
     if (nk_begin(ctx, "tooltip_bar", nk_rect(0, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE, SCREEN_WIDTH, TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER | NK_WINDOW_BACKGROUND)) {
         switch(*_app_state) {
             case STATE_PLAYING_VIDEO:
@@ -350,12 +362,12 @@ void ui_render_tooltip(int _current_page, AppState* _app_state) {
             case STATE_MENU:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
             nk_label(ctx, "(A) Start (-) Refresh (+) Settings", NK_TEXT_LEFT);
-            nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page + 1)).c_str(), NK_TEXT_RIGHT);
+            nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page_file_browser + 1)).c_str(), NK_TEXT_RIGHT);
             break;
             case STATE_SETTINGS:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
             nk_label(ctx, "(A) Select (+) File browser", NK_TEXT_LEFT);
-            nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page + 1)).c_str(), NK_TEXT_RIGHT);
+            nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page_file_browser + 1)).c_str(), NK_TEXT_RIGHT);
             break;
         }
 
@@ -369,7 +381,7 @@ void ui_render_file_browser() {
         nk_layout_row_dynamic(ctx, CELL_HEIGHT, GRID_COLS);
 
         int total_files = static_cast<int>(video_files.size());
-        int start = current_page * ITEMS_PER_PAGE;
+        int start = current_page_file_browser * ITEMS_PER_PAGE;
         int end = std::min(start + ITEMS_PER_PAGE, total_files);
 
         size_t max_name_length = 15;
@@ -398,7 +410,7 @@ void ui_render_file_browser() {
     }
 
     // Render tooltip or other UI elements
-    ui_render_tooltip(current_page, ui_app_state);
+    ui_render_tooltip(current_page_file_browser, ui_app_state);
 }
 
 void ui_render_player_hud(bool state, double current_time, double total_time) {
@@ -504,10 +516,10 @@ void ui_render_video_player() {
 void ui_render_audio_player() {
     SDL_RenderClear(ui_renderer);
 
-    if(audio_player_get_current_play_time() == audio_player_get_total_play_time()) {
+    if((int)audio_player_get_current_play_time() == (int)audio_player_get_total_play_time()) {
         audio_player_audio_play(true);
         audio_player_cleanup();
-        video_player_play(false);
+        audio_player_audio_play(false);
         scan_directory(VIDEO_PATH, video_files);
         *ui_app_state = STATE_MENU;
     }
