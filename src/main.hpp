@@ -13,7 +13,10 @@
 
 #define FONT_PATH "/vol/content/Roboto-Regular.ttf"
 #define AMBIANCE_PATH "/vol/content/769925__lightmister__game-main-menu-fluids.mp3"
-#define VIDEO_PATH "/vol/external01/wiiu/apps/cafemp/"
+#define MEDIA_PATH "/vol/external01/wiiu/apps/cafemp/"
+#define SETTINGS_PATH "/vol/external01/wiiu/apps/cafemp/settings.json"
+
+#define VERSION_STRING "café media player v0.4.4 " __DATE__ " " __TIME__
 
 enum AppState {
     STATE_MENU,

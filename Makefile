@@ -61,7 +61,7 @@ LDFLAGS	=	-g $(ARCH) $(RPXSPECS) -Wl,-Map,$(notdir $*.map)
 
 LIBS := `/opt/devkitpro/portlibs/wiiu/bin/sdl2-config --libs` \
 		-lSDL2_ttf -lSDL2 -lfreetype -lbz2 -lharfbuzz -lSDL2_mixer \
-		-lSDL2_image -ljpeg -lpng -lopusfile -lopus \
+		-lSDL2_image -ljpeg -lpng -lopusfile -lopus -ljansson \
 		-lvorbisfile -lvorbis -logg -lmpg123 -lmodplug -lz \
 		`/opt/devkitpro/portlibs/ppc/bin/powerpc-eabi-pkg-config --cflags --libs libavformat libavcodec libavutil` \
 		-lswresample -lavformat -lavcodec -lavutil -lswscale
