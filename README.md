@@ -32,9 +32,8 @@
 - [ ] USB flash drive media playback (ext4/exFAT)
 - [ ] Audio visualization (for better audio feedback)
 - [ ] m3u IPTV support
-- [ ] Tooltips for better navigation
 - [ ] Miniplayer for audio
-- [ ] Wiimote input support
+- [ ] Wiimote / Pro Controller input support
 
 ---
 
