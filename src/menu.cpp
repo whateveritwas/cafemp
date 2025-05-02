@@ -285,6 +285,7 @@ void ui_menu_input(VPADStatus* buf) {
 
 void ui_settings_input(VPADStatus* buf) {
     if(buf->trigger == VPAD_BUTTON_PLUS || buf->trigger == VPAD_BUTTON_B) {
+        save_settings();
         *ui_app_state = STATE_MENU;
     }
 }
@@ -426,9 +427,9 @@ void ui_render_tooltip(int _current_page_file_browser, AppState* _app_state) {
             nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page_file_browser + 1)).c_str(), NK_TEXT_RIGHT);
             break;
             case STATE_SETTINGS:
-            nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
+            nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 1);
             nk_label(ctx, "(A) Select (+) / (B) File browser & Save", NK_TEXT_LEFT);
-            nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page_file_browser + 1)).c_str(), NK_TEXT_RIGHT);
+            //nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page_file_browser + 1)).c_str(), NK_TEXT_RIGHT);
             break;
         }
 
@@ -483,8 +484,8 @@ void ui_render_player_hud(bool state, double current_time, double total_time) {
         nk_size progress = static_cast<nk_size>(current_time);
         nk_progress(ctx, &progress, total_time, NK_FIXED);
 
-        nk_layout_row_dynamic(ctx, hud_height / 2, 2);
-        size_t max_filename_length = 10;
+        nk_layout_row_dynamic(ctx, hud_height / 2, 1);
+        size_t max_filename_length = 50;
 
         std::string filename = truncate_filename(video_files[selected_index].c_str(), max_filename_length);
         std::string hud_str = state ? "> " : "|| ";
