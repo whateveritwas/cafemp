@@ -15,6 +15,8 @@ int init_sdl() {
         return -1;
     }
 
+    void flush_audio_buffers();
+
     main_window = SDL_CreateWindow("", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, 0);
     main_renderer = SDL_CreateRenderer(main_window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     SDL_RenderSetLogicalSize(main_renderer, SCREEN_WIDTH, SCREEN_HEIGHT);
