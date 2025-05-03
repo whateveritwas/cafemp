@@ -1,12 +1,9 @@
 #include <vector>
 #include <string>
-#include <dirent.h>
-#include <jansson.h>
 #include <SDL2/SDL.h>
-#include <vpad/input.h>
 #include <unordered_set>
 #include <SDL2/SDL_ttf.h>
-#include <padscore/wpad.h>
+
 #include <coreinit/time.h>
 
 #define NK_INCLUDE_FIXED_TYPES
@@ -22,152 +19,32 @@
 #include "nuklear.h"
 #include "nuklear_sdl_renderer.h"
 
+#include "media_files.hpp"
+#include "settings.hpp"
+#include "app_state.hpp"
+#include "utils.hpp"
 #include "main.hpp"
 #include "video_player.hpp"
 #include "audio_player.hpp"
+#include "input.hpp"
 #include "menu.hpp"
 
-std::vector<std::string> video_files;
+int current_page_file_browser = 0;
 int selected_index = 0;
 
 // Ui
 SDL_Window* ui_window;
 SDL_Renderer* ui_renderer;
 SDL_Texture* ui_texture;
-AppState* ui_app_state;
 
 struct nk_context *ctx;
 SDL_Rect dest_rect = (SDL_Rect){0, 0, 0, 0};
 bool dest_rect_initialised = false;
 
-// Input
-float touch_x = 0.0f;
-float touch_y = 0.0f;
-bool touched = false;
-
 bool ambiance_playing = false;
 static int background_music_enabled = 1;
 
-int current_page_file_browser = 0;
-int current_page_settings = 0;
-
-#define TOOLTIP_BAR_HEIGHT (48)
-#define GRID_COLS 4
-#define GRID_ROWS 3
-#define ITEMS_PER_PAGE (GRID_COLS * GRID_ROWS)
-#define CELL_HEIGHT (((SCREEN_HEIGHT / 3) - TOOLTIP_BAR_HEIGHT) * UI_SCALE)
-
-static const std::unordered_set<std::string> valid_video_endings = {
-    "mp4", "mov", "mkv", "avi"
-};
-
-static const std::unordered_set<std::string> valid_audio_endings = {
-    "mp3", "wav", "ogg", "flac", "aac"
-};
-
-std::string format_time(int seconds) {
-    int mins = seconds / 60;
-    int secs = seconds % 60;
-    char buffer[16];
-    snprintf(buffer, sizeof(buffer), "%02d:%02d", mins, secs);
-    return std::string(buffer);
-}
-
-std::string truncate_filename(const std::string& name, size_t max_length) {
-    if (name.length() <= max_length) {
-        return name;
-    }
-    return name.substr(0, max_length - 3) + "...";
-}
-
-void save_settings() {
-    json_t *root = json_object();
-
-    json_object_set_new(root, "background_music_enabled", json_boolean(background_music_enabled));
-
-    FILE *file = fopen(SETTINGS_PATH, "w");
-    if (file) {
-        json_dumpf(root, file, JSON_INDENT(4));
-        fclose(file);
-    } else {
-        printf("[Settings] Failed to save settings to file.\n");
-    }
-
-    json_decref(root);
-}
-
-void load_settings() {
-    FILE *file = fopen(SETTINGS_PATH, "r");
-    if (file) {
-        json_error_t error;
-        json_t *root = json_loadf(file, 0, &error);
-        fclose(file);
-
-        if (root) {
-            json_t *bg_music = json_object_get(root, "background_music_enabled");
-            if (json_is_boolean(bg_music)) {
-                background_music_enabled = json_is_true(bg_music);
-            }
-
-            json_decref(root);  // Free the JSON object
-        } else {
-            printf("[Settings] Failed to load settings: %s\n", error.text);
-        }
-    } else {
-        printf("[Settings] No settings file found, using default settings.\n");
-    }
-}
-
-bool valid_file_ending(const std::string& file_ending) {
-    return valid_video_endings.count(file_ending) > 0 || valid_audio_endings.count(file_ending) > 0;
-}
-
-void scan_directory(const char* path, std::vector<std::string>& video_files) {
-    video_files.clear();
-    printf("[Menu] Opening folder %s\n", path);
-    DIR* dir = opendir(path);
-    if (!dir) return;
-
-    struct dirent* ent;
-    while ((ent = readdir(dir)) != NULL) {
-        std::string name(ent->d_name);
-        if (name.length() > 4) {
-            std::string ext = name.substr(name.find_last_of(".") + 1);
-            for (auto& c : ext) c = std::tolower(c);
-            if (valid_file_ending(ext)) {
-                video_files.push_back(name);
-            }
-        }
-    }    
-    closedir(dir);
-}
-
-void start_selected_video() {
-    if (ambiance_playing) {
-        audio_player_cleanup();
-        ambiance_playing = false;
-    }
-    std::string full_path = std::string(MEDIA_PATH) + video_files[selected_index];
-    video_player_start(full_path.c_str(), ui_app_state, *ui_renderer, ui_texture);
-    audio_player_audio_play(true);
-    video_player_play(true);
-    *ui_app_state = STATE_PLAYING_VIDEO;
-    SDL_RenderClear(ui_renderer);
-}
-
-void start_selected_audio() {
-    if (ambiance_playing) {
-        audio_player_cleanup();
-        ambiance_playing = false;
-    }
-    std::string full_path = std::string(MEDIA_PATH) + video_files[selected_index];
-    audio_player_init(full_path.c_str());
-    audio_player_audio_play(true);
-    *ui_app_state = STATE_PLAYING_AUDIO;
-    SDL_RenderClear(ui_renderer);
-}
-
-void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_texture, AppState* _app_state) {
+void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_texture) {
     WPADInit();
     WPADEnableURCC(true);
 
@@ -184,12 +61,9 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
     ui_window = _window;
     ui_renderer = _renderer;
     ui_texture = _texture;
-    ui_app_state = _app_state;
-
-    *ui_app_state = STATE_MENU;
 
     try {
-        load_settings();
+        load_settings(background_music_enabled);
     } catch(...) {
         printf("[Menu] Unable to load settings.\n");
     }
@@ -209,178 +83,43 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
     }
 
     // Scan local directories
-    scan_directory(MEDIA_PATH, video_files);
+    scan_directory(MEDIA_PATH);
 }
 
-void start_file(int i) {
-    SDL_SetRenderDrawColor(ui_renderer, 0, 0, 0, 255);
+void start_file(int index) {
+    if (ambiance_playing) {
+        audio_player_cleanup();
+        ambiance_playing = false;
+    }
 
-    dest_rect_initialised = false;
-    std::string full_path = std::string(MEDIA_PATH) + video_files[i];
+    std::string full_path = std::string(MEDIA_PATH) + get_media_files()[index];
     std::string extension = full_path.substr(full_path.find_last_of('.') + 1);
     
     for (auto& c : extension) c = std::tolower(c);
 
     if (valid_video_endings.count(extension)) {
-        start_selected_video();
+        start_selected_video(index);
     } else if (valid_audio_endings.count(extension)) {
-        start_selected_audio();
+        start_selected_audio(index);
     } else {
         printf("[Menu] Unsupported file type: %s\n", extension.c_str());
     }
 }
 
-void ui_menu_input(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
-    int total_items = static_cast<int>(video_files.size());
-    int total_pages = (total_items + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
-
-    int start = current_page_file_browser * ITEMS_PER_PAGE;
-    int end = std::min(start + ITEMS_PER_PAGE, total_items);
-
-    int local_index = selected_index - start;
-    int row = local_index / GRID_COLS;
-    int col = local_index % GRID_COLS;
-
-    if (vpad_status->trigger == VPAD_BUTTON_UP
-        || vpad_status->trigger == VPAD_STICK_L_EMULATION_UP
-        || wpad_status->leftStick.y > 500) {
-        if (row > 0) {
-            selected_index -= GRID_COLS;
-        }
-    } else if (vpad_status->trigger == VPAD_BUTTON_DOWN
-                || vpad_status->trigger == VPAD_STICK_L_EMULATION_DOWN
-                || wpad_status->leftStick.y < -500) {
-        if ((row + 1) * GRID_COLS < (end - start)) {
-            selected_index += GRID_COLS;
-        }
-    } else if (vpad_status->trigger == VPAD_BUTTON_LEFT
-                || vpad_status->trigger == VPAD_STICK_L_EMULATION_LEFT
-                || wpad_status->buttons & WPAD_PRO_STICK_L_EMULATION_LEFT
-                || wpad_status->leftStick.x < -500) {
-        if (col > 0) {
-            selected_index--;
-        } else if (current_page_file_browser > 0) {
-            current_page_file_browser--;
-            start = current_page_file_browser * ITEMS_PER_PAGE;
-            end = std::min(start + ITEMS_PER_PAGE, total_items);
-            selected_index = start + std::min(row * GRID_COLS + (GRID_COLS - 1), end - start - 1);
-        }
-    } else if (vpad_status->trigger == VPAD_BUTTON_RIGHT
-                || vpad_status->trigger == VPAD_STICK_L_EMULATION_RIGHT
-                || wpad_status->buttons & WPAD_PRO_STICK_L_EMULATION_RIGHT
-                || wpad_status->leftStick.x > 500) {
-        if (col < GRID_COLS - 1 && selected_index + 1 < end) {
-            selected_index++;
-        } else if (current_page_file_browser < total_pages - 1) {
-            current_page_file_browser++;
-            start = current_page_file_browser * ITEMS_PER_PAGE;
-            end = std::min(start + ITEMS_PER_PAGE, total_items);
-            selected_index = start + row * GRID_COLS;
-            if (selected_index >= end) {
-                selected_index = end - 1;
-            }
-        }
-    } else if (vpad_status->trigger == VPAD_BUTTON_A
-                || wpad_status->buttons == WPAD_PRO_BUTTON_A) {
-        start_file(selected_index);
-    } else if (vpad_status->trigger == VPAD_BUTTON_L
-                || wpad_status->buttons == WPAD_PRO_TRIGGER_L) {
-        if (current_page_file_browser > 0) {
-            current_page_file_browser--;
-            selected_index = current_page_file_browser * ITEMS_PER_PAGE;
-        }
-    } else if (vpad_status->trigger == VPAD_BUTTON_R
-                || wpad_status->buttons == WPAD_PRO_TRIGGER_R) {
-        if (current_page_file_browser < total_pages - 1) {
-            current_page_file_browser++;
-            selected_index = current_page_file_browser * ITEMS_PER_PAGE;
-        }
-    } else if (vpad_status->trigger == VPAD_BUTTON_MINUS
-                || wpad_status->buttons == WPAD_PRO_BUTTON_MINUS) {
-        scan_directory(MEDIA_PATH, video_files);
-        selected_index = 0;
-        current_page_file_browser = 0;
-    } else if(vpad_status->trigger == VPAD_BUTTON_PLUS
-                || wpad_status->buttons == WPAD_PRO_BUTTON_PLUS) {
-        *ui_app_state = STATE_SETTINGS;
-    }
+void start_selected_video(int selected_index) {
+    std::string full_path = std::string(MEDIA_PATH) + get_media_files()[selected_index];
+    video_player_start(full_path.c_str(), *ui_renderer, ui_texture);
+    audio_player_audio_play(true);
+    video_player_play(true);
+    app_state_set(STATE_PLAYING_VIDEO);
 }
 
-void ui_settings_input(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
-    if(vpad_status->trigger == VPAD_BUTTON_PLUS
-        || vpad_status->trigger == VPAD_BUTTON_B
-        || wpad_status->buttons == WPAD_PRO_BUTTON_B) {
-        save_settings();
-        *ui_app_state = STATE_MENU;
-    }
-}
+void start_selected_audio(int selected_index) {
 
-void ui_video_player_input(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
-    if (vpad_status->trigger == VPAD_BUTTON_A
-        || wpad_status->buttons == WPAD_PRO_BUTTON_A) {
-        audio_player_audio_play(!video_player_is_playing());
-        video_player_play(!video_player_is_playing());
-        SDL_RenderClear(ui_renderer);
-    } else if (vpad_status->trigger == VPAD_BUTTON_B
-        || wpad_status->buttons == WPAD_PRO_BUTTON_B) {
-        audio_player_audio_play(true);
-        video_player_play(true);
-        video_player_cleanup();
-        audio_player_audio_play(false);
-        video_player_play(false);
-        scan_directory(MEDIA_PATH, video_files);
-        *ui_app_state = STATE_MENU;
-    } else if (vpad_status->trigger == VPAD_BUTTON_LEFT) {
-        // video_player_seek(-5.0f);
-    } else if (vpad_status->trigger == VPAD_BUTTON_RIGHT) {
-        // video_player_seek(5.0f);
-    }
-}
-
-void ui_audio_player_input(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
-    if (vpad_status->trigger == VPAD_BUTTON_A
-        || wpad_status->buttons == WPAD_PRO_BUTTON_A) {
-        audio_player_audio_play(!audio_player_get_audio_play_state());
-    } else if (vpad_status->trigger == VPAD_BUTTON_B
-        || wpad_status->buttons == WPAD_PRO_BUTTON_B) {
-        audio_player_cleanup();
-        scan_directory(MEDIA_PATH, video_files);
-        *ui_app_state = STATE_MENU;
-    } else if (vpad_status->trigger == VPAD_BUTTON_LEFT) {
-        // audio_player_seek(-5.0f);
-    } else if (vpad_status->trigger == VPAD_BUTTON_RIGHT) {
-        // audio_player_seek(5.0f);
-    }
-}
-
-void ui_handle_vpad_input() {
-    int key_press = 0;
-    WPADStatusProController wpad_status;
-    VPADStatus vpad_status;
-    VPADTouchData touchpoint_calibrated;
-    key_press = VPADRead(VPAD_CHAN_0, &vpad_status, 1, nullptr);
-    WPADRead(WPAD_CHAN_0, &wpad_status);
-    
-    if(key_press) {    
-        VPADGetTPCalibratedPoint(VPAD_CHAN_0, &touchpoint_calibrated, &vpad_status.tpNormal);
-        touched = touchpoint_calibrated.touched;
-        if (touched) {
-            touch_x = (float)touchpoint_calibrated.x;
-            touch_y = (float)touchpoint_calibrated.y;
-        } else {
-            touch_x = 0;
-            touch_y = 0;
-        }
-        nk_input_motion(ctx, (int)touch_x, (int)touch_y);
-        nk_input_button(ctx, NK_BUTTON_LEFT, (int)touch_x, (int)touch_y, touched);
-    }
-    
-    switch(*ui_app_state) {
-        case STATE_PLAYING_VIDEO: ui_video_player_input(&vpad_status, &wpad_status); break;
-        case STATE_PLAYING_AUDIO: ui_audio_player_input(&vpad_status, &wpad_status); break;
-        case STATE_MENU: ui_menu_input(&vpad_status, &wpad_status); break;
-        case STATE_SETTINGS: ui_settings_input(&vpad_status, &wpad_status); break;
-    }
+    std::string full_path = std::string(MEDIA_PATH) + get_media_files()[selected_index];
+    audio_player_init(full_path.c_str());
+    audio_player_audio_play(true);
+    app_state_set(STATE_PLAYING_AUDIO);
 }
 
 void ui_handle_ambiance() {
@@ -404,15 +143,17 @@ void ui_handle_ambiance() {
 void ui_render() {
     nk_input_begin(ctx);
 
-    ui_handle_vpad_input();
+    ui_handle_vpad_input(current_page_file_browser, selected_index, ctx);
 
     nk_input_end(ctx);
 
-    switch(*ui_app_state) {
+    switch(app_state_get()) {
         case STATE_PLAYING_VIDEO:
+        SDL_RenderClear(ui_renderer);
         ui_render_video_player();
         break;
         case STATE_PLAYING_AUDIO:
+        SDL_RenderClear(ui_renderer);
         ui_render_audio_player();
         break;
         case STATE_MENU:
@@ -443,12 +184,12 @@ void ui_render_settings() {
         nk_end(ctx);
     }
 
-    ui_render_tooltip(current_page_file_browser, ui_app_state);
+    ui_render_tooltip(current_page_file_browser);
 }
 
-void ui_render_tooltip(int _current_page_file_browser, AppState* _app_state) {
+void ui_render_tooltip(int _current_page_file_browser) {
     if (nk_begin(ctx, "tooltip_bar", nk_rect(0, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE, SCREEN_WIDTH, TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER | NK_WINDOW_BACKGROUND)) {
-        switch(*_app_state) {
+        switch(app_state_get()) {
             case STATE_PLAYING_VIDEO:
             break;
             case STATE_PLAYING_AUDIO:
@@ -474,14 +215,14 @@ void ui_render_file_browser() {
 
         nk_layout_row_dynamic(ctx, CELL_HEIGHT, GRID_COLS);
 
-        int total_files = static_cast<int>(video_files.size());
+        int total_files = static_cast<int>(get_media_files().size());
         int start = current_page_file_browser * ITEMS_PER_PAGE;
         int end = std::min(start + ITEMS_PER_PAGE, total_files);
 
         size_t max_name_length = 15;
 
         for (int i = start; i < end; ++i) {
-            std::string display_str = truncate_filename(video_files[i], max_name_length);
+            std::string display_str = truncate_filename(get_media_files()[i], max_name_length);
 
             struct nk_style_button button_style = ctx->style.button;
             if (i == selected_index) {
@@ -491,6 +232,9 @@ void ui_render_file_browser() {
 
             if (nk_button_label(ctx, display_str.c_str())) {
                 selected_index = i;
+                dest_rect_initialised = false;
+                SDL_SetRenderDrawColor(ui_renderer, 0, 0, 0, 255);
+                SDL_RenderClear(ui_renderer);
                 start_file(selected_index);
             }
 
@@ -504,7 +248,7 @@ void ui_render_file_browser() {
     }
 
     // Render tooltip or other UI elements
-    ui_render_tooltip(current_page_file_browser, ui_app_state);
+    ui_render_tooltip(current_page_file_browser);
 }
 
 void ui_render_player_hud(bool state, double current_time, double total_time) {
@@ -519,7 +263,7 @@ void ui_render_player_hud(bool state, double current_time, double total_time) {
         nk_layout_row_dynamic(ctx, hud_height / 2, 1);
         size_t max_filename_length = 50;
 
-        std::string filename = truncate_filename(video_files[selected_index].c_str(), max_filename_length);
+        std::string filename = truncate_filename(get_media_files()[selected_index].c_str(), max_filename_length);
         std::string hud_str = state ? "> " : "|| ";
         hud_str += format_time(current_time);
         hud_str += " / ";
@@ -535,7 +279,7 @@ void ui_render_player_hud(bool state, double current_time, double total_time) {
 void ui_render_video_player() {
     SDL_RenderClear(ui_renderer);
     uint64_t test_ticks = OSGetSystemTime();
-    video_player_update(ui_app_state, ui_renderer);
+    video_player_update(ui_renderer);
     uint64_t decoding_time = OSTicksToMicroseconds(OSGetSystemTime() - test_ticks);
 
     frame_info* current_frame_info = video_player_get_current_frame_info();
@@ -578,8 +322,8 @@ void ui_render_video_player() {
         video_player_cleanup();
         audio_player_audio_play(false);
         video_player_play(false);
-        scan_directory(MEDIA_PATH, video_files);
-        *ui_app_state = STATE_MENU;
+        scan_directory(MEDIA_PATH);
+        app_state_set(STATE_MENU);
     }
 
     uint64_t current_rendering_time = OSTicksToMicroseconds(OSGetSystemTime() - rendering_ticks);
@@ -604,7 +348,7 @@ void ui_render_video_player() {
         nk_end(ctx);
     }
 
-    if (!video_player_is_playing() || touched) ui_render_player_hud(video_player_is_playing(), video_player_get_current_time(), video_player_get_total_play_time());
+    if (!video_player_is_playing()) ui_render_player_hud(video_player_is_playing(), video_player_get_current_time(), video_player_get_total_play_time());
 }
 
 void ui_render_audio_player() {
@@ -614,8 +358,8 @@ void ui_render_audio_player() {
         audio_player_audio_play(true);
         audio_player_cleanup();
         audio_player_audio_play(false);
-        scan_directory(MEDIA_PATH, video_files);
-        *ui_app_state = STATE_MENU;
+        scan_directory(MEDIA_PATH);
+        app_state_set(STATE_MENU);
     }
     ui_render_player_hud(audio_player_get_audio_play_state(), audio_player_get_current_play_time(), audio_player_get_total_play_time());
 }

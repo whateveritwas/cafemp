@@ -18,12 +18,11 @@
 
 #define VERSION_STRING "café media player v0.4.6 " __DATE__ " " __TIME__
 
-enum AppState {
-    STATE_MENU,
-    STATE_PLAYING_VIDEO,
-    STATE_PLAYING_AUDIO,
-    STATE_SETTINGS
-};
+#define TOOLTIP_BAR_HEIGHT (48)
+#define GRID_COLS 4
+#define GRID_ROWS 3
+#define ITEMS_PER_PAGE (GRID_COLS * GRID_ROWS)
+#define CELL_HEIGHT (((SCREEN_HEIGHT / 3) - TOOLTIP_BAR_HEIGHT) * UI_SCALE)
 
 struct frame_info {
     SDL_Texture* texture;

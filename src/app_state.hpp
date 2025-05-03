@@ -1,0 +1,14 @@
+#ifndef APP_STATE_H
+#define APP_STATE_H
+
+enum AppState {
+    STATE_MENU,
+    STATE_PLAYING_VIDEO,
+    STATE_PLAYING_AUDIO,
+    STATE_SETTINGS
+};
+
+AppState app_state_get();
+void app_state_set(AppState new_app_state);
+
+#endif
