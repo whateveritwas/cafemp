@@ -16,6 +16,7 @@ extern "C" {
 #include <mutex>
 #include <condition_variable>
 
+#include "app_state.hpp"
 #include "main.hpp"
 #include "video_player.hpp"
 #include "audio_player.hpp"
@@ -186,7 +187,7 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
     return 0;
 }
 
-void video_player_start(const char* path, AppState* app_state, SDL_Renderer& renderer, SDL_Texture*& texture) {
+void video_player_start(const char* path, SDL_Renderer& renderer, SDL_Texture*& texture) {
     #ifdef DEBUG_VIDEO
     printf("[Video player] Starting video playback\n");
     #endif
@@ -202,7 +203,7 @@ void video_player_start(const char* path, AppState* app_state, SDL_Renderer& ren
 
     video_player_init(path, &renderer, texture);
     start_video_decoding_thread();
-    *app_state = STATE_PLAYING_VIDEO;
+    app_state_set(STATE_PLAYING_VIDEO);
 }
 
 void start_video_decoding_thread() {
@@ -272,7 +273,7 @@ int64_t video_player_get_total_play_time() {
     return static_cast<int64_t>(duration);
 }
 
-void render_video_frame(AppState* app_state, SDL_Renderer* renderer) {
+void render_video_frame(SDL_Renderer* renderer) {
     AVFrame* frame = nullptr;
 
     {
@@ -302,10 +303,10 @@ void render_video_frame(AppState* app_state, SDL_Renderer* renderer) {
     av_frame_free(&frame); // Free the cloned frame
 }
 
-void video_player_update(AppState* app_state, SDL_Renderer* renderer) {
+void video_player_update(SDL_Renderer* renderer) {
     if (!playing_video) return;
 
-    render_video_frame(app_state, renderer);
+    render_video_frame(renderer);
 }
 
 void stop_video_decoding_thread() {

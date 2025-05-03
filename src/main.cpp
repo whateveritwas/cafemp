@@ -3,7 +3,6 @@
 #include "main.hpp"
 #include "menu.hpp"
 
-AppState main_app_state = STATE_MENU;
 SDL_Window* main_window;
 SDL_Renderer* main_renderer;
 SDL_Texture* main_texture;
@@ -37,7 +36,7 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    ui_init(main_window, main_renderer, main_texture, &main_app_state);
+    ui_init(main_window, main_renderer, main_texture);
 
     while (WHBProcIsRunning()) {
         ui_render();

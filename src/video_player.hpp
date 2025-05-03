@@ -17,12 +17,12 @@ void video_player_play(bool new_state);
 int64_t video_player_get_current_time();
 frame_info* video_player_get_current_frame_info();
 int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*& texture);
-void video_player_start(const char* path, AppState* app_state, SDL_Renderer& renderer, SDL_Texture*& texture);
+void video_player_start(const char* path, SDL_Renderer& renderer, SDL_Texture*& texture);
 void start_video_decoding_thread();
 void process_video_frame_thread();
 int64_t video_player_get_total_play_time();
-void render_video_frame(AppState* app_state, SDL_Renderer* renderer);
-void video_player_update(AppState* app_state, SDL_Renderer* renderer);
+void render_video_frame(SDL_Renderer* renderer);
+void video_player_update(SDL_Renderer* renderer);
 void stop_video_decoding_thread();
 int video_player_cleanup();
 
