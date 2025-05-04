@@ -1,6 +1,6 @@
 
 #include <vpad/input.h>
-#include <padscore/wpad.h>
+// #include <padscore/wpad.h>
 
 #include "app_state.hpp"
 #include "main.hpp"
@@ -99,7 +99,7 @@ void ui_settings_input(VPADStatus* vpad_status, WPADStatusProController* wpad_st
     if(vpad_status->trigger == VPAD_BUTTON_PLUS
         || vpad_status->trigger == VPAD_BUTTON_B
         || wpad_status->buttons == WPAD_PRO_BUTTON_B) {
-        save_settings(1);
+        settings_save();
         app_state_set(STATE_MENU);
     }
 }
@@ -147,7 +147,7 @@ void ui_handle_vpad_input(int& current_page_file_browser, int& selected_index, n
     VPADStatus vpad_status;
     VPADTouchData touchpoint_calibrated;
     key_press = VPADRead(VPAD_CHAN_0, &vpad_status, 1, nullptr);
-    WPADRead(WPAD_CHAN_0, &wpad_status);
+    /// WPADRead(WPAD_CHAN_0, &wpad_status);
     
     if(key_press) {    
         VPADGetTPCalibratedPoint(VPAD_CHAN_0, &touchpoint_calibrated, &vpad_status.tpNormal);

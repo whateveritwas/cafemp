@@ -47,25 +47,29 @@ static int background_music_enabled = 1;
 void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_texture) {
     WPADInit();
     WPADEnableURCC(true);
-
+    /*
     WPADExtensionType extType;
     if (WPADProbe(WPAD_CHAN_0, &extType) == 0 && extType == WPAD_EXT_PRO_CONTROLLER) {
         WPADSetDataFormat(WPAD_CHAN_0, WPAD_FMT_PRO_CONTROLLER);
     }
-
-    audio_player_init("/vol/content/empty.mp3");
-    audio_player_audio_play(true);
-    audio_player_cleanup();
-    audio_player_audio_play(false);
+    */
 
     ui_window = _window;
     ui_renderer = _renderer;
     ui_texture = _texture;
 
     try {
-        load_settings(background_music_enabled);
+        settings_load();
+        background_music_enabled = *static_cast<int*>(settings_get_value(SETTINGS_BKG_MUSIC_ENABLED));
     } catch(...) {
         printf("[Menu] Unable to load settings.\n");
+    }
+
+    if(!background_music_enabled) {
+        audio_player_init("/vol/content/empty.mp3");
+        audio_player_audio_play(true);
+        audio_player_cleanup();
+        audio_player_audio_play(false);
     }
 
     ctx = nk_sdl_init(ui_window, ui_renderer);
@@ -180,6 +184,8 @@ void ui_render_settings() {
         nk_layout_row_dynamic(ctx, 64 * UI_SCALE, 3);
         if (nk_button_label(ctx, background_music_enabled ? "Background Music: On" : "Background Music: Off")) {
             background_music_enabled = !background_music_enabled;
+
+            settings_set(SETTINGS_BKG_MUSIC_ENABLED, &background_music_enabled);
         }
         nk_end(ctx);
     }
