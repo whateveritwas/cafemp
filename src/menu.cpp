@@ -147,7 +147,7 @@ void ui_handle_ambiance() {
 void ui_render() {
     nk_input_begin(ctx);
 
-    ui_handle_vpad_input(current_page_file_browser, selected_index, ctx);
+    input_update(current_page_file_browser, selected_index, ctx);
 
     nk_input_end(ctx);
 
@@ -174,12 +174,10 @@ void ui_render() {
 }
 
 void ui_render_settings() {
-    if (nk_begin(ctx, VERSION_STRING, 
-                 nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), 
-                 NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE)) {
+    if (nk_begin(ctx, VERSION_STRING, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE | NK_WINDOW_BORDER)) {
 
         nk_layout_row_dynamic(ctx, 64 * UI_SCALE, 1);
-        nk_label(ctx, "Settings", NK_TEXT_LEFT);
+        nk_label(ctx, "Settings -- TOUCH ONLY FOR THE TIME BEING SORRY NON DRC USERS", NK_TEXT_LEFT);
 
         nk_layout_row_dynamic(ctx, 64 * UI_SCALE, 3);
         if (nk_button_label(ctx, background_music_enabled ? "Background Music: On" : "Background Music: Off")) {
@@ -217,7 +215,7 @@ void ui_render_tooltip(int _current_page_file_browser) {
 }
 
 void ui_render_file_browser() {
-    if (nk_begin(ctx, VERSION_STRING, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR)) {
+    if (nk_begin(ctx, VERSION_STRING, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
 
         nk_layout_row_dynamic(ctx, CELL_HEIGHT, GRID_COLS);
 
@@ -226,7 +224,6 @@ void ui_render_file_browser() {
         int end = std::min(start + ITEMS_PER_PAGE, total_files);
 
         size_t max_name_length = 15;
-
         for (int i = start; i < end; ++i) {
             std::string display_str = truncate_filename(get_media_files()[i], max_name_length);
 
