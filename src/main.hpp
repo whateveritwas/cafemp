@@ -22,7 +22,7 @@
 #define GRID_COLS 4
 #define GRID_ROWS 3
 #define ITEMS_PER_PAGE (GRID_COLS * GRID_ROWS)
-#define CELL_HEIGHT (((SCREEN_HEIGHT / 3) - TOOLTIP_BAR_HEIGHT) * UI_SCALE)
+#define CELL_HEIGHT (((SCREEN_HEIGHT / GRID_ROWS) - TOOLTIP_BAR_HEIGHT) * UI_SCALE)
 
 struct frame_info {
     SDL_Texture* texture;

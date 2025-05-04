@@ -4,14 +4,10 @@
 #include <vpad/input.h>
 #include <padscore/wpad.h>
 
-void ui_menu_input(VPADStatus* vpad_status, 
-                   WPADStatusProController* wpad_status, 
-                   int& current_page_file_browser, 
-                   int& selected_index);
-
-void ui_settings_input(VPADStatus* vpad_status, WPADStatusProController* wpad_status);
-void ui_video_player_input(VPADStatus* vpad_status, WPADStatusProController* wpad_status);
-void ui_audio_player_input(VPADStatus* vpad_status, WPADStatusProController* wpad_status);
-void ui_handle_vpad_input(int& current_page_file_browser, int& selected_index, nk_context *ctx);
+void input_menu(VPADStatus* vpad_status, WPADStatusProController* wpad_status, int& current_page_file_browser, int& selected_index);
+void input_settings(VPADStatus* vpad_status, WPADStatusProController* wpad_status);
+void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_status);
+void input_audio_player(VPADStatus* vpad_status, WPADStatusProController* wpad_status);
+void input_update(int& current_page_file_browser, int& selected_index, nk_context *ctx);
 
 #endif
