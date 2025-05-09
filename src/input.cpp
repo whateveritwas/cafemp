@@ -1,6 +1,6 @@
 
 #include <vpad/input.h>
-// #include <padscore/wpad.h>
+#include <padscore/wpad.h>
 
 #include "app_state.hpp"
 #include "main.hpp"
@@ -12,6 +12,7 @@
 #include "video_player.hpp"
 #include "input.hpp"
 
+bool use_wpad_pro = false;
 float touch_x = 0.0f;
 float touch_y = 0.0f;
 bool touched = false;
@@ -29,20 +30,20 @@ void input_menu(VPADStatus* vpad_status, WPADStatusProController* wpad_status, i
 
     if (vpad_status->trigger == VPAD_BUTTON_UP
         || vpad_status->trigger == VPAD_STICK_L_EMULATION_UP
-        /*|| wpad_status->leftStick.y > 500*/) {
+        || wpad_status->leftStick.y > 500) {
         if (row > 0) {
             selected_index -= GRID_COLS;
         }
     } else if (vpad_status->trigger == VPAD_BUTTON_DOWN
                 || vpad_status->trigger == VPAD_STICK_L_EMULATION_DOWN
-                /*|| wpad_status->leftStick.y < -500*/) {
+                || wpad_status->leftStick.y < -500) {
         if ((row + 1) * GRID_COLS < (end - start)) {
             selected_index += GRID_COLS;
         }
     } else if (vpad_status->trigger == VPAD_BUTTON_LEFT
                 || vpad_status->trigger == VPAD_STICK_L_EMULATION_LEFT
-                /*|| wpad_status->buttons & WPAD_PRO_STICK_L_EMULATION_LEFT
-                || wpad_status->leftStick.x < -500*/) {
+                || wpad_status->buttons & WPAD_PRO_STICK_L_EMULATION_LEFT
+                || wpad_status->leftStick.x < -500) {
         if (col > 0) {
             selected_index--;
         } else if (current_page_file_browser > 0) {
@@ -53,8 +54,8 @@ void input_menu(VPADStatus* vpad_status, WPADStatusProController* wpad_status, i
         }
     } else if (vpad_status->trigger == VPAD_BUTTON_RIGHT
                 || vpad_status->trigger == VPAD_STICK_L_EMULATION_RIGHT
-                /*|| wpad_status->buttons & WPAD_PRO_STICK_L_EMULATION_RIGHT
-                || wpad_status->leftStick.x > 500*/) {
+                || wpad_status->buttons & WPAD_PRO_STICK_L_EMULATION_RIGHT
+                || wpad_status->leftStick.x > 500) {
         if (col < GRID_COLS - 1 && selected_index + 1 < end) {
             selected_index++;
         } else if (current_page_file_browser < total_pages - 1) {
@@ -67,29 +68,57 @@ void input_menu(VPADStatus* vpad_status, WPADStatusProController* wpad_status, i
             }
         }
     } else if (vpad_status->trigger == VPAD_BUTTON_A
-                /*|| wpad_status->buttons == WPAD_PRO_BUTTON_A*/) {
+                || wpad_status->buttons == WPAD_PRO_BUTTON_A) {
         start_file(selected_index);
     } else if (vpad_status->trigger == VPAD_BUTTON_L
-                /*|| wpad_status->buttons == WPAD_PRO_TRIGGER_L*/) {
+                || wpad_status->buttons == WPAD_PRO_TRIGGER_L) {
         if (current_page_file_browser > 0) {
             current_page_file_browser--;
             selected_index = current_page_file_browser * ITEMS_PER_PAGE;
         }
     } else if (vpad_status->trigger == VPAD_BUTTON_R
-                /*|| wpad_status->buttons == WPAD_PRO_TRIGGER_R*/) {
+                || wpad_status->buttons == WPAD_PRO_TRIGGER_R) {
         if (current_page_file_browser < total_pages - 1) {
             current_page_file_browser++;
             selected_index = current_page_file_browser * ITEMS_PER_PAGE;
         }
     } else if (vpad_status->trigger == VPAD_BUTTON_MINUS
-                /*|| wpad_status->buttons == WPAD_PRO_BUTTON_MINUS*/) {
+                || wpad_status->buttons == WPAD_PRO_BUTTON_MINUS) {
         scan_directory(MEDIA_PATH);
         selected_index = 0;
         current_page_file_browser = 0;
     } else if(vpad_status->trigger == VPAD_BUTTON_PLUS
-                /*|| wpad_status->buttons == WPAD_PRO_BUTTON_PLUS*/) {
+                || wpad_status->buttons == WPAD_PRO_BUTTON_PLUS) {
             app_state_set(STATE_SETTINGS);
     }
+}
+
+void input_use_wpad(bool state) {
+    use_wpad_pro = state;
+}
+
+bool input_use_wpad() {
+    return use_wpad_pro;
+}
+
+void input_check_wpad_pro_connection() {
+    WPADExtensionType extType;
+    if (WPADProbe(WPAD_CHAN_0, &extType) == 0 && extType == WPAD_EXT_PRO_CONTROLLER) {
+        if (!input_use_wpad()) {
+            WPADSetDataFormat(WPAD_CHAN_0, WPAD_FMT_PRO_CONTROLLER);
+            input_use_wpad(true);
+            printf("[Input] Pro Controller connected\n");
+        }
+    } else {
+        if (input_use_wpad()) {
+            input_use_wpad(false);
+            printf("[Input] Pro Controller disconnected.\n");
+        }
+    }
+}
+
+bool input_is_vpad_touched() {
+    return touched;
 }
 
 void input_settings(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
@@ -103,11 +132,11 @@ void input_settings(VPADStatus* vpad_status, WPADStatusProController* wpad_statu
 
 void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
     if (vpad_status->trigger == VPAD_BUTTON_A
-        /*|| wpad_status->buttons == WPAD_PRO_BUTTON_A*/) {
+        || wpad_status->buttons == WPAD_PRO_BUTTON_A) {
         audio_player_audio_play(!video_player_is_playing());
         video_player_play(!video_player_is_playing());
     } else if (vpad_status->trigger == VPAD_BUTTON_B
-        /*|| wpad_status->buttons == WPAD_PRO_BUTTON_B*/) {
+        || wpad_status->buttons == WPAD_PRO_BUTTON_B) {
         audio_player_audio_play(true);
         video_player_play(true);
         video_player_cleanup();
@@ -124,10 +153,10 @@ void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
 
 void input_audio_player(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
     if (vpad_status->trigger == VPAD_BUTTON_A
-        /*|| wpad_status->buttons == WPAD_PRO_BUTTON_A*/) {
+        || wpad_status->buttons == WPAD_PRO_BUTTON_A) {
         audio_player_audio_play(!audio_player_get_audio_play_state());
     } else if (vpad_status->trigger == VPAD_BUTTON_B
-        /*|| wpad_status->buttons == WPAD_PRO_BUTTON_B*/) {
+        || wpad_status->buttons == WPAD_PRO_BUTTON_B) {
         audio_player_cleanup();
         scan_directory(MEDIA_PATH);
         app_state_set(STATE_MENU);
@@ -140,11 +169,12 @@ void input_audio_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
 
 void input_update(int& current_page_file_browser, int& selected_index, nk_context *ctx) {
     int key_press = 0;
-    WPADStatusProController wpad_status;
-    VPADStatus vpad_status;
-    VPADTouchData touchpoint_calibrated;
+    WPADStatusProController wpad_status = { 0 };
+    VPADStatus vpad_status = { 0 };
+    VPADTouchData touchpoint_calibrated = { 0 };
     key_press = VPADRead(VPAD_CHAN_0, &vpad_status, 1, nullptr);
-    /// WPADRead(WPAD_CHAN_0, &wpad_status);
+
+    if(use_wpad_pro) WPADRead(WPAD_CHAN_0, &wpad_status);
     
     if(key_press) {    
         VPADGetTPCalibratedPoint(VPAD_CHAN_0, &touchpoint_calibrated, &vpad_status.tpNormal);

@@ -139,7 +139,12 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
     printf("[Video player] Starting Video Player...\n");
     printf("[Video player] Opening file %s\n", filepath);
     #endif
-    if (avformat_open_input(&fmt_ctx, filepath, NULL, NULL) != 0) {
+
+    AVDictionary *options = NULL;
+    av_dict_set(&options, "probesize", "10000", 0);
+    av_dict_set(&options, "fpsprobesize", "10000", 0);
+    av_dict_set(&options, "formatprobesize", "10000", 0);
+    if (avformat_open_input(&fmt_ctx, filepath, NULL, &options) != 0) {
     #ifdef DEBUG_VIDEO
         printf("[Video player] Could not open file: %s\n", filepath);
     #endif
@@ -232,17 +237,22 @@ void process_video_frame_thread() {
                 if (!avcodec_send_packet(video_codec_ctx, &pkt)) {
                     while (!avcodec_receive_frame(video_codec_ctx, local_frame)) {
                         int64_t pts_us = local_frame->pts * av_q2d(time_base) * 1e6;
-
                         int64_t now_us = av_gettime_relative() - start_time;
                         int64_t delay = pts_us - now_us;
-                        if (delay > 0) av_usleep(delay);                
+
+                        if (delay > 0) {
+                            av_usleep(delay);
+                        }
 
                         current_pts_seconds = local_frame->pts * av_q2d(time_base);
-                        if (video_frame_queue.size() < 10) {
-                            AVFrame* cloned_frame = av_frame_clone(local_frame);
-                            if (cloned_frame) {
-                                std::lock_guard<std::mutex> lock(video_frame_mutex);
-                                video_frame_queue.push(cloned_frame);
+
+                        {
+                            std::lock_guard<std::mutex> lock(video_frame_mutex);
+                            if (video_frame_queue.size() < 10) { // Buffer limit
+                                video_frame_queue.push(local_frame); // Directly push the frame
+                                local_frame = av_frame_alloc(); // Allocate a new frame to receive next one
+                            } else {
+                                av_frame_unref(local_frame); // Frame too old, discard it
                             }
                         }
                     }
