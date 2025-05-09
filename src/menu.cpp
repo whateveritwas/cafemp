@@ -47,12 +47,8 @@ static int background_music_enabled = 1;
 void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_texture) {
     WPADInit();
     WPADEnableURCC(true);
-    /*
-    WPADExtensionType extType;
-    if (WPADProbe(WPAD_CHAN_0, &extType) == 0 && extType == WPAD_EXT_PRO_CONTROLLER) {
-        WPADSetDataFormat(WPAD_CHAN_0, WPAD_FMT_PRO_CONTROLLER);
-    }
-    */
+    
+    input_check_wpad_pro_connection();   
 
     ui_window = _window;
     ui_renderer = _renderer;
@@ -147,6 +143,7 @@ void ui_handle_ambiance() {
 void ui_render() {
     nk_input_begin(ctx);
 
+    input_check_wpad_pro_connection();
     input_update(current_page_file_browser, selected_index, ctx);
 
     nk_input_end(ctx);
@@ -330,15 +327,19 @@ void ui_render_video_player() {
     }
 
     uint64_t current_rendering_time = OSTicksToMicroseconds(OSGetSystemTime() - rendering_ticks);
-    if (current_rendering_time > 10) {
+    if (current_rendering_time > 5) {
         last_rendering_time = current_rendering_time;
     }
+
+    #ifdef DEBUG_VIDEO
+    printf("Dec: %lli Rndr: %lli\n", decoding_time, current_rendering_time);
+    #endif
 
     struct nk_rect hud_rect = nk_rect(0, 0, 512 * UI_SCALE, 30 * UI_SCALE);
     if (nk_begin(ctx, "Decoding", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
         nk_layout_row_dynamic(ctx, 30 * UI_SCALE, 2);
     
-        if (decoding_time > 10) {
+        if (decoding_time > 5) {
             last_decoding_time = decoding_time;
         }
 
@@ -351,7 +352,7 @@ void ui_render_video_player() {
         nk_end(ctx);
     }
 
-    if (!video_player_is_playing()) ui_render_player_hud(video_player_is_playing(), video_player_get_current_time(), video_player_get_total_play_time());
+    if (!video_player_is_playing() || input_is_vpad_touched()) ui_render_player_hud(video_player_is_playing(), video_player_get_current_time(), video_player_get_total_play_time());
 }
 
 void ui_render_audio_player() {
