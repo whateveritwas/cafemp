@@ -161,9 +161,9 @@ void input_audio_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
         scan_directory(MEDIA_PATH);
         app_state_set(STATE_MENU);
     } else if (vpad_status->trigger == VPAD_BUTTON_LEFT) {
-        // audio_player_seek(-5.0f);
+        audio_player_seek(-5.0f);
     } else if (vpad_status->trigger == VPAD_BUTTON_RIGHT) {
-        // audio_player_seek(5.0f);
+        audio_player_seek(5.0f);
     }
 }
 

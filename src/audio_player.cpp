@@ -1,8 +1,11 @@
-#include "audio_player.hpp"
+
+#include <mutex>
 #include <cstdio>
-#include <cstring>
 #include <thread>
 #include <atomic>
+#include <cstring>
+
+#include "audio_player.hpp"
 
 static SDL_AudioDeviceID audio_device = 0;
 static SDL_AudioSpec audio_spec;
@@ -23,8 +26,18 @@ static bool audio_playing = false;
 static int out_channels = 2;
 static int out_sample_rate = 48000;
 
+static std::mutex audio_mutex;
+static std::atomic<bool> switching_audio_stream = false;
+
 static void audio_decode_loop() {
     while (audio_thread_running.load()) {
+        if (switching_audio_stream.load()) {
+            SDL_Delay(5); // Let main thread do the switching
+            continue;
+        }
+
+        std::lock_guard<std::mutex> lock(audio_mutex);
+
         if (!fmt_ctx || !audio_enabled || !audio_playing) {
             SDL_Delay(10);
             continue;
@@ -69,6 +82,32 @@ static void audio_decode_loop() {
         }
     }
 }
+
+#ifdef DEBUG_AUDIO
+void print_audio_tracks() {
+    if (!fmt_ctx) {
+        printf("[Audio Player] Error: Format context not initialized.\n");
+        return;
+    }
+
+    printf("[Audio Player] Available audio tracks:\n");
+
+    for (unsigned int i = 0; i < fmt_ctx->nb_streams; ++i) {
+        AVStream* stream = fmt_ctx->streams[i];
+        if (stream->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+            AVDictionaryEntry* lang = av_dict_get(stream->metadata, "language", NULL, 0);
+            const char* language = lang ? lang->value : "und";
+
+            printf("[Audio Player]  Stream %d: Codec: %s | Channels: %d | Sample Rate: %d | Language: %s\n",
+                i,
+                avcodec_get_name(stream->codecpar->codec_id),
+                stream->codecpar->channels,
+                stream->codecpar->sample_rate,
+                language);
+        }
+    }
+}
+#endif
 
 int audio_player_init(const char* filepath) {
     #ifdef DEBUG_AUDIO
@@ -209,6 +248,10 @@ int audio_player_init(const char* filepath) {
     printf("[Audio player] Frame and packet allocated\n");
     #endif
 
+    #ifdef DEBUG_AUDIO
+    print_audio_tracks();
+    #endif
+
     SDL_ClearQueuedAudio(audio_device);
     SDL_PauseAudioDevice(audio_device, 0);
     #ifdef DEBUG_AUDIO
@@ -222,6 +265,69 @@ int audio_player_init(const char* filepath) {
     #endif
 
     return 0;
+}
+
+bool audio_player_switch_audio_stream(int new_stream_index) {
+    if (!fmt_ctx || new_stream_index < 0 || new_stream_index >= (int)fmt_ctx->nb_streams)
+        return false;
+
+    AVStream* new_stream = fmt_ctx->streams[new_stream_index];
+    if (new_stream->codecpar->codec_type != AVMEDIA_TYPE_AUDIO)
+        return false;
+
+    switching_audio_stream.store(true);
+    std::lock_guard<std::mutex> lock(audio_mutex);
+
+    // Stop SDL playback temporarily
+    SDL_PauseAudioDevice(audio_device, 1);
+    SDL_ClearQueuedAudio(audio_device);
+
+    // Cleanup old contexts
+    if (audio_codec_ctx) {
+        avcodec_free_context(&audio_codec_ctx);
+        audio_codec_ctx = nullptr;
+    }
+
+    if (swr_ctx) {
+        swr_free(&swr_ctx);
+        swr_ctx = nullptr;
+    }
+
+    // Setup new codec
+    const AVCodec* codec = avcodec_find_decoder(new_stream->codecpar->codec_id);
+    if (!codec) {
+        switching_audio_stream.store(false);
+        return false;
+    }
+
+    audio_codec_ctx = avcodec_alloc_context3(codec);
+    if (avcodec_parameters_to_context(audio_codec_ctx, new_stream->codecpar) < 0 ||
+        avcodec_open2(audio_codec_ctx, codec, nullptr) < 0) {
+        switching_audio_stream.store(false);
+        return false;
+    }
+
+    // Setup new resampler
+    swr_ctx = swr_alloc_set_opts(nullptr,
+        av_get_default_channel_layout(out_channels), AV_SAMPLE_FMT_S16, out_sample_rate,
+        av_get_default_channel_layout(audio_codec_ctx->channels), audio_codec_ctx->sample_fmt, audio_codec_ctx->sample_rate,
+        0, nullptr);
+    if (!swr_ctx || swr_init(swr_ctx) < 0) {
+        switching_audio_stream.store(false);
+        return false;
+    }
+
+    audio_stream_index = new_stream_index;
+
+    // Flush decoder buffers
+    avcodec_flush_buffers(audio_codec_ctx);
+
+    // Resume playback if it was playing
+    if (audio_playing)
+        SDL_PauseAudioDevice(audio_device, 0);
+
+    switching_audio_stream.store(false);
+    return true;
 }
 
 double audio_player_get_current_play_time() {
@@ -266,17 +372,36 @@ bool audio_player_get_audio_play_state() {
 void audio_player_seek(float delta_time) {
     if (!fmt_ctx || !audio_enabled) return;
 
-    int64_t seek_target = (int64_t)(delta_time / av_q2d(fmt_ctx->streams[audio_stream_index]->time_base));
+    switching_audio_stream.store(true);
+    std::lock_guard<std::mutex> lock(audio_mutex);
+
+    double base_time = audio_player_get_current_play_time();
+    double target_time = base_time + delta_time;
+
+    if (target_time < 0.0)
+        target_time = 0.0;
+
+    double total_time = audio_player_get_total_play_time();
+    if (target_time > total_time)
+        target_time = total_time;
+
+    int64_t seek_target = static_cast<int64_t>(target_time / av_q2d(fmt_ctx->streams[audio_stream_index]->time_base));
 
     if (av_seek_frame(fmt_ctx, audio_stream_index, seek_target, AVSEEK_FLAG_BACKWARD) < 0) {
         printf("[Audio player] Seek failed\n");
+        switching_audio_stream.store(false);
         return;
     }
 
     avcodec_flush_buffers(audio_codec_ctx);
     SDL_ClearQueuedAudio(audio_device);
-}
 
+    if (swr_ctx) swr_init(swr_ctx);
+
+    current_play_time.store(static_cast<float>(target_time));
+
+    switching_audio_stream.store(false);
+}
 
 void audio_player_cleanup() {
     if (!audio_enabled) {
