@@ -6,7 +6,7 @@
 #include <unordered_set>
 
 static const std::unordered_set<std::string> valid_video_endings = {
-    "mp4", "mov", "mkv", "avi"
+    "mp4", "mov", "avi"
 };
 
 static const std::unordered_set<std::string> valid_audio_endings = {
