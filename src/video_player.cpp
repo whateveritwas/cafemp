@@ -51,8 +51,20 @@ AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int 
     AVCodecParameters* codecpar = fmt_ctx->streams[stream_index]->codecpar;
     const AVCodec* codec = avcodec_find_decoder(codecpar->codec_id);
     AVCodecContext* codec_ctx = avcodec_alloc_context3(codec);
-    avcodec_parameters_to_context(codec_ctx, codecpar);
 
+    codec_ctx->thread_count = 2;
+    codec_ctx->thread_type = FF_THREAD_FRAME;
+
+    codec_ctx->flags |= AV_CODEC_FLAG_LOW_DELAY;
+    codec_ctx->skip_frame = AVDISCARD_NONREF;
+
+    codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
+
+    if (avcodec_parameters_to_context(codec_ctx, codecpar) < 0) {
+        avcodec_free_context(&codec_ctx);
+        return NULL;
+    }
+    
     if (avcodec_open2(codec_ctx, codec, NULL) < 0) {
         printf("Failed to open codec.\n");
         return NULL;

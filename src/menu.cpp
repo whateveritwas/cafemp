@@ -92,6 +92,7 @@ void start_file(int index) {
         ambiance_playing = false;
     }
 
+    dest_rect_initialised = false;
     std::string full_path = std::string(MEDIA_PATH) + get_media_files()[index];
     std::string extension = full_path.substr(full_path.find_last_of('.') + 1);
     
@@ -213,7 +214,6 @@ void ui_render_tooltip(int _current_page_file_browser) {
 
 void ui_render_file_browser() {
     if (nk_begin(ctx, VERSION_STRING, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
-
         nk_layout_row_dynamic(ctx, CELL_HEIGHT, GRID_COLS);
 
         int total_files = static_cast<int>(get_media_files().size());
@@ -232,7 +232,6 @@ void ui_render_file_browser() {
 
             if (nk_button_label(ctx, display_str.c_str())) {
                 selected_index = i;
-                dest_rect_initialised = false;
                 SDL_SetRenderDrawColor(ui_renderer, 0, 0, 0, 255);
                 SDL_RenderClear(ui_renderer);
                 start_file(selected_index);
@@ -278,19 +277,27 @@ void ui_render_player_hud(bool state, double current_time, double total_time) {
 
 void ui_render_video_player() {
     SDL_RenderClear(ui_renderer);
+    #ifdef DEBUG_VIDEO
     uint64_t test_ticks = OSGetSystemTime();
+    #endif
+
     video_player_update(ui_renderer);
+
+    #ifdef DEBUG_VIDEO
     uint64_t decoding_time = OSTicksToMicroseconds(OSGetSystemTime() - test_ticks);
+    #endif
 
     frame_info* current_frame_info = video_player_get_current_frame_info();
     if (!current_frame_info || !current_frame_info->texture) return;   
 
+    #ifdef DEBUG_VIDEO
     static uint64_t last_decoding_time = 0;
     static uint64_t last_rendering_time = 0;
 
     uint64_t rendering_ticks = 0;
 
     rendering_ticks = OSGetSystemTime();  // Start timing
+    #endif
 
     if(!dest_rect_initialised) {
         int video_width = current_frame_info->frame_width;
@@ -316,7 +323,7 @@ void ui_render_video_player() {
     }
     SDL_RenderCopy(ui_renderer, current_frame_info->texture, NULL, &dest_rect);
 
-    if(video_player_get_current_time() == video_player_get_total_play_time()) {
+    if (fabs(video_player_get_current_time() - video_player_get_total_play_time()) < 0.01) {
         audio_player_audio_play(true);
         video_player_play(true);
         video_player_cleanup();
@@ -326,14 +333,13 @@ void ui_render_video_player() {
         app_state_set(STATE_MENU);
     }
 
+    #ifdef DEBUG_VIDEO
     uint64_t current_rendering_time = OSTicksToMicroseconds(OSGetSystemTime() - rendering_ticks);
     if (current_rendering_time > 5) {
         last_rendering_time = current_rendering_time;
     }
 
-    #ifdef DEBUG_VIDEO
     printf("Dec: %lli Rndr: %lli\n", decoding_time, current_rendering_time);
-    #endif
 
     struct nk_rect hud_rect = nk_rect(0, 0, 512 * UI_SCALE, 30 * UI_SCALE);
     if (nk_begin(ctx, "Decoding", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
@@ -351,6 +357,7 @@ void ui_render_video_player() {
 
         nk_end(ctx);
     }
+    #endif
 
     if (!video_player_is_playing() || input_is_vpad_touched()) ui_render_player_hud(video_player_is_playing(), video_player_get_current_time(), video_player_get_total_play_time());
 }

@@ -27,13 +27,14 @@
 - **Touch input**: Interact with the app via the Wii U GamePad's touch screen.
   
 ### Planned Features:
-- [ ] Skip/Rewind for audio and video playback
+- [ ] Skip/Rewind for video playback
 - [ ] Support for network media (DLNA, Jellyfin)
 - [ ] USB flash drive media playback (ext4/exFAT)
 - [ ] Audio visualization (for better audio feedback)
 - [ ] m3u IPTV support
 - [ ] Miniplayer for audio
 - [ ] Wiimote / Pro Controller input support
+- [ ] Viewing YouTube videos 
 
 ---
 
