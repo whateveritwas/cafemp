@@ -43,6 +43,7 @@ bool dest_rect_initialised = false;
 
 bool ambiance_playing = false;
 static int background_music_enabled = 1;
+static int no_current_frame_info_cound = 0;
 
 void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_texture) {
     WPADInit();
@@ -92,6 +93,7 @@ void start_file(int index) {
         ambiance_playing = false;
     }
 
+    no_current_frame_info_cound = 0;
     dest_rect_initialised = false;
     std::string full_path = std::string(MEDIA_PATH) + get_media_files()[index];
     std::string extension = full_path.substr(full_path.find_last_of('.') + 1);
@@ -288,7 +290,21 @@ void ui_render_video_player() {
     #endif
 
     frame_info* current_frame_info = video_player_get_current_frame_info();
-    if (!current_frame_info || !current_frame_info->texture) return;   
+    if (!current_frame_info || !current_frame_info->texture) {
+        no_current_frame_info_cound++;
+        if(no_current_frame_info_cound < 10) return;
+
+        audio_player_audio_play(true);
+        video_player_play(true);
+        video_player_cleanup();
+        audio_player_audio_play(false);
+        video_player_play(false);
+        scan_directory(MEDIA_PATH);
+        app_state_set(STATE_MENU);
+        return;
+    }
+
+    no_current_frame_info_cound = 0;
 
     #ifdef DEBUG_VIDEO
     static uint64_t last_decoding_time = 0;
@@ -365,7 +381,7 @@ void ui_render_video_player() {
 void ui_render_audio_player() {
     SDL_RenderClear(ui_renderer);
 
-    if((int)audio_player_get_current_play_time() == (int)audio_player_get_total_play_time()) {
+    if((audio_player_get_total_play_time() - audio_player_get_current_play_time()) < 0.01) {
         audio_player_audio_play(true);
         audio_player_cleanup();
         audio_player_audio_play(false);

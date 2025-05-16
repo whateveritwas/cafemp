@@ -52,9 +52,6 @@ AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int 
     const AVCodec* codec = avcodec_find_decoder(codecpar->codec_id);
     AVCodecContext* codec_ctx = avcodec_alloc_context3(codec);
 
-    codec_ctx->thread_count = 2;
-    codec_ctx->thread_type = FF_THREAD_FRAME;
-
     codec_ctx->flags |= AV_CODEC_FLAG_LOW_DELAY;
     codec_ctx->skip_frame = AVDISCARD_NONREF;
 
