@@ -29,7 +29,7 @@ bool valid_file_ending(const std::string& file_ending) {
 }
 
 void scan_directory(const char* path) {
-    get_media_files().clear();
+    clear_media_files();
     printf("[Menu] Opening folder %s\n", path);
     DIR* dir = opendir(path);
     if (!dir) return;
