@@ -26,3 +26,8 @@ void remove_media_file(size_t index) {
         media_files.erase(media_files.begin() + index);
     }
 }
+
+void clear_media_files() {
+    std::lock_guard<std::mutex> lock(media_files_mutex);
+    media_files.clear();
+}
