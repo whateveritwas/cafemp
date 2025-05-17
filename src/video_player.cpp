@@ -91,7 +91,6 @@ AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int 
     return codec_ctx;
 }
 
-
 void clear_video_frames() {
     std::lock_guard<std::mutex> lock(video_frame_mutex);
     while (!video_frame_queue.empty()) {
@@ -364,7 +363,6 @@ void stop_video_decoding_thread() {
     #endif
     }
 }
-
 
 int video_player_cleanup() {
     #ifdef DEBUG_VIDEO

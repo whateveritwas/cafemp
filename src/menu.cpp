@@ -201,8 +201,8 @@ void ui_render_tooltip(int _current_page_file_browser) {
             case STATE_MENU:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
             nk_label(ctx, "(A) Start (-) Refresh (+) Settings", NK_TEXT_LEFT);
-            if(_current_page_file_browser == 0) break;
-            nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page_file_browser + 1)).c_str(), NK_TEXT_RIGHT);
+            if(_current_page_file_browser > 0)
+                nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page_file_browser + 1)).c_str(), NK_TEXT_RIGHT);
             break;
             case STATE_SETTINGS:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 1);
@@ -253,30 +253,50 @@ void ui_render_file_browser() {
     ui_render_tooltip(current_page_file_browser);
 }
 
-void ui_render_player_hud(bool state, double current_time, double total_time) {
+void ui_render_player_hud(bool state, double current_time, double total_time, int current_audio_track_id, int current_subtitle_id) {
+    constexpr int max_filename_length = 50;
     const int hud_height = 80 * UI_SCALE;
     struct nk_rect hud_rect = nk_rect(0, SCREEN_HEIGHT - hud_height, SCREEN_WIDTH, hud_height);
 
     if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
+        // Progress bar
         nk_layout_row_dynamic(ctx, (hud_height / 2) - 5, 1);
-        nk_size progress = static_cast<nk_size>(current_time);
-        nk_progress(ctx, &progress, total_time, NK_FIXED);
+        nk_size progress = static_cast<nk_size>(std::min(current_time, total_time));
+        nk_size total = static_cast<nk_size>(total_time);
+        nk_progress(ctx, &progress, total, NK_FIXED);
 
-        nk_layout_row_dynamic(ctx, hud_height / 2, 1);
-        size_t max_filename_length = 50;
+        // HUD text and buttons
+        nk_layout_row_begin(ctx, NK_DYNAMIC, hud_height / 2, 2);
+        nk_layout_row_push(ctx, 0.9f); // Left 80%: text label
+        {
+            std::string filename = "<Unknown>";
+            auto files = get_media_files();
+            filename = truncate_filename(files[selected_index].c_str(), max_filename_length);
 
-        std::string filename = truncate_filename(get_media_files()[selected_index].c_str(), max_filename_length);
-        std::string hud_str = state ? "> " : "|| ";
-        hud_str += format_time(current_time);
-        hud_str += " / ";
-        hud_str += format_time(total_time);
-        hud_str += " Playing: ";
-        hud_str += filename;
+            std::string hud_str = (state ? "> " : "|| ");
+            hud_str += format_time(current_time);
+            hud_str += " / ";
+            hud_str += format_time(total_time);
+            hud_str += " [";
+            hud_str += filename;
+            hud_str += "]";
 
-        nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
+            nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
+        }
+
+        nk_layout_row_push(ctx, 0.1f);
+        {
+            std::string hud_str = "A:";
+            hud_str += std::to_string(current_audio_track_id);
+            hud_str += " S:";
+            hud_str += std::to_string(current_subtitle_id);
+            nk_label(ctx, hud_str.c_str(), NK_TEXT_RIGHT);
+        }
+
         nk_end(ctx);
     }
 }
+
 
 void ui_render_video_player() {
     SDL_RenderClear(ui_renderer);
@@ -376,7 +396,7 @@ void ui_render_video_player() {
     }
     #endif
 
-    if (!video_player_is_playing() || input_is_vpad_touched()) ui_render_player_hud(video_player_is_playing(), video_player_get_current_time(), video_player_get_total_play_time());
+    if (!video_player_is_playing() || input_is_vpad_touched()) ui_render_player_hud(video_player_is_playing(), video_player_get_current_time(), video_player_get_total_play_time(), 0, 0);
 }
 
 void ui_render_audio_player() {
@@ -389,7 +409,7 @@ void ui_render_audio_player() {
         scan_directory(MEDIA_PATH);
         app_state_set(STATE_MENU);
     }
-    ui_render_player_hud(audio_player_get_audio_play_state(), audio_player_get_current_play_time(), audio_player_get_total_play_time());
+    ui_render_player_hud(audio_player_get_audio_play_state(), audio_player_get_current_play_time(), audio_player_get_total_play_time(), 0, 0);
 }
 
 void ui_shutdown() {
