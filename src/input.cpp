@@ -143,6 +143,10 @@ void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
         // video_player_seek(-5.0f);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_RIGHT, WPAD_PRO_BUTTON_RIGHT)) {
         // video_player_seek(5.0f);
+    } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_X, WPAD_PRO_BUTTON_X)) {
+        // Audio track
+    } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_Y, WPAD_PRO_BUTTON_Y)) {
+        // Subtitles
     }
 }
 
