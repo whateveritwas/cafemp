@@ -201,6 +201,7 @@ void ui_render_tooltip(int _current_page_file_browser) {
             case STATE_MENU:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
             nk_label(ctx, "(A) Start (-) Refresh (+) Settings", NK_TEXT_LEFT);
+            if(_current_page_file_browser == 0) break;
             nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page_file_browser + 1)).c_str(), NK_TEXT_RIGHT);
             break;
             case STATE_SETTINGS:

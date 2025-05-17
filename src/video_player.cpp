@@ -50,24 +50,47 @@ int64_t total_paused_duration = 0;
 AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int stream_index) {
     AVCodecParameters* codecpar = fmt_ctx->streams[stream_index]->codecpar;
     const AVCodec* codec = avcodec_find_decoder(codecpar->codec_id);
+
+    if (!codec) {
+        printf("[Video Player] No decoder found for codec ID: %d\n", codecpar->codec_id);
+        return NULL;
+    }
+
+    printf("[Video Player] Using decoder: %s\n", codec->name);
+
     AVCodecContext* codec_ctx = avcodec_alloc_context3(codec);
+    if (!codec_ctx) {
+        printf("[Video Player] Failed to allocate codec context\n");
+        return NULL;
+    }
+
+    // Optional: Set pixel format early
+    codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
+
+    if (avcodec_parameters_to_context(codec_ctx, codecpar) < 0) {
+        printf("[Video Player] Failed to copy codec parameters to codec context\n");
+        avcodec_free_context(&codec_ctx);
+        return NULL;
+    }
 
     codec_ctx->flags |= AV_CODEC_FLAG_LOW_DELAY;
     codec_ctx->skip_frame = AVDISCARD_NONREF;
 
-    codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
+    int ret = avcodec_open2(codec_ctx, codec, NULL);
+    if (ret < 0) {
+        char errbuf[256];
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        printf("[Video Player] Failed to open codec: %s\n", errbuf);
 
-    if (avcodec_parameters_to_context(codec_ctx, codecpar) < 0) {
         avcodec_free_context(&codec_ctx);
         return NULL;
     }
-    
-    if (avcodec_open2(codec_ctx, codec, NULL) < 0) {
-        printf("Failed to open codec.\n");
-        return NULL;
-    }
+
+    printf("[Video Player] Codec opened successfully\n");
+
     return codec_ctx;
 }
+
 
 void clear_video_frames() {
     std::lock_guard<std::mutex> lock(video_frame_mutex);
@@ -89,10 +112,10 @@ void video_player_seek(float delta_seconds) {
     if (target_time > fmt_ctx->duration) target_time = fmt_ctx->duration;
 
     if (av_seek_frame(fmt_ctx, video_stream_index, target_time, AVSEEK_FLAG_BACKWARD) < 0) {
-        printf("Seek failed!\n");
+        printf("[Video Player] Seek failed!\n");
         return;
     }
-    printf("Seek success!\n");
+    printf("[Video Player] Seek success!\n");
 
     avcodec_flush_buffers(video_codec_ctx);
 
@@ -108,7 +131,7 @@ void video_player_seek(float delta_seconds) {
     current_pts_seconds = target_time / (double)AV_TIME_BASE;
 
     audio_player_seek(current_pts_seconds);
-    printf("Seek done!\n");
+    printf("[Video Player] Seek done!\n");
 }
 
 bool video_player_is_playing() {
@@ -137,7 +160,7 @@ int64_t video_player_get_current_time() {
 
 frame_info* video_player_get_current_frame_info() {
     if (!current_frame_info) {
-        printf("No current_frame_info\n");
+        printf("[Video Player] No current_frame_info\n");
         return NULL;
     }
     return current_frame_info;
