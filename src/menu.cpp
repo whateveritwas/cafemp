@@ -152,22 +152,35 @@ void ui_render() {
     nk_input_end(ctx);
 
     switch(app_state_get()) {
-        case STATE_PLAYING_VIDEO:
-        SDL_RenderClear(ui_renderer);
-        ui_render_video_player();
-        break;
+        case STATE_MENU: 
+            ui_render_main_menu();
+            break;
+        
+        case STATE_MENU_FILES: 
+            ui_handle_ambiance();
+            ui_render_file_browser();
+            break;
+
+        case STATE_MENU_NETWORK_FILES: break;
+
+        case STATE_MENU_VIDEO_FILES: break;
+
+        case STATE_MENU_AUDIO_FILES: break;
+
+        case STATE_MENU_SETTINGS: 
+            ui_handle_ambiance();
+            ui_render_settings();
+            break;
+
+        case STATE_PLAYING_VIDEO: 
+            SDL_RenderClear(ui_renderer);
+            ui_render_video_player();
+            break;
+
         case STATE_PLAYING_AUDIO:
-        SDL_RenderClear(ui_renderer);
-        ui_render_audio_player();
-        break;
-        case STATE_MENU:
-        ui_handle_ambiance();
-        ui_render_file_browser();
-        break;
-        case STATE_SETTINGS:
-        ui_handle_ambiance();
-        ui_render_settings();
-        break;
+            SDL_RenderClear(ui_renderer);
+            ui_render_audio_player();
+            break;
     }
 
     nk_sdl_render(NK_ANTI_ALIASING_ON);
@@ -194,25 +207,36 @@ void ui_render_settings() {
 void ui_render_tooltip(int _current_page_file_browser) {
     if (nk_begin(ctx, "tooltip_bar", nk_rect(0, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE, SCREEN_WIDTH, TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER | NK_WINDOW_BACKGROUND)) {
         switch(app_state_get()) {
-            case STATE_PLAYING_VIDEO:
-            break;
-            case STATE_PLAYING_AUDIO:
-            break;
-            case STATE_MENU:
+        case STATE_MENU: break;
+        case STATE_MENU_FILES:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
             nk_label(ctx, "(A) Start (-) Refresh (+) Settings", NK_TEXT_LEFT);
             if(_current_page_file_browser > 0)
                 nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page_file_browser + 1)).c_str(), NK_TEXT_RIGHT);
             break;
-            case STATE_SETTINGS:
+        case STATE_MENU_NETWORK_FILES: break;
+        case STATE_MENU_VIDEO_FILES: break;
+        case STATE_MENU_AUDIO_FILES: break;
+        case STATE_MENU_SETTINGS: 
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 1);
             nk_label(ctx, "(A) Select (+) / (B) File browser & Save", NK_TEXT_LEFT);
             //nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page_file_browser + 1)).c_str(), NK_TEXT_RIGHT);
             break;
+        case STATE_PLAYING_VIDEO: break;
+        case STATE_PLAYING_AUDIO: break;
         }
 
         nk_end(ctx);
     }
+}
+
+void ui_render_main_menu() {
+    if (nk_begin(ctx, VERSION_STRING, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
+
+        nk_end(ctx);
+    }
+
+    ui_render_tooltip(current_page_file_browser);
 }
 
 void ui_render_file_browser() {
@@ -297,7 +321,6 @@ void ui_render_player_hud(bool state, double current_time, double total_time, in
     }
 }
 
-
 void ui_render_video_player() {
     SDL_RenderClear(ui_renderer);
     #ifdef DEBUG_VIDEO
@@ -321,7 +344,7 @@ void ui_render_video_player() {
         audio_player_audio_play(false);
         video_player_play(false);
         scan_directory(MEDIA_PATH);
-        app_state_set(STATE_MENU);
+        app_state_set(STATE_MENU_FILES);
         return;
     }
 
@@ -367,7 +390,7 @@ void ui_render_video_player() {
         audio_player_audio_play(false);
         video_player_play(false);
         scan_directory(MEDIA_PATH);
-        app_state_set(STATE_MENU);
+        app_state_set(STATE_MENU_FILES);
     }
 
     #ifdef DEBUG_VIDEO
@@ -407,7 +430,7 @@ void ui_render_audio_player() {
         audio_player_cleanup();
         audio_player_audio_play(false);
         scan_directory(MEDIA_PATH);
-        app_state_set(STATE_MENU);
+        app_state_set(STATE_MENU_FILES);
     }
     ui_render_player_hud(audio_player_get_audio_play_state(), audio_player_get_current_play_time(), audio_player_get_total_play_time(), 0, 0);
 }

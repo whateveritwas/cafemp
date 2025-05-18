@@ -103,34 +103,51 @@ void clear_video_frames() {
 void video_player_seek(float delta_seconds) {
     if (!fmt_ctx || video_stream_index < 0) return;
 
-    int64_t current_time = static_cast<int64_t>(current_pts_seconds * AV_TIME_BASE);
-    int64_t target_time = current_time + static_cast<int64_t>(delta_seconds * AV_TIME_BASE);
+    // Pause decoding thread safely
+    video_player_play(false);
+    {
+        std::unique_lock<std::mutex> lock(playback_mutex);
 
-    // Clamp target_time
-    if (target_time < 0) target_time = 0;
-    if (target_time > fmt_ctx->duration) target_time = fmt_ctx->duration;
+        int64_t current_time = static_cast<int64_t>(current_pts_seconds * AV_TIME_BASE);
+        int64_t target_time = current_time + static_cast<int64_t>(delta_seconds * AV_TIME_BASE);
 
-    if (av_seek_frame(fmt_ctx, video_stream_index, target_time, AVSEEK_FLAG_BACKWARD) < 0) {
-        printf("[Video Player] Seek failed!\n");
-        return;
+        // Clamp to valid range
+        if (target_time < 0) target_time = 0;
+        if (target_time > fmt_ctx->duration - AV_TIME_BASE)
+            target_time = fmt_ctx->duration - AV_TIME_BASE;
+
+        // Seek using flexible flags (can tweak to A/V needs)
+        if (av_seek_frame(fmt_ctx, video_stream_index, target_time, AVSEEK_FLAG_BACKWARD | AVSEEK_FLAG_ANY) < 0) {
+            printf("[Video Player] Seek failed!\n");
+            return;
+        }
+
+        printf("[Video Player] Seek success!\n");
+
+        // Flush codec buffers after seek
+        avcodec_flush_buffers(video_codec_ctx);
+
+        // Clear buffered frames
+        clear_video_frames();
+
+        // Reset current frame info
+        if (current_frame_info) {
+            SDL_DestroyTexture(current_frame_info->texture);
+            delete current_frame_info;
+            current_frame_info = nullptr;
+        }
+
+        // Reset playback timestamps
+        start_time = av_gettime_relative() - target_time;
+        current_pts_seconds = target_time / static_cast<double>(AV_TIME_BASE);
+
+        // Sync audio with video
+        audio_player_seek(current_pts_seconds);
+        printf("[Video Player] Seek done! New time: %.2lld seconds\n", current_pts_seconds);
     }
-    printf("[Video Player] Seek success!\n");
 
-    avcodec_flush_buffers(video_codec_ctx);
-
-    clear_video_frames();
-
-    if (current_frame_info) {
-        SDL_DestroyTexture(current_frame_info->texture);
-        delete current_frame_info;
-        current_frame_info = nullptr;
-    }
-
-    start_time = av_gettime_relative() - target_time;
-    current_pts_seconds = target_time / (double)AV_TIME_BASE;
-
-    audio_player_seek(current_pts_seconds);
-    printf("[Video Player] Seek done!\n");
+    // Resume playback
+    video_player_play(true);
 }
 
 bool video_player_is_playing() {
