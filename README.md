@@ -21,20 +21,18 @@ Cafemp is a lightweight, open-source media player for the Wii U, focused on basi
    * `A` → Play/Pause
    * `B` → Return to file browser
 
-## ⚙️ MKV Compatibility Notice
+## ⚙️ Compatibility Notice
 
-For best results, re-encode `.mkv` files with FFmpeg using the following command:
+For best results, re-encode video files with FFmpeg using the following command:
 
 ```bash
-ffmpeg -i input.mkv \
+ffmpeg -i <input> \
 -map 0 \
--c:v libx264 -profile:v baseline -pix_fmt yuv420p -preset slow -crf 23 -vf "scale=-2:480" \
--c:a aac -b:a 192k \
+-c:v libx264 -profile:v baseline -level 3.1 -pix_fmt yuv420p -preset ultrafast -tune fastdecode -crf 23 -vf "scale=-2:480" \
+-c:a aac -b:a 128k \
 -c:s copy \
-output.mkv
+<output>
 ```
-
-This ensures compatibility with the Wii U's limited decoding capabilities.
 
 ## ✅ Features
 
