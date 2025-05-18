@@ -29,6 +29,9 @@ static int out_sample_rate = 48000;
 static std::mutex audio_mutex;
 static std::atomic<bool> switching_audio_stream = false;
 
+static std::vector<AudioTrackInfo> audioTracks;
+static std::mutex audioTracksMutex;
+
 static void audio_decode_loop() {
     while (audio_thread_running.load()) {
         if (switching_audio_stream.load()) {
@@ -108,6 +111,39 @@ void print_audio_tracks() {
     }
 }
 #endif
+
+void collect_audio_tracks(AVFormatContext* fmt_ctx) {
+    if (!fmt_ctx) {
+        printf("[Audio Player] Error: Format context not initialized.\n");
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(audioTracksMutex);
+    audioTracks.clear();
+
+    for (unsigned int i = 0; i < fmt_ctx->nb_streams; ++i) {
+        AVStream* stream = fmt_ctx->streams[i];
+        if (stream->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+            AVDictionaryEntry* lang = av_dict_get(stream->metadata, "language", nullptr, 0);
+            const char* language = lang ? lang->value : "und";
+
+            AudioTrackInfo info = {
+                static_cast<int>(i),
+                avcodec_get_name(stream->codecpar->codec_id),
+                stream->codecpar->channels,
+                stream->codecpar->sample_rate,
+                language
+            };
+
+            audioTracks.push_back(info);
+        }
+    }
+}
+
+std::vector<AudioTrackInfo> get_audio_tracks() {
+    std::lock_guard<std::mutex> lock(audioTracksMutex);
+    return audioTracks;
+}
 
 int audio_player_init(const char* filepath) {
     #ifdef DEBUG_AUDIO
@@ -275,14 +311,15 @@ bool audio_player_switch_audio_stream(int new_stream_index) {
     if (new_stream->codecpar->codec_type != AVMEDIA_TYPE_AUDIO)
         return false;
 
+    // Step 1: Capture current playback time
+    double target_time = audio_player_get_current_play_time();
+
     switching_audio_stream.store(true);
     std::lock_guard<std::mutex> lock(audio_mutex);
 
-    // Stop SDL playback temporarily
     SDL_PauseAudioDevice(audio_device, 1);
     SDL_ClearQueuedAudio(audio_device);
 
-    // Cleanup old contexts
     if (audio_codec_ctx) {
         avcodec_free_context(&audio_codec_ctx);
         audio_codec_ctx = nullptr;
@@ -293,7 +330,6 @@ bool audio_player_switch_audio_stream(int new_stream_index) {
         swr_ctx = nullptr;
     }
 
-    // Setup new codec
     const AVCodec* codec = avcodec_find_decoder(new_stream->codecpar->codec_id);
     if (!codec) {
         switching_audio_stream.store(false);
@@ -301,28 +337,57 @@ bool audio_player_switch_audio_stream(int new_stream_index) {
     }
 
     audio_codec_ctx = avcodec_alloc_context3(codec);
-    if (avcodec_parameters_to_context(audio_codec_ctx, new_stream->codecpar) < 0 ||
-        avcodec_open2(audio_codec_ctx, codec, nullptr) < 0) {
+    if (!audio_codec_ctx) {
         switching_audio_stream.store(false);
         return false;
     }
 
-    // Setup new resampler
-    swr_ctx = swr_alloc_set_opts(nullptr,
-        av_get_default_channel_layout(out_channels), AV_SAMPLE_FMT_S16, out_sample_rate,
-        av_get_default_channel_layout(audio_codec_ctx->channels), audio_codec_ctx->sample_fmt, audio_codec_ctx->sample_rate,
-        0, nullptr);
+    if (avcodec_parameters_to_context(audio_codec_ctx, new_stream->codecpar) < 0) {
+        avcodec_free_context(&audio_codec_ctx);
+        switching_audio_stream.store(false);
+        return false;
+    }
+
+    if (avcodec_open2(audio_codec_ctx, codec, nullptr) < 0) {
+        avcodec_free_context(&audio_codec_ctx);
+        switching_audio_stream.store(false);
+        return false;
+    }
+
+    swr_ctx = swr_alloc_set_opts(
+        nullptr,
+        av_get_default_channel_layout(out_channels),
+        AV_SAMPLE_FMT_S16,
+        out_sample_rate,
+        av_get_default_channel_layout(audio_codec_ctx->channels),
+        audio_codec_ctx->sample_fmt,
+        audio_codec_ctx->sample_rate,
+        0, nullptr
+    );
+
     if (!swr_ctx || swr_init(swr_ctx) < 0) {
+        if (swr_ctx)
+            swr_free(&swr_ctx);
+        avcodec_free_context(&audio_codec_ctx);
         switching_audio_stream.store(false);
         return false;
     }
 
     audio_stream_index = new_stream_index;
 
-    // Flush decoder buffers
-    avcodec_flush_buffers(audio_codec_ctx);
+    // Step 2: Seek to preserved time
+    int64_t seek_target = static_cast<int64_t>(target_time / av_q2d(fmt_ctx->streams[audio_stream_index]->time_base));
+    if (av_seek_frame(fmt_ctx, audio_stream_index, seek_target, AVSEEK_FLAG_BACKWARD) < 0) {
+        switching_audio_stream.store(false);
+        return false;
+    }
 
-    // Resume playback if it was playing
+    avcodec_flush_buffers(audio_codec_ctx);
+    if (swr_ctx) swr_init(swr_ctx);
+    SDL_ClearQueuedAudio(audio_device);
+
+    current_play_time.store(static_cast<float>(target_time));
+
     if (audio_playing)
         SDL_PauseAudioDevice(audio_device, 0);
 
