@@ -86,7 +86,7 @@ void input_menu(VPADStatus* vpad_status, WPADStatusProController* wpad_status, i
         selected_index = 0;
         current_page_file_browser = 0;
     } else if(is_pressed(vpad_status, wpad_status, VPAD_BUTTON_PLUS, WPAD_PRO_BUTTON_PLUS)) {
-            app_state_set(STATE_SETTINGS);
+            app_state_set(STATE_MENU_SETTINGS);
     }
 }
 
@@ -123,7 +123,7 @@ void input_settings(VPADStatus* vpad_status, WPADStatusProController* wpad_statu
         || vpad_status->trigger == VPAD_BUTTON_B
         || wpad_status->buttons == WPAD_PRO_BUTTON_B) {
         settings_save();
-        app_state_set(STATE_MENU);
+        app_state_set(STATE_MENU_FILES);
     }
 }
 
@@ -138,15 +138,15 @@ void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
         audio_player_audio_play(false);
         video_player_play(false);
         scan_directory(MEDIA_PATH);
-        app_state_set(STATE_MENU);
+        app_state_set(STATE_MENU_FILES);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_LEFT, WPAD_PRO_BUTTON_LEFT))  {
-        // video_player_seek(-5.0f);
+        video_player_seek(-5.0f);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_RIGHT, WPAD_PRO_BUTTON_RIGHT)) {
-        // video_player_seek(5.0f);
+        video_player_seek(5.0f);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_X, WPAD_PRO_BUTTON_X)) {
-        // Audio track
+        // Change Audio track
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_Y, WPAD_PRO_BUTTON_Y)) {
-        // Subtitles
+        // Change Subtitles
     }
 }
 
@@ -156,7 +156,7 @@ void input_audio_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_B, WPAD_PRO_BUTTON_B)) {
         audio_player_cleanup();
         scan_directory(MEDIA_PATH);
-        app_state_set(STATE_MENU);
+        app_state_set(STATE_MENU_FILES);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_LEFT, WPAD_PRO_BUTTON_LEFT)) {
         audio_player_seek(-5.0f);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_RIGHT, WPAD_PRO_BUTTON_RIGHT)) {
@@ -188,9 +188,13 @@ void input_update(int& current_page_file_browser, int& selected_index, nk_contex
     }
     
     switch(app_state_get()) {
+        case STATE_MENU: break;
+        case STATE_MENU_FILES: input_menu(&vpad_status, &wpad_status, current_page_file_browser, selected_index); break;
+        case STATE_MENU_NETWORK_FILES: break;
+        case STATE_MENU_VIDEO_FILES: break;
+        case STATE_MENU_AUDIO_FILES: break;
+        case STATE_MENU_SETTINGS: input_settings(&vpad_status, &wpad_status); break;
         case STATE_PLAYING_VIDEO: input_video_player(&vpad_status, &wpad_status); break;
         case STATE_PLAYING_AUDIO: input_audio_player(&vpad_status, &wpad_status); break;
-        case STATE_MENU: input_menu(&vpad_status, &wpad_status, current_page_file_browser, selected_index); break;
-        case STATE_SETTINGS: input_settings(&vpad_status, &wpad_status); break;
     }
 }

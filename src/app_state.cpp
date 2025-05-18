@@ -1,7 +1,7 @@
 #include <mutex>
 #include "app_state.hpp"
 
-static AppState app_state = STATE_MENU;
+static AppState app_state = STATE_MENU_FILES;
 static std::mutex app_state_mutex;
 
 AppState app_state_get() {
