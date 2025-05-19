@@ -16,6 +16,7 @@ bool use_wpad_pro = false;
 float touch_x = 0.0f;
 float touch_y = 0.0f;
 bool touched = false;
+int current_audio_track_id = 1;
 
 bool is_pressed(VPADStatus* vpad, WPADStatusProController* wpad, int vpad_btn, int wpad_btn) {
     return (int)vpad->trigger == vpad_btn || ((int)wpad->buttons & wpad_btn);
@@ -144,11 +145,16 @@ void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_RIGHT, WPAD_PRO_BUTTON_RIGHT)) {
         video_player_seek(5.0f);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_X, WPAD_PRO_BUTTON_X)) {
-        // audio_player_audio_play(false);
-        // video_player_play(false);
-        audio_player_switch_audio_stream(2);
-        // video_player_play(true);
-        // audio_player_audio_play(true);
+        video_player_play(false);
+        audio_player_audio_play(false);
+
+        current_audio_track_id++;
+        if(current_audio_track_id > (int)get_audio_tracks().size()) current_audio_track_id = 1;
+        
+        audio_player_switch_audio_stream(current_audio_track_id);
+
+        video_player_play(true);
+        audio_player_audio_play(true);
         // Change Audio track
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_Y, WPAD_PRO_BUTTON_Y)) {
         // Change Subtitles

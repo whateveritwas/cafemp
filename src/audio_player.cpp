@@ -29,6 +29,7 @@ static int out_sample_rate = 48000;
 static std::mutex audio_mutex;
 static std::atomic<bool> switching_audio_stream = false;
 
+static int current_audio_track_id = 1;
 static std::vector<AudioTrackInfo> audioTracks;
 static std::mutex audioTracksMutex;
 
@@ -285,6 +286,11 @@ int audio_player_init(const char* filepath) {
     #endif
 
     #ifdef DEBUG_AUDIO
+    printf("[Audio player] Getting audio tracks\n");
+    #endif
+    collect_audio_tracks(fmt_ctx);
+
+    #ifdef DEBUG_AUDIO
     print_audio_tracks();
     #endif
 
@@ -392,7 +398,13 @@ bool audio_player_switch_audio_stream(int new_stream_index) {
         SDL_PauseAudioDevice(audio_device, 0);
 
     switching_audio_stream.store(false);
+
+    current_audio_track_id = audio_stream_index;
     return true;
+}
+
+int audio_player_get_current_track_id() {
+    return current_audio_track_id;
 }
 
 double audio_player_get_current_play_time() {
