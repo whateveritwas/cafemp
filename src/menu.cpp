@@ -45,6 +45,8 @@ bool ambiance_playing = false;
 static int background_music_enabled = 1;
 static int no_current_frame_info_cound = 0;
 
+std::vector<AudioTrackInfo> audio_tracks;
+
 void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_texture) {
     WPADInit();
     WPADEnableURCC(true);
@@ -112,6 +114,7 @@ void start_file(int index) {
 void start_selected_video(int selected_index) {
     std::string full_path = std::string(MEDIA_PATH) + get_media_files()[selected_index];
     video_player_start(full_path.c_str(), *ui_renderer, ui_texture);
+    audio_tracks = get_audio_tracks();
     audio_player_audio_play(true);
     video_player_play(true);
     app_state_set(STATE_PLAYING_VIDEO);
@@ -308,23 +311,25 @@ void ui_render_player_hud(bool state, double current_time, double total_time, in
             nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
         }
 
-        if(app_state_get() == STATE_MENU_AUDIO_FILES) {
+        // if(app_state_get() == STATE_MENU_VIDEO_FILES) {
             nk_layout_row_push(ctx, 0.1f);
             {
                 std::string hud_str = "A:";
-                hud_str += std::to_string(current_audio_track_id);
+                hud_str += std::to_string(audio_player_get_current_track_id());
                 hud_str += "/";
-                hud_str += "0";
+                hud_str += std::to_string(audio_tracks.size());
                 hud_str += " S:";
                 hud_str += std::to_string(current_subtitle_id);
                 hud_str += "/";
                 hud_str += "0";
                 nk_label(ctx, hud_str.c_str(), NK_TEXT_RIGHT);
             }
-        }
+        // }
         nk_end(ctx);
     }
 }
+
+void ui_render_captions() {}
 
 void ui_render_video_player() {
     SDL_RenderClear(ui_renderer);
