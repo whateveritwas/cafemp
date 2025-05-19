@@ -46,7 +46,7 @@ ffmpeg -i <input> \
 * 🌐 DLNA / Jellyfin streaming
 * 📀 USB drive support (ext4, exFAT)
 * 📊 Audio visualization
-* 📺 IPTV (`.m3u`) playlist support
+* 📺 Playlist support (m3u)
 * 🎧 Miniplayer for audio
 * 🎮 Wiimote / Pro Controller input
 * ▶️ YouTube(`invidious`) video playback
