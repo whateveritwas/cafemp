@@ -308,15 +308,20 @@ void ui_render_player_hud(bool state, double current_time, double total_time, in
             nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
         }
 
-        nk_layout_row_push(ctx, 0.1f);
-        {
-            std::string hud_str = "A:";
-            hud_str += std::to_string(current_audio_track_id);
-            hud_str += " S:";
-            hud_str += std::to_string(current_subtitle_id);
-            nk_label(ctx, hud_str.c_str(), NK_TEXT_RIGHT);
+        if(app_state_get() == STATE_MENU_AUDIO_FILES) {
+            nk_layout_row_push(ctx, 0.1f);
+            {
+                std::string hud_str = "A:";
+                hud_str += std::to_string(current_audio_track_id);
+                hud_str += "/";
+                hud_str += "0";
+                hud_str += " S:";
+                hud_str += std::to_string(current_subtitle_id);
+                hud_str += "/";
+                hud_str += "0";
+                nk_label(ctx, hud_str.c_str(), NK_TEXT_RIGHT);
+            }
         }
-
         nk_end(ctx);
     }
 }
