@@ -14,7 +14,7 @@ Cafemp is a lightweight, open-source media player for the Wii U, focused on basi
 
 ## Running Cafemp
 
-1. Launch Cafemp from the **Wii U Homebrew Launcher**.
+1. Launch Cafemp from the **Wii U Main Menu**.
 2. Use the file browser to select your media file.
 3. Controls:
 
@@ -49,7 +49,7 @@ ffmpeg -i <input> \
 * 📺 IPTV (`.m3u`) playlist support
 * 🎧 Miniplayer for audio
 * 🎮 Wiimote / Pro Controller input
-* ▶️ YouTube video playback
+* ▶️ YouTube(`invidious`) video playback
 
 ## ⚠️ Known Issues
 
