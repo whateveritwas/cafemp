@@ -28,7 +28,6 @@ struct frame_info {
     SDL_Texture* texture;
     int frame_width;
     int frame_height;
-    int64_t total_time;
 };
 
 #endif

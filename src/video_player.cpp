@@ -16,6 +16,7 @@ extern "C" {
 #include <mutex>
 #include <condition_variable>
 
+#include "media_info.hpp"
 #include "app_state.hpp"
 #include "main.hpp"
 #include "video_player.hpp"
@@ -31,11 +32,11 @@ AVRational framerate;
 
 frame_info* current_frame_info;
 
-int64_t current_pts_seconds = 0;
-uint64_t ticks_per_frame = 0;
+// int64_t current_pts_seconds = 0;
+// uint64_t ticks_per_frame = 0;
 int64_t start_time = 0;
 
-bool playing_video = false;
+// bool playing_video = false;
 
 std::queue<AVFrame*> video_frame_queue;
 std::mutex video_frame_mutex;
@@ -108,7 +109,7 @@ void video_player_seek(float delta_seconds) {
     {
         std::unique_lock<std::mutex> lock(playback_mutex);
 
-        int64_t current_time = static_cast<int64_t>(current_pts_seconds * AV_TIME_BASE);
+        int64_t current_time = static_cast<int64_t>(media_info_get().current_playback_time * AV_TIME_BASE);
         int64_t target_time = current_time + static_cast<int64_t>(delta_seconds * AV_TIME_BASE);
 
         // Clamp to valid range
@@ -139,11 +140,13 @@ void video_player_seek(float delta_seconds) {
 
         // Reset playback timestamps
         start_time = av_gettime_relative() - target_time;
-        current_pts_seconds = target_time / static_cast<double>(AV_TIME_BASE);
+        media_info info = media_info_get();
+        info.current_playback_time = target_time / static_cast<double>(AV_TIME_BASE);
+        media_info_set(info);
 
         // Sync audio with video
-        audio_player_seek(current_pts_seconds);
-        printf("[Video Player] Seek done! New time: %.2lld seconds\n", current_pts_seconds);
+        audio_player_seek(media_info_get().current_playback_time);
+        printf("[Video Player] Seek done! New time: %.2lld seconds\n", media_info_get().current_playback_time);
     }
 
     // Resume playback
@@ -151,27 +154,28 @@ void video_player_seek(float delta_seconds) {
 }
 
 bool video_player_is_playing() {
-    return playing_video;
+    return media_info_get().playback_status;
 }
 
 void video_player_play(bool new_state) {
     std::lock_guard<std::mutex> lock(playback_mutex);
+    media_info info = media_info_get();
 
-    if (!playing_video && new_state) {
+    if (!info.playback_status && new_state) {
         int64_t now = av_gettime_relative();
         int64_t pause_duration = now - pause_start_time;
         start_time += pause_duration; // Shift start_time forward
         playback_cv.notify_one();
-    } else if (playing_video && !new_state) {
-        // We are pausing
+    } else if (info.playback_status && !new_state) {
         pause_start_time = av_gettime_relative();
     }
 
-    playing_video = new_state;
+    info.playback_status = new_state;
+    media_info_set(info);
 }
 
 int64_t video_player_get_current_time() {
-    return current_pts_seconds;
+    return media_info_get().current_playback_time;
 }
 
 frame_info* video_player_get_current_frame_info() {
@@ -222,11 +226,12 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
                                  video_codec_ctx->width, video_codec_ctx->height);
 
     framerate = fmt_ctx->streams[video_stream_index]->r_frame_rate;
-    double frameRate = av_q2d(framerate);
+    media_info info = media_info_get();
+    info.framerate = av_q2d(framerate);
+    media_info_set(info);
     #ifdef DEBUG_VIDEO
-    printf("[Video player] FPS: %f\n", frameRate);
+    printf("[Video player] FPS: %f\n", info.framerate);
     #endif
-    ticks_per_frame = frameRate * OSMillisecondsToTicks(1000);
 
     pkt = av_packet_alloc();
     frame = av_frame_alloc();
@@ -245,7 +250,10 @@ void video_player_start(const char* path, SDL_Renderer& renderer, SDL_Texture*& 
     printf("[Video player] Starting video playback\n");
     #endif
 
-    current_pts_seconds = 0;
+    media_info info = media_info_get();
+    info.current_playback_time = 0;
+    media_info_set(info);
+
     video_thread_running = true;
 
     if (current_frame_info) {
@@ -276,7 +284,7 @@ void process_video_frame_thread() {
     while (video_thread_running) {
         {
             std::unique_lock<std::mutex> lock(playback_mutex);
-            playback_cv.wait(lock, [] { return playing_video || !video_thread_running; });
+            playback_cv.wait(lock, [] { return media_info_get().playback_status || !video_thread_running; });
         }
 
         AVPacket pkt;
@@ -284,15 +292,17 @@ void process_video_frame_thread() {
             if (pkt.stream_index == video_stream_index) {
                 if (!avcodec_send_packet(video_codec_ctx, &pkt)) {
                     while (!avcodec_receive_frame(video_codec_ctx, local_frame)) {
-                        int64_t pts_us = local_frame->pts * av_q2d(time_base) * 1e6;
-                        int64_t now_us = av_gettime_relative() - start_time;
-                        int64_t delay = pts_us - now_us;
+                        // int64_t pts_us = local_frame->pts * av_q2d(time_base) * 1e6;
+                        // int64_t now_us = av_gettime_relative() - start_time;
+                        // int64_t delay = pts_us - now_us;
 
-                        if (delay > 0) {
-                            av_usleep(delay);
-                        }
+                        // if (delay > 0) {
+                        //     av_usleep(delay);
+                        // }
 
-                        current_pts_seconds = local_frame->pts * av_q2d(time_base);
+                        media_info info = media_info_get();
+                        info.current_playback_time = static_cast<int64_t>(local_frame->pts * av_q2d(time_base));
+                        media_info_set(info);
 
                         {
                             std::lock_guard<std::mutex> lock(video_frame_mutex);
@@ -328,6 +338,10 @@ int64_t video_player_get_total_play_time() {
         duration = duration * av_q2d(stream->time_base);
     }
 
+    media_info info = media_info_get();
+    info.current_playback_time = static_cast<int64_t>(duration);
+    media_info_set(info);
+
     return static_cast<int64_t>(duration);
 }
 
@@ -362,7 +376,7 @@ void render_video_frame(SDL_Renderer* renderer) {
 }
 
 void video_player_update(SDL_Renderer* renderer) {
-    if (!playing_video) return;
+    if (!media_info_get().playback_status) return;
 
     render_video_frame(renderer);
 }
@@ -444,9 +458,12 @@ int video_player_cleanup() {
     #endif
     }
 
-    current_pts_seconds = 0;
+    media_info info = media_info_get();
+    info.current_playback_time = 0;
+    info.playback_status = false;
+    media_info_set(info);
+
     video_stream_index = -1;
-    playing_video = false;
     total_paused_duration = 0;
     pause_start_time = 0;
 
