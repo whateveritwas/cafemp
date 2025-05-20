@@ -3,6 +3,7 @@
 #include <padscore/wpad.h>
 
 #include "app_state.hpp"
+#include "media_info.hpp"
 #include "main.hpp"
 #include "nuklear.h"
 #include "utils.hpp"
@@ -130,8 +131,8 @@ void input_settings(VPADStatus* vpad_status, WPADStatusProController* wpad_statu
 
 void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
     if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_A, WPAD_PRO_BUTTON_A)) {
-        audio_player_audio_play(!video_player_is_playing());
-        video_player_play(!video_player_is_playing());
+        audio_player_audio_play(!media_info_get().playback_status);
+        video_player_play(!media_info_get().playback_status);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_B, WPAD_PRO_BUTTON_B)) {
         audio_player_audio_play(true);
         video_player_play(true);
