@@ -281,67 +281,72 @@ void ui_render_file_browser() {
     ui_render_tooltip(current_page_file_browser);
 }
 
-void ui_render_player_hud() {
+void ui_render_player_hud(media_info info) {
     constexpr int max_filename_length = 50;
     const int hud_height = 80 * UI_SCALE;
     struct nk_rect hud_rect = nk_rect(0, SCREEN_HEIGHT - hud_height, SCREEN_WIDTH, hud_height);
 
-    // Assume info_get() returns a copy or const ref of the current info
-    media_info info = media_info_get();
-
     if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
         // Progress bar
         nk_layout_row_dynamic(ctx, (hud_height / 2) - 5, 1);
-        nk_size progress = static_cast<nk_size>(std::min(info.current_playback_time, info.total_playback_time));
-        nk_size total = static_cast<nk_size>(info.total_playback_time);
+
+        nk_size progress = static_cast<nk_size>(0);
+        nk_size total = static_cast<nk_size>(0);
+
+        switch(info.type) {
+            case 0: // video
+            progress = static_cast<nk_size>(std::min(info.current_video_playback_time, info.total_video_playback_time));
+            total = static_cast<nk_size>(info.total_video_playback_time);
+            break;
+
+            case 1: // audio
+            progress = static_cast<nk_size>(std::min(info.current_audio_playback_time, info.total_audio_playback_time));
+            total = static_cast<nk_size>(info.total_audio_playback_time);
+            break;
+
+        }
         nk_progress(ctx, &progress, total, NK_FIXED);
 
         // HUD text and buttons
         nk_layout_row_begin(ctx, NK_DYNAMIC, hud_height / 2, 2);
-        nk_layout_row_push(ctx, 0.9f); // Left 90%: text label
+        nk_layout_row_push(ctx, 0.9f); // Left 80%: text label
         {
             std::string filename = "<Unknown>";
             auto files = get_media_files();
-
-            // Use selected_index or info.current_file_index if exists
-            int index = selected_index;  // or info.current_file_index if available
-
-            if (index >= 0 && index < (int)files.size()) {
-                filename = truncate_filename(files[index], max_filename_length);
-            }
+            filename = truncate_filename(files[selected_index].c_str(), max_filename_length);
 
             std::string hud_str = (info.playback_status ? "> " : "|| ");
-            hud_str += format_time(info.current_playback_time);
+            hud_str += format_time(info.current_video_playback_time);
             hud_str += " / ";
-            hud_str += format_time(info.total_playback_time);
+            hud_str += format_time(info.total_video_playback_time);
             hud_str += " [";
-            hud_str += filename;
+            hud_str += info.path;
             hud_str += "]";
 
             nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
         }
 
-        nk_layout_row_push(ctx, 0.1f); // Right 10%: audio/subtitle info
+        nk_layout_row_push(ctx, 0.1f);
         {
             std::string hud_str = "A:";
             hud_str += std::to_string(info.current_audio_track_id);
             hud_str += "/";
-            hud_str += std::to_string(audio_tracks.size());
+            hud_str += std::to_string(info.total_audio_track_count);
             hud_str += " S:";
             hud_str += std::to_string(info.current_caption_id);
             hud_str += "/";
-            hud_str += "0";  // Placeholder for subtitle count if available
+            hud_str += std::to_string(info.total_caption_count);
             nk_label(ctx, hud_str.c_str(), NK_TEXT_RIGHT);
         }
         nk_end(ctx);
     }
 }
 
-
 void ui_render_captions() {}
 
 void ui_render_video_player() {
     SDL_RenderClear(ui_renderer);
+
     #ifdef DEBUG_VIDEO
     uint64_t test_ticks = OSGetSystemTime();
     #endif
@@ -355,7 +360,7 @@ void ui_render_video_player() {
     frame_info* current_frame_info = video_player_get_current_frame_info();
     if (!current_frame_info || !current_frame_info->texture) {
         no_current_frame_info_cound++;
-        if(no_current_frame_info_cound < 10) return;
+        if (no_current_frame_info_cound < 10) return;
 
         audio_player_audio_play(true);
         video_player_play(true);
@@ -373,12 +378,10 @@ void ui_render_video_player() {
     static uint64_t last_decoding_time = 0;
     static uint64_t last_rendering_time = 0;
 
-    uint64_t rendering_ticks = 0;
-
-    rendering_ticks = OSGetSystemTime();  // Start timing
+    uint64_t rendering_ticks = OSGetSystemTime();  // Start timing
     #endif
 
-    if(!dest_rect_initialised) {
+    if (!dest_rect_initialised) {
         int video_width = current_frame_info->frame_width;
         int video_height = current_frame_info->frame_height;
 
@@ -394,15 +397,20 @@ void ui_render_video_player() {
         }
 
         dest_rect = { 0, 0, new_width, new_height };
-
         dest_rect.x = (screen_width - new_width) / 2;
         dest_rect.y = (screen_height - new_height) / 2;
 
         dest_rect_initialised = true;
     }
+
     SDL_RenderCopy(ui_renderer, current_frame_info->texture, NULL, &dest_rect);
 
-    if (fabs(video_player_get_current_time() - video_player_get_total_play_time()) < 0.01) {
+    // Cache media info to avoid repeated mutex locking
+    media_info info = media_info_get();
+
+    // Use epsilon for float comparison to avoid tiny floating precision errors
+    constexpr double epsilon = 1.0; // 1 ms tolerance
+    if (std::abs(info.current_video_playback_time - info.total_video_playback_time) < epsilon) {
         audio_player_audio_play(true);
         video_player_play(true);
         video_player_cleanup();
@@ -423,7 +431,7 @@ void ui_render_video_player() {
     struct nk_rect hud_rect = nk_rect(0, 0, 512 * UI_SCALE, 30 * UI_SCALE);
     if (nk_begin(ctx, "Decoding", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
         nk_layout_row_dynamic(ctx, 30 * UI_SCALE, 2);
-    
+
         if (decoding_time > 5) {
             last_decoding_time = decoding_time;
         }
@@ -438,7 +446,9 @@ void ui_render_video_player() {
     }
     #endif
 
-    if (!video_player_is_playing() || input_is_vpad_touched()) ui_render_player_hud();
+    if (info.playback_status || input_is_vpad_touched()) {
+        ui_render_player_hud(info);
+    }
 }
 
 void ui_render_audio_player() {
@@ -451,14 +461,14 @@ void ui_render_audio_player() {
         scan_directory(MEDIA_PATH);
         app_state_set(STATE_MENU_FILES);
     }
-    ui_render_player_hud();
+    ui_render_player_hud(media_info_get());
 }
 
 void ui_shutdown() {
     WPADShutdown();
     if (ambiance_playing) { audio_player_cleanup(); ambiance_playing = false; }
-    if(!video_player_is_playing()) video_player_play(true);
-    if (video_player_is_playing()) video_player_cleanup();
+    if (!media_info_get().playback_status) video_player_play(true);
+    if (media_info_get().playback_status) video_player_cleanup();
 
     if (ui_texture) {
         SDL_DestroyTexture(ui_texture);
