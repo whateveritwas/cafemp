@@ -19,6 +19,7 @@
 #include "nuklear.h"
 #include "nuklear_sdl_renderer.h"
 
+#include "media_info.hpp"
 #include "media_files.hpp"
 #include "settings.hpp"
 #include "app_state.hpp"
@@ -280,30 +281,39 @@ void ui_render_file_browser() {
     ui_render_tooltip(current_page_file_browser);
 }
 
-void ui_render_player_hud(bool state, double current_time, double total_time, int current_audio_track_id, int current_subtitle_id) {
+void ui_render_player_hud() {
     constexpr int max_filename_length = 50;
     const int hud_height = 80 * UI_SCALE;
     struct nk_rect hud_rect = nk_rect(0, SCREEN_HEIGHT - hud_height, SCREEN_WIDTH, hud_height);
 
+    // Assume info_get() returns a copy or const ref of the current info
+    media_info info = media_info_get();
+
     if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
         // Progress bar
         nk_layout_row_dynamic(ctx, (hud_height / 2) - 5, 1);
-        nk_size progress = static_cast<nk_size>(std::min(current_time, total_time));
-        nk_size total = static_cast<nk_size>(total_time);
+        nk_size progress = static_cast<nk_size>(std::min(info.current_playback_time, info.total_playback_time));
+        nk_size total = static_cast<nk_size>(info.total_playback_time);
         nk_progress(ctx, &progress, total, NK_FIXED);
 
         // HUD text and buttons
         nk_layout_row_begin(ctx, NK_DYNAMIC, hud_height / 2, 2);
-        nk_layout_row_push(ctx, 0.9f); // Left 80%: text label
+        nk_layout_row_push(ctx, 0.9f); // Left 90%: text label
         {
             std::string filename = "<Unknown>";
             auto files = get_media_files();
-            filename = truncate_filename(files[selected_index].c_str(), max_filename_length);
 
-            std::string hud_str = (state ? "> " : "|| ");
-            hud_str += format_time(current_time);
+            // Use selected_index or info.current_file_index if exists
+            int index = selected_index;  // or info.current_file_index if available
+
+            if (index >= 0 && index < (int)files.size()) {
+                filename = truncate_filename(files[index], max_filename_length);
+            }
+
+            std::string hud_str = (info.playback_status ? "> " : "|| ");
+            hud_str += format_time(info.current_playback_time);
             hud_str += " / ";
-            hud_str += format_time(total_time);
+            hud_str += format_time(info.total_playback_time);
             hud_str += " [";
             hud_str += filename;
             hud_str += "]";
@@ -311,23 +321,22 @@ void ui_render_player_hud(bool state, double current_time, double total_time, in
             nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
         }
 
-        // if(app_state_get() == STATE_MENU_VIDEO_FILES) {
-            nk_layout_row_push(ctx, 0.1f);
-            {
-                std::string hud_str = "A:";
-                hud_str += std::to_string(audio_player_get_current_track_id());
-                hud_str += "/";
-                hud_str += std::to_string(audio_tracks.size());
-                hud_str += " S:";
-                hud_str += std::to_string(current_subtitle_id);
-                hud_str += "/";
-                hud_str += "0";
-                nk_label(ctx, hud_str.c_str(), NK_TEXT_RIGHT);
-            }
-        // }
+        nk_layout_row_push(ctx, 0.1f); // Right 10%: audio/subtitle info
+        {
+            std::string hud_str = "A:";
+            hud_str += std::to_string(info.current_audio_track_id);
+            hud_str += "/";
+            hud_str += std::to_string(audio_tracks.size());
+            hud_str += " S:";
+            hud_str += std::to_string(info.current_caption_id);
+            hud_str += "/";
+            hud_str += "0";  // Placeholder for subtitle count if available
+            nk_label(ctx, hud_str.c_str(), NK_TEXT_RIGHT);
+        }
         nk_end(ctx);
     }
 }
+
 
 void ui_render_captions() {}
 
@@ -429,7 +438,7 @@ void ui_render_video_player() {
     }
     #endif
 
-    if (!video_player_is_playing() || input_is_vpad_touched()) ui_render_player_hud(video_player_is_playing(), video_player_get_current_time(), video_player_get_total_play_time(), 0, 0);
+    if (!video_player_is_playing() || input_is_vpad_touched()) ui_render_player_hud();
 }
 
 void ui_render_audio_player() {
@@ -442,7 +451,7 @@ void ui_render_audio_player() {
         scan_directory(MEDIA_PATH);
         app_state_set(STATE_MENU_FILES);
     }
-    ui_render_player_hud(audio_player_get_audio_play_state(), audio_player_get_current_play_time(), audio_player_get_total_play_time(), 0, 0);
+    ui_render_player_hud();
 }
 
 void ui_shutdown() {
