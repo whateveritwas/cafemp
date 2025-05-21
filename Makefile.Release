@@ -158,6 +158,7 @@ endif
 all: $(BUILD)
 
 $(BUILD):
+	@echo "Building for release!"
 	@[ -d $@ ] || mkdir -p $@
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 

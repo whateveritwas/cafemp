@@ -114,10 +114,10 @@ void start_file(int index) {
 
 void start_selected_video(int selected_index) {
     std::string full_path = std::string(MEDIA_PATH) + get_media_files()[selected_index];
-    video_player_start(full_path.c_str(), *ui_renderer, ui_texture);
     audio_tracks = get_audio_tracks();
     audio_player_audio_play(true);
     video_player_play(true);
+    video_player_start(full_path.c_str(), *ui_renderer, ui_texture);
     app_state_set(STATE_PLAYING_VIDEO);
 }
 
@@ -361,12 +361,7 @@ void ui_render_video_player() {
     if (!current_frame_info || !current_frame_info->texture) {
         no_current_frame_info_cound++;
         if (no_current_frame_info_cound < 10) return;
-
-        audio_player_audio_play(true);
-        video_player_play(true);
         video_player_cleanup();
-        audio_player_audio_play(false);
-        video_player_play(false);
         scan_directory(MEDIA_PATH);
         app_state_set(STATE_MENU_FILES);
         return;
@@ -411,11 +406,7 @@ void ui_render_video_player() {
     // Use epsilon for float comparison to avoid tiny floating precision errors
     constexpr double epsilon = 1.0; // 1 ms tolerance
     if (std::abs(info.current_video_playback_time - info.total_video_playback_time) < epsilon) {
-        audio_player_audio_play(true);
-        video_player_play(true);
         video_player_cleanup();
-        audio_player_audio_play(false);
-        video_player_play(false);
         scan_directory(MEDIA_PATH);
         app_state_set(STATE_MENU_FILES);
     }

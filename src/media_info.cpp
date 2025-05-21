@@ -6,22 +6,13 @@ static std::unique_ptr<media_info> current_media_info = std::make_unique<media_i
 
 media_info* media_info_get() {
     std::lock_guard<std::mutex> lock(media_info_mutex);
-    return current_media_info.get();
-}
 
-media_info media_info_get_copy() {
-    std::lock_guard<std::mutex> lock(media_info_mutex);
-    return *current_media_info; // copy construct
-}
+    if (!current_media_info) {
+        printf("[Media Info] current_media_info is null!\n");
+        while (1);  // Crash intentionally for debugging
+    }
 
-void media_info_set(std::unique_ptr<media_info> new_info) {
-    std::lock_guard<std::mutex> lock(media_info_mutex);
-    current_media_info = std::move(new_info);
-}
-
-#ifdef DEBUG
-void media_info_debug_print() {
-    std::lock_guard<std::mutex> lock(media_info_mutex);
+    #ifdef DEBUG
     printf("=== Media Info Debug ===\n");
     printf("Path: %s\n", current_media_info->path.c_str());
     printf("Type: %c\n", current_media_info->type);
@@ -36,5 +27,29 @@ void media_info_debug_print() {
     printf("Total Caption Count: %d\n", current_media_info->total_caption_count);
     printf("Playback Status: %s\n", current_media_info->playback_status ? "Playing" : "Stopped");
     printf("========================\n");
+    #endif
+
+    return current_media_info.get();
 }
-#endif
+
+media_info media_info_get_copy() {
+    std::lock_guard<std::mutex> lock(media_info_mutex);
+
+    if (!current_media_info) {
+        printf("[Media Info] current_media_info is null!\n");
+        while (1);
+    }
+
+    return *current_media_info; // Return a copy
+}
+
+void media_info_set(std::unique_ptr<media_info> new_info) {
+    std::lock_guard<std::mutex> lock(media_info_mutex);
+
+    if (!new_info) {
+        printf("[Media Info] new_info passed to set is null!\n");
+        while (1);
+    }
+
+    current_media_info = std::move(new_info);
+}
