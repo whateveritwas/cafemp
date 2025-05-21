@@ -4,6 +4,7 @@
 #define MADIA_INFO_H
 
 #include <string>
+#include <memory>
 
 struct media_info {
     std::string path = "";
@@ -20,7 +21,10 @@ struct media_info {
     bool playback_status = false;
 };
 
-media_info media_info_get();
-void media_info_set(const media_info& new_media_info);
-
+media_info* media_info_get();
+media_info media_info_get_copy();
+void media_info_set(std::unique_ptr<media_info> new_info);
+#ifdef DEBUG
+void media_info_debug_print();
+#endif
 #endif

@@ -281,7 +281,7 @@ void ui_render_file_browser() {
     ui_render_tooltip(current_page_file_browser);
 }
 
-void ui_render_player_hud(media_info info) {
+void ui_render_player_hud(media_info* info) {
     constexpr int max_filename_length = 50;
     const int hud_height = 80 * UI_SCALE;
     struct nk_rect hud_rect = nk_rect(0, SCREEN_HEIGHT - hud_height, SCREEN_WIDTH, hud_height);
@@ -293,15 +293,15 @@ void ui_render_player_hud(media_info info) {
         nk_size progress = static_cast<nk_size>(0);
         nk_size total = static_cast<nk_size>(0);
 
-        switch(info.type) {
+        switch(info->type) {
             case 0: // video
-            progress = static_cast<nk_size>(std::min(info.current_video_playback_time, info.total_video_playback_time));
-            total = static_cast<nk_size>(info.total_video_playback_time);
+            progress = static_cast<nk_size>(std::min(info->current_video_playback_time, info->total_video_playback_time));
+            total = static_cast<nk_size>(info->total_video_playback_time);
             break;
 
             case 1: // audio
-            progress = static_cast<nk_size>(std::min(info.current_audio_playback_time, info.total_audio_playback_time));
-            total = static_cast<nk_size>(info.total_audio_playback_time);
+            progress = static_cast<nk_size>(std::min(info->current_audio_playback_time, info->total_audio_playback_time));
+            total = static_cast<nk_size>(info->total_audio_playback_time);
             break;
 
         }
@@ -315,12 +315,12 @@ void ui_render_player_hud(media_info info) {
             auto files = get_media_files();
             filename = truncate_filename(files[selected_index].c_str(), max_filename_length);
 
-            std::string hud_str = (info.playback_status ? "> " : "|| ");
-            hud_str += format_time(info.current_video_playback_time);
+            std::string hud_str = (info->playback_status ? "> " : "|| ");
+            hud_str += format_time(info->current_video_playback_time);
             hud_str += " / ";
-            hud_str += format_time(info.total_video_playback_time);
+            hud_str += format_time(info->total_video_playback_time);
             hud_str += " [";
-            hud_str += info.path;
+            hud_str += info->path;
             hud_str += "]";
 
             nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
@@ -329,13 +329,13 @@ void ui_render_player_hud(media_info info) {
         nk_layout_row_push(ctx, 0.1f);
         {
             std::string hud_str = "A:";
-            hud_str += std::to_string(info.current_audio_track_id);
+            hud_str += std::to_string(info->current_audio_track_id);
             hud_str += "/";
-            hud_str += std::to_string(info.total_audio_track_count);
+            hud_str += std::to_string(info->total_audio_track_count);
             hud_str += " S:";
-            hud_str += std::to_string(info.current_caption_id);
+            hud_str += std::to_string(info->current_caption_id);
             hud_str += "/";
-            hud_str += std::to_string(info.total_caption_count);
+            hud_str += std::to_string(info->total_caption_count);
             nk_label(ctx, hud_str.c_str(), NK_TEXT_RIGHT);
         }
         nk_end(ctx);
@@ -406,7 +406,7 @@ void ui_render_video_player() {
     SDL_RenderCopy(ui_renderer, current_frame_info->texture, NULL, &dest_rect);
 
     // Cache media info to avoid repeated mutex locking
-    media_info info = media_info_get();
+    media_info info = media_info_get_copy();
 
     // Use epsilon for float comparison to avoid tiny floating precision errors
     constexpr double epsilon = 1.0; // 1 ms tolerance
@@ -447,7 +447,8 @@ void ui_render_video_player() {
     #endif
 
     if (info.playback_status || input_is_vpad_touched()) {
-        ui_render_player_hud(info);
+        media_info info = media_info_get_copy();
+        ui_render_player_hud(&info);
     }
 }
 
@@ -467,8 +468,8 @@ void ui_render_audio_player() {
 void ui_shutdown() {
     WPADShutdown();
     if (ambiance_playing) { audio_player_cleanup(); ambiance_playing = false; }
-    if (!media_info_get().playback_status) video_player_play(true);
-    if (media_info_get().playback_status) video_player_cleanup();
+    if (!media_info_get_copy().playback_status) video_player_play(true);
+    if (media_info_get_copy().playback_status) video_player_cleanup();
 
     if (ui_texture) {
         SDL_DestroyTexture(ui_texture);

@@ -44,17 +44,12 @@ BOOT_SOUND 	:=	branding/bootSound.btsnd
 #-------------------------------------------------------------------------------
 # options for code generation
 #-------------------------------------------------------------------------------
-CFLAGS := -O3 -Ofast -ffast-math -funroll-loops -fexceptions -Wall -Werror \
-          -fdata-sections -ffunction-sections -flto \
-          -fomit-frame-pointer -fno-common -falign-loops -falign-jumps \
-          -mcpu=750 -meabi -mhard-float $(INCLUDE) -D__WIIU__ -D__WUT__ \
+CFLAGS := $(INCLUDE) -D__WIIU__ -D__WUT__
 
 # Debug info strip for release builds
-CFLAGS += -g0 -DDEBUG_AUDIO -DDEBUG_VIDEO
+CFLAGS += -DDEBUG_AUDIO -DDEBUG_VIDEO -DDEBUG
 
-LDFLAGS += -Wl,--gc-sections -flto
-
-CXXFLAGS	:= -fno-rtti $(CFLAGS)
+CXXFLAGS	:= $(CFLAGS)
 
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-g $(ARCH) $(RPXSPECS) -Wl,-Map,$(notdir $*.map)
