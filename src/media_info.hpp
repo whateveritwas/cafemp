@@ -8,7 +8,7 @@
 
 struct media_info {
     std::string path = "";
-    char type = 0;
+    char type = 'U';
     double framerate = 30.0;
     int64_t current_video_playback_time = 0;
     int64_t current_audio_playback_time = 0;
@@ -24,7 +24,4 @@ struct media_info {
 media_info* media_info_get();
 media_info media_info_get_copy();
 void media_info_set(std::unique_ptr<media_info> new_info);
-#ifdef DEBUG
-void media_info_debug_print();
-#endif
 #endif

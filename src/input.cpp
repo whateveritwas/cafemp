@@ -134,11 +134,8 @@ void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
         audio_player_audio_play(!media_info_get_copy().playback_status);
         video_player_play(!media_info_get_copy().playback_status);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_B, WPAD_PRO_BUTTON_B)) {
-        audio_player_audio_play(true);
-        video_player_play(true);
         video_player_cleanup();
-        audio_player_audio_play(false);
-        video_player_play(false);
+        
         scan_directory(MEDIA_PATH);
         app_state_set(STATE_MENU_FILES);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_LEFT, WPAD_PRO_BUTTON_LEFT))  {

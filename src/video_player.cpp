@@ -162,6 +162,9 @@ void video_player_play(bool new_state) {
         // We are pausing
         pause_start_time = av_gettime_relative();
     }
+    #ifdef DEBUG_VIDEO
+    printf("[Video Player] Changing playback_status to %s\n", new_state ? "true" : "false");
+    #endif
 
     info.playback_status = new_state;
     media_info_set(std::make_unique<media_info>(info));
@@ -176,7 +179,6 @@ frame_info* video_player_get_current_frame_info() {
 }
 
 int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*& texture) {
-    media_info info = media_info_get_copy();
     #ifdef DEBUG_VIDEO
     printf("[Video player] Starting Video Player...\n");
     printf("[Video player] Opening file %s\n", filepath);
@@ -216,7 +218,10 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
                                  video_codec_ctx->width, video_codec_ctx->height);
 
     framerate = fmt_ctx->streams[video_stream_index]->r_frame_rate;
+    media_info info = media_info_get_copy();
     info.framerate = av_q2d(framerate);
+    media_info_set(std::make_unique<media_info>(info));
+
     #ifdef DEBUG_VIDEO
     printf("[Video player] FPS: %f\n", info.framerate);
     #endif
@@ -229,17 +234,12 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
     #endif
 
     audio_player_init(info.path.c_str());
-    media_info_set(std::make_unique<media_info>(info));
-
     return 0;
 }
 
 void video_player_start(const char* path, SDL_Renderer& renderer, SDL_Texture*& texture) {
+    video_player_play(true);
     media_info info = media_info_get_copy();
-    #ifdef DEBUG_VIDEO
-    printf("[Video player] Starting video playback\n");
-    #endif
-
     info.path = path;
     info.current_video_playback_time = 0;
     video_thread_running = true;
@@ -252,6 +252,7 @@ void video_player_start(const char* path, SDL_Renderer& renderer, SDL_Texture*& 
 
     media_info_set(std::make_unique<media_info>(info));
     video_player_init(path, &renderer, texture);
+
     start_video_decoding_thread();
     app_state_set(STATE_PLAYING_VIDEO);
 }
@@ -277,7 +278,7 @@ void process_video_frame_thread() {
             std::unique_lock<std::mutex> lock(playback_mutex);
             playback_cv.wait(lock, [] {
                 std::lock_guard<std::mutex> info_lock(info_mutex);
-                return media_info_get()->playback_status || !video_thread_running;
+                return media_info_get_copy().playback_status || !video_thread_running;
             });
         }
 
@@ -448,7 +449,6 @@ int video_player_cleanup() {
     video_stream_index = -1;
     media_info info = media_info_get_copy();
     info.current_video_playback_time = 0;
-    info.playback_status = false;
     media_info_set(std::make_unique<media_info>(info));
     total_paused_duration = 0;
     pause_start_time = 0;
@@ -457,5 +457,6 @@ int video_player_cleanup() {
     printf("[Video player] Cleanup complete\n");
     #endif
 
+    video_player_play(false);
     return 0;
 }

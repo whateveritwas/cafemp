@@ -44,10 +44,7 @@ BOOT_SOUND 	:=	branding/bootSound.btsnd
 #-------------------------------------------------------------------------------
 # options for code generation
 #-------------------------------------------------------------------------------
-CFLAGS := $(INCLUDE) -D__WIIU__ -D__WUT__
-
-CFLAGS += -DDEBUG_AUDIO -DDEBUG_VIDEO -DDEBUG
-
+CFLAGS := -DDEBUG -DDEBUG_AUDIO -DDEBUG_VIDEO $(INCLUDE) -D__WIIU__ -D__WUT__
 CXXFLAGS	:= $(CFLAGS)
 
 ASFLAGS	:=	-g $(ARCH)
@@ -152,6 +149,7 @@ endif
 all: $(BUILD)
 
 $(BUILD):
+	@echo "Building for debug!"
 	@[ -d $@ ] || mkdir -p $@
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 
