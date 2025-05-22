@@ -220,6 +220,7 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
     framerate = fmt_ctx->streams[video_stream_index]->r_frame_rate;
     media_info info = media_info_get_copy();
     info.framerate = av_q2d(framerate);
+    info.total_video_playback_time = video_player_get_total_play_time();
     media_info_set(std::make_unique<media_info>(info));
 
     #ifdef DEBUG_VIDEO

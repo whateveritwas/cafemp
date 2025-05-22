@@ -15,6 +15,7 @@ void clear_video_frames();
 void video_player_seek(float delta_seconds);
 void video_player_play(bool new_state);
 frame_info* video_player_get_current_frame_info();
+int64_t video_player_get_total_play_time();
 int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*& texture);
 void video_player_start(const char* path, SDL_Renderer& renderer, SDL_Texture*& texture);
 void start_video_decoding_thread();
