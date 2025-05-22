@@ -279,7 +279,7 @@ void process_video_frame_thread() {
             std::unique_lock<std::mutex> lock(playback_mutex);
             playback_cv.wait(lock, [] {
                 std::lock_guard<std::mutex> info_lock(info_mutex);
-                return media_info_get_copy().playback_status || !video_thread_running;
+                return media_info_get()->playback_status || !video_thread_running;
             });
         }
 
@@ -291,9 +291,7 @@ void process_video_frame_thread() {
                         // Update playback time
                         {
                             std::lock_guard<std::mutex> info_lock(info_mutex);
-                            media_info info = media_info_get_copy();
-                            info.current_video_playback_time = local_frame->pts * av_q2d(time_base);
-                            media_info_set(std::make_unique<media_info>(info));
+                            media_info_get()->current_video_playback_time = local_frame->pts * av_q2d(time_base);
                         }
 
                         // Push frame to queue

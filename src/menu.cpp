@@ -103,6 +103,9 @@ void start_file(int index) {
     
     for (auto& c : extension) c = std::tolower(c);
 
+    auto new_info = std::make_unique<media_info>();
+    media_info_set(std::move(new_info));
+
     if (valid_video_endings.count(extension)) {
         start_selected_video(index);
     } else if (valid_audio_endings.count(extension)) {
@@ -113,6 +116,7 @@ void start_file(int index) {
 }
 
 void start_selected_video(int selected_index) {
+    media_info_get()->type = 'V';
     std::string full_path = std::string(MEDIA_PATH) + get_media_files()[selected_index];
     audio_tracks = get_audio_tracks();
     audio_player_audio_play(true);
@@ -122,7 +126,7 @@ void start_selected_video(int selected_index) {
 }
 
 void start_selected_audio(int selected_index) {
-
+    media_info_get()->type = 'A';
     std::string full_path = std::string(MEDIA_PATH) + get_media_files()[selected_index];
     audio_player_init(full_path.c_str());
     audio_player_audio_play(true);
@@ -294,12 +298,12 @@ void ui_render_player_hud(media_info* info) {
         nk_size total = static_cast<nk_size>(0);
 
         switch(info->type) {
-            case 0: // video
+            case 'V': // video
             progress = static_cast<nk_size>(std::min(info->current_video_playback_time, info->total_video_playback_time));
             total = static_cast<nk_size>(info->total_video_playback_time);
             break;
 
-            case 1: // audio
+            case 'A': // audio
             progress = static_cast<nk_size>(std::min(info->current_audio_playback_time, info->total_audio_playback_time));
             total = static_cast<nk_size>(info->total_audio_playback_time);
             break;
@@ -438,8 +442,7 @@ void ui_render_video_player() {
     #endif
 
     if (info.playback_status || input_is_vpad_touched()) {
-        media_info info = media_info_get_copy();
-        ui_render_player_hud(&info);
+        ui_render_player_hud(media_info_get());
     }
 }
 
@@ -461,6 +464,8 @@ void ui_shutdown() {
     if (ambiance_playing) { audio_player_cleanup(); ambiance_playing = false; }
     if (!media_info_get_copy().playback_status) video_player_play(true);
     if (media_info_get_copy().playback_status) video_player_cleanup();
+
+    delete(media_info_get());
 
     if (ui_texture) {
         SDL_DestroyTexture(ui_texture);
