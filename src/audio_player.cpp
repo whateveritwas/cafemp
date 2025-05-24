@@ -433,7 +433,7 @@ double audio_player_get_total_play_time() {
     return total_time;
 }
 
-void audio_player_audio_play(bool state) {
+void audio_player_play(bool state) {
     if (!audio_enabled) return;
 
     audio_playing = state;
