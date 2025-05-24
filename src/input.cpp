@@ -131,8 +131,8 @@ void input_settings(VPADStatus* vpad_status, WPADStatusProController* wpad_statu
 
 void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
     if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_A, WPAD_PRO_BUTTON_A)) {
-        audio_player_audio_play(!media_info_get_copy().playback_status);
-        video_player_play(!media_info_get_copy().playback_status);
+        audio_player_audio_play(!media_info_get()->playback_status);
+        video_player_play(!media_info_get()->playback_status);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_B, WPAD_PRO_BUTTON_B)) {
         video_player_cleanup();
         
