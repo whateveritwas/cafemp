@@ -116,8 +116,13 @@ void start_file(int index) {
 }
 
 void start_selected_video(int selected_index) {
-    media_info_get()->type = 'V';
     std::string full_path = std::string(MEDIA_PATH) + get_media_files()[selected_index];
+
+    media_info_get()->type = 'V';
+    media_info_get()->path = full_path;
+    media_info_get()->current_video_playback_time = 0;
+    media_info_get()->current_audio_playback_time = 0;
+
     audio_tracks = get_audio_tracks();
     audio_player_audio_play(true);
     video_player_play(true);
@@ -126,8 +131,13 @@ void start_selected_video(int selected_index) {
 }
 
 void start_selected_audio(int selected_index) {
-    media_info_get()->type = 'A';
     std::string full_path = std::string(MEDIA_PATH) + get_media_files()[selected_index];
+
+    media_info_get()->type = 'A';
+    media_info_get()->path = full_path;
+    media_info_get()->current_video_playback_time = 0;
+    media_info_get()->current_audio_playback_time = 0;
+
     audio_player_init(full_path.c_str());
     audio_player_audio_play(true);
     app_state_set(STATE_PLAYING_AUDIO);
@@ -313,7 +323,7 @@ void ui_render_player_hud(media_info* info) {
 
         // HUD text and buttons
         nk_layout_row_begin(ctx, NK_DYNAMIC, hud_height / 2, 2);
-        nk_layout_row_push(ctx, 0.9f); // Left 80%: text label
+        nk_layout_row_push(ctx, 0.8f); // Left 80%: text label
         {
             std::string filename = "<Unknown>";
             auto files = get_media_files();
@@ -330,7 +340,7 @@ void ui_render_player_hud(media_info* info) {
             nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
         }
 
-        nk_layout_row_push(ctx, 0.1f);
+        nk_layout_row_push(ctx, 0.2f);
         {
             std::string hud_str = "A:";
             hud_str += std::to_string(info->current_audio_track_id);
@@ -441,7 +451,7 @@ void ui_render_video_player() {
     }
     #endif
 
-    if (info.playback_status || input_is_vpad_touched()) {
+    if (!media_info_get()->playback_status || input_is_vpad_touched()) {
         ui_render_player_hud(media_info_get());
     }
 }
@@ -462,10 +472,8 @@ void ui_render_audio_player() {
 void ui_shutdown() {
     WPADShutdown();
     if (ambiance_playing) { audio_player_cleanup(); ambiance_playing = false; }
-    if (!media_info_get_copy().playback_status) video_player_play(true);
-    if (media_info_get_copy().playback_status) video_player_cleanup();
-
-    delete(media_info_get());
+    if (!media_info_get()->playback_status) video_player_play(true);
+    if (media_info_get()->playback_status) video_player_cleanup();
 
     if (ui_texture) {
         SDL_DestroyTexture(ui_texture);
