@@ -46,8 +46,6 @@ bool ambiance_playing = false;
 static int background_music_enabled = 1;
 static int no_current_frame_info_cound = 0;
 
-std::vector<AudioTrackInfo> audio_tracks;
-
 void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_texture) {
     WPADInit();
     WPADEnableURCC(true);
@@ -67,9 +65,9 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
 
     if(!background_music_enabled) {
         audio_player_init("/vol/content/empty.mp3");
-        audio_player_audio_play(true);
+        audio_player_play(true);
         audio_player_cleanup();
-        audio_player_audio_play(false);
+        audio_player_play(false);
     }
 
     ctx = nk_sdl_init(ui_window, ui_renderer);
@@ -123,10 +121,9 @@ void start_selected_video(int selected_index) {
     media_info_get()->current_video_playback_time = 0;
     media_info_get()->current_audio_playback_time = 0;
 
-    audio_tracks = get_audio_tracks();
-    audio_player_audio_play(true);
-    video_player_play(true);
     video_player_start(full_path.c_str(), *ui_renderer, ui_texture);
+    audio_player_play(true);
+    video_player_play(true);
     app_state_set(STATE_PLAYING_VIDEO);
 }
 
@@ -139,25 +136,25 @@ void start_selected_audio(int selected_index) {
     media_info_get()->current_audio_playback_time = 0;
 
     audio_player_init(full_path.c_str());
-    audio_player_audio_play(true);
+    audio_player_play(true);
     app_state_set(STATE_PLAYING_AUDIO);
 }
 
 void ui_handle_ambiance() {
     if (!ambiance_playing && background_music_enabled) {
         audio_player_init(AMBIANCE_PATH);
-        audio_player_audio_play(true);
+        audio_player_play(true);
         ambiance_playing = true;
     } else if((int)audio_player_get_current_play_time() == (int)audio_player_get_total_play_time() && ambiance_playing && background_music_enabled) {
-        audio_player_audio_play(true);
+        audio_player_play(true);
         audio_player_cleanup();
-        audio_player_audio_play(false);
+        audio_player_play(false);
         audio_player_init(AMBIANCE_PATH);
-        audio_player_audio_play(true);
+        audio_player_play(true);
     } else if(ambiance_playing && !background_music_enabled) {
-        audio_player_audio_play(true);
+        audio_player_play(true);
         audio_player_cleanup();
-        audio_player_audio_play(false);
+        audio_player_play(false);
     }
 }
 
@@ -414,12 +411,8 @@ void ui_render_video_player() {
 
     SDL_RenderCopy(ui_renderer, current_frame_info->texture, NULL, &dest_rect);
 
-    // Cache media info to avoid repeated mutex locking
-    media_info info = media_info_get_copy();
-
-    // Use epsilon for float comparison to avoid tiny floating precision errors
     constexpr double epsilon = 1.0; // 1 ms tolerance
-    if (std::abs(info.current_video_playback_time - info.total_video_playback_time) < epsilon) {
+    if (std::abs(media_info_get()->current_video_playback_time - media_info_get()->total_video_playback_time) < epsilon) {
         video_player_cleanup();
         scan_directory(MEDIA_PATH);
         app_state_set(STATE_MENU_FILES);
@@ -431,7 +424,9 @@ void ui_render_video_player() {
         last_rendering_time = current_rendering_time;
     }
 
+    #ifdef DEBUG
     printf("Dec: %lli Rndr: %lli\n", decoding_time, current_rendering_time);
+    #endif
 
     struct nk_rect hud_rect = nk_rect(0, 0, 512 * UI_SCALE, 30 * UI_SCALE);
     if (nk_begin(ctx, "Decoding", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
@@ -460,9 +455,9 @@ void ui_render_audio_player() {
     SDL_RenderClear(ui_renderer);
 
     if((audio_player_get_total_play_time() - audio_player_get_current_play_time()) < 0.01) {
-        audio_player_audio_play(true);
+        audio_player_play(true);
         audio_player_cleanup();
-        audio_player_audio_play(false);
+        audio_player_play(false);
         scan_directory(MEDIA_PATH);
         app_state_set(STATE_MENU_FILES);
     }

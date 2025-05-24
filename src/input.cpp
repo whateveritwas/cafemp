@@ -131,7 +131,7 @@ void input_settings(VPADStatus* vpad_status, WPADStatusProController* wpad_statu
 
 void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
     if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_A, WPAD_PRO_BUTTON_A)) {
-        audio_player_audio_play(!media_info_get()->playback_status);
+        audio_player_play(!media_info_get()->playback_status);
         video_player_play(!media_info_get()->playback_status);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_B, WPAD_PRO_BUTTON_B)) {
         video_player_cleanup();
@@ -144,7 +144,7 @@ void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
         video_player_seek(5.0f);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_X, WPAD_PRO_BUTTON_X)) {
         video_player_play(false);
-        audio_player_audio_play(false);
+        audio_player_play(false);
 
         current_audio_track_id++;
         if(current_audio_track_id > (int)get_audio_tracks().size()) current_audio_track_id = 1;
@@ -152,7 +152,7 @@ void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
         audio_player_switch_audio_stream(current_audio_track_id);
 
         video_player_play(true);
-        audio_player_audio_play(true);
+        audio_player_play(true);
         // Change Audio track
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_Y, WPAD_PRO_BUTTON_Y)) {
         // Change Subtitles
@@ -161,7 +161,7 @@ void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
 
 void input_audio_player(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
     if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_A, WPAD_PRO_BUTTON_A)) {
-        audio_player_audio_play(!audio_player_get_audio_play_state());
+        audio_player_play(!audio_player_get_audio_play_state());
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_B, WPAD_PRO_BUTTON_B)) {
         audio_player_cleanup();
         scan_directory(MEDIA_PATH);
