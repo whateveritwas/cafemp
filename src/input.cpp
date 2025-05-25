@@ -143,13 +143,16 @@ void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_RIGHT, WPAD_PRO_BUTTON_RIGHT)) {
         video_player_seek(5.0f);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_X, WPAD_PRO_BUTTON_X)) {
+        if(media_info_get()->total_audio_track_count == 1) return;
+
         video_player_play(false);
         audio_player_play(false);
 
-        current_audio_track_id++;
-        if(current_audio_track_id > (int)get_audio_tracks().size()) current_audio_track_id = 1;
+        media_info_get()->current_audio_track_id++;
+        if(media_info_get()->current_audio_track_id > media_info_get()->total_audio_track_count)
+            media_info_get()->current_audio_track_id = 1;
         
-        audio_player_switch_audio_stream(current_audio_track_id);
+        audio_player_switch_audio_stream(media_info_get()->current_audio_track_id);
 
         video_player_play(true);
         audio_player_play(true);

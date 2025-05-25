@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cstring>
 
+#include "media_info.hpp"
 #include "audio_player.hpp"
 
 static SDL_AudioDeviceID audio_device = 0;
@@ -139,6 +140,8 @@ void collect_audio_tracks(AVFormatContext* fmt_ctx) {
             audioTracks.push_back(info);
         }
     }
+
+    media_info_get()->total_audio_track_count = audioTracks.size();
 }
 
 std::vector<AudioTrackInfo> get_audio_tracks() {

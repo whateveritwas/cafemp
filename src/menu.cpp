@@ -118,8 +118,15 @@ void start_selected_video(int selected_index) {
 
     media_info_get()->type = 'V';
     media_info_get()->path = full_path;
+    media_info_get()->filename = get_media_files()[selected_index];
     media_info_get()->current_video_playback_time = 0;
     media_info_get()->current_audio_playback_time = 0;
+
+    media_info_get()->current_audio_track_id = 1;
+    media_info_get()->total_audio_track_count = 1;
+
+    media_info_get()->current_caption_id = 1;
+    media_info_get()->total_caption_count = 1;
 
     video_player_start(full_path.c_str(), *ui_renderer, ui_texture);
     audio_player_play(true);
@@ -132,8 +139,15 @@ void start_selected_audio(int selected_index) {
 
     media_info_get()->type = 'A';
     media_info_get()->path = full_path;
+    media_info_get()->filename = get_media_files()[selected_index];
     media_info_get()->current_video_playback_time = 0;
     media_info_get()->current_audio_playback_time = 0;
+
+    media_info_get()->current_audio_track_id = 1;
+    media_info_get()->total_audio_track_count = 1;
+
+    media_info_get()->current_caption_id = 1;
+    media_info_get()->total_caption_count = 1;
 
     audio_player_init(full_path.c_str());
     audio_player_play(true);
@@ -322,16 +336,12 @@ void ui_render_player_hud(media_info* info) {
         nk_layout_row_begin(ctx, NK_DYNAMIC, hud_height / 2, 2);
         nk_layout_row_push(ctx, 0.8f); // Left 80%: text label
         {
-            std::string filename = "<Unknown>";
-            auto files = get_media_files();
-            filename = truncate_filename(files[selected_index].c_str(), max_filename_length);
-
             std::string hud_str = (info->playback_status ? "> " : "|| ");
             hud_str += format_time(info->current_video_playback_time);
             hud_str += " / ";
             hud_str += format_time(info->total_video_playback_time);
             hud_str += " [";
-            hud_str += info->path;
+            hud_str += info->filename;
             hud_str += "]";
 
             nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
