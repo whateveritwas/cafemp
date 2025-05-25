@@ -8,6 +8,7 @@
 
 struct media_info {
     std::string path = "";
+    std::string filename = "";
     char type = 'U';
     double framerate = 30.0;
     int64_t current_video_playback_time = 0;
