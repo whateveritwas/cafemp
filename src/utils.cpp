@@ -2,6 +2,7 @@
 #include <vector>
 #include <dirent.h>
 #include <unordered_set>
+#include <SDL2/SDL_image.h>
 
 #include "utils.hpp"
 #include "app_state.hpp"

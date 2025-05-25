@@ -16,7 +16,7 @@
 #define MEDIA_PATH "/vol/external01/wiiu/apps/cafemp/"
 #define SETTINGS_PATH "/vol/external01/wiiu/apps/cafemp/settings.json"
 
-#define VERSION_STRING "café media player v0.4.6 " __DATE__ " " __TIME__
+#define VERSION_STRING "café media player v0.5.0 " __DATE__ " " __TIME__
 
 #define TOOLTIP_BAR_HEIGHT (48)
 #define GRID_COLS 4
