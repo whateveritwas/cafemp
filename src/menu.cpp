@@ -71,6 +71,7 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
     }
 
     ctx = nk_sdl_init(ui_window, ui_renderer);
+    ctx->style.window.scrollbar_size.x = 32 * UI_SCALE;
 
     {
         struct nk_font_atlas *atlas;
@@ -182,17 +183,18 @@ void ui_render() {
 
     switch(app_state_get()) {
         case STATE_MENU: 
+            ui_handle_ambiance();
             ui_render_main_menu();
             break;
         
-        case STATE_MENU_FILES: 
-            ui_handle_ambiance();
-            ui_render_file_browser();
-            break;
+        case STATE_MENU_FILES: break;
 
         case STATE_MENU_NETWORK_FILES: break;
 
-        case STATE_MENU_VIDEO_FILES: break;
+        case STATE_MENU_VIDEO_FILES:
+            ui_handle_ambiance();
+            ui_render_file_browser();
+            break;
 
         case STATE_MENU_AUDIO_FILES: break;
 
@@ -213,6 +215,42 @@ void ui_render() {
     }
 
     nk_sdl_render(NK_ANTI_ALIASING_ON);
+}
+
+void ui_render_sidebar() {
+    nk_layout_row_push(ctx, 200 * UI_SCALE);
+    if (nk_group_begin(ctx, "Sidebar", NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
+        nk_layout_row_dynamic(ctx, 64 * UI_SCALE, 1);
+
+        if (nk_button_label(ctx, "Home")) {
+            app_state_set(STATE_MENU);
+        }
+        if (nk_button_label(ctx, "Video")) {
+            app_state_set(STATE_MENU_VIDEO_FILES);
+        }
+        if (nk_button_label(ctx, "YouTube")) {
+            app_state_set(STATE_MENU_VIDEO_FILES);
+        }
+        if (nk_button_label(ctx, "Audio")) {
+            app_state_set(STATE_MENU_AUDIO_FILES);
+        }
+        if (nk_button_label(ctx, "Internet Radio")) {
+            app_state_set(STATE_MENU_AUDIO_FILES);
+        }
+        if (nk_button_label(ctx, "Images")) {
+            app_state_set(STATE_MENU_FILES);
+        }
+        #ifdef DEBUG
+        if (nk_button_label(ctx, "Debug")) {
+            app_state_set(STATE_MENU_SETTINGS);
+        }
+        #endif
+        if (nk_button_label(ctx, "Settings")) {
+            app_state_set(STATE_MENU_SETTINGS);
+        }
+
+        nk_group_end(ctx);
+    }
 }
 
 void ui_render_settings() {
@@ -236,7 +274,10 @@ void ui_render_settings() {
 void ui_render_tooltip(int _current_page_file_browser) {
     if (nk_begin(ctx, "tooltip_bar", nk_rect(0, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE, SCREEN_WIDTH, TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER | NK_WINDOW_BACKGROUND)) {
         switch(app_state_get()) {
-        case STATE_MENU: break;
+        case STATE_MENU: 
+            nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
+            nk_label(ctx, "(Left Stick) Select (A) Open (+) Settings", NK_TEXT_LEFT);
+            break;
         case STATE_MENU_FILES:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
             nk_label(ctx, "(A) Start (-) Refresh (+) Settings", NK_TEXT_LEFT);
@@ -248,7 +289,7 @@ void ui_render_tooltip(int _current_page_file_browser) {
         case STATE_MENU_AUDIO_FILES: break;
         case STATE_MENU_SETTINGS: 
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 1);
-            nk_label(ctx, "(A) Select (+) / (B) File browser & Save", NK_TEXT_LEFT);
+            nk_label(ctx, "(A) Open (+) / (B) Back & Save", NK_TEXT_LEFT);
             //nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page_file_browser + 1)).c_str(), NK_TEXT_RIGHT);
             break;
         case STATE_PLAYING_VIDEO: break;
@@ -261,7 +302,17 @@ void ui_render_tooltip(int _current_page_file_browser) {
 
 void ui_render_main_menu() {
     if (nk_begin(ctx, VERSION_STRING, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
+        nk_layout_row_begin(ctx, NK_STATIC, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
+        ui_render_sidebar();
 
+        nk_layout_row_push(ctx, SCREEN_WIDTH - (200 * UI_SCALE));
+        if (nk_group_begin(ctx, "Content", NK_WINDOW_BORDER)) {
+            nk_layout_row_dynamic(ctx, 20, 1);
+            nk_label(ctx, "Welcome to " VERSION_STRING "!", NK_TEXT_LEFT);
+            nk_group_end(ctx);
+        }
+
+        nk_layout_row_end(ctx);
         nk_end(ctx);
     }
 
@@ -270,39 +321,44 @@ void ui_render_main_menu() {
 
 void ui_render_file_browser() {
     if (nk_begin(ctx, VERSION_STRING, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
-        nk_layout_row_dynamic(ctx, CELL_HEIGHT, GRID_COLS);
+        nk_layout_row_begin(ctx, NK_STATIC, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
 
-        int total_files = static_cast<int>(get_media_files().size());
-        int start = current_page_file_browser * ITEMS_PER_PAGE;
-        int end = std::min(start + ITEMS_PER_PAGE, total_files);
+        ui_render_sidebar();
+        nk_layout_row_push(ctx, SCREEN_WIDTH - (200 * UI_SCALE)); // Content area
 
-        size_t max_name_length = 15;
-        for (int i = start; i < end; ++i) {
-            std::string display_str = truncate_filename(get_media_files()[i], max_name_length);
+        if (nk_group_begin(ctx, "FileList", NK_WINDOW_BORDER)) {
+            nk_layout_row_dynamic(ctx, 64 * UI_SCALE, 1);
 
-            struct nk_style_button button_style = ctx->style.button;
-            if (i == selected_index) {
-                ctx->style.button.border_color = nk_rgb(13, 146, 244);
-                ctx->style.button.border = 4.0f;
+            int total_files = static_cast<int>(get_media_files().size());
+            int start = current_page_file_browser * ITEMS_PER_PAGE;
+            int end = std::min(start + ITEMS_PER_PAGE, total_files);
+
+            for (int i = start; i < end; ++i) {
+                std::string display_str = truncate_filename(get_media_files()[i], 100);
+                struct nk_style_button button_style = ctx->style.button;
+
+                if (i == selected_index) {
+                    ctx->style.button.border_color = nk_rgb(255, 172, 28);
+                    ctx->style.button.border = 4.0f;
+                }
+
+                if (nk_button_label(ctx, display_str.c_str())) {
+                    selected_index = i;
+                    SDL_SetRenderDrawColor(ui_renderer, 0, 0, 0, 255);
+                    SDL_RenderClear(ui_renderer);
+                    start_file(selected_index);
+                }
+
+                ctx->style.button = button_style;
             }
 
-            if (nk_button_label(ctx, display_str.c_str())) {
-                selected_index = i;
-                SDL_SetRenderDrawColor(ui_renderer, 0, 0, 0, 255);
-                SDL_RenderClear(ui_renderer);
-                start_file(selected_index);
-            }
-
-            ctx->style.button = button_style;
-            if ((i - start + 1) % GRID_COLS == 0 && i + 1 < end) {
-                nk_layout_row_dynamic(ctx, CELL_HEIGHT, GRID_COLS);
-            }
+            nk_group_end(ctx);
         }
 
+        nk_layout_row_end(ctx);
         nk_end(ctx);
     }
 
-    // Render tooltip or other UI elements
     ui_render_tooltip(current_page_file_browser);
 }
 

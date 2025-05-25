@@ -25,64 +25,21 @@ bool is_pressed(VPADStatus* vpad, WPADStatusProController* wpad, int vpad_btn, i
 
 void input_menu(VPADStatus* vpad_status, WPADStatusProController* wpad_status, int& current_page_file_browser, int& selected_index) {
     int total_items = static_cast<int>(get_media_files().size());
-    int total_pages = (total_items + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
-
-    int start = current_page_file_browser * ITEMS_PER_PAGE;
-    int end = std::min(start + ITEMS_PER_PAGE, total_items);
-
-    int local_index = selected_index - start;
-    int row = local_index / GRID_COLS;
-    int col = local_index % GRID_COLS;
 
     if (vpad_status->trigger == VPAD_BUTTON_UP
         || vpad_status->trigger == VPAD_STICK_L_EMULATION_UP
         || wpad_status->leftStick.y > 500) {
-        if (row > 0) {
-            selected_index -= GRID_COLS;
+        if (selected_index > 0) {
+            selected_index -= 1;
         }
     } else if (vpad_status->trigger == VPAD_BUTTON_DOWN
                 || vpad_status->trigger == VPAD_STICK_L_EMULATION_DOWN
                 || wpad_status->leftStick.y < -500) {
-        if ((row + 1) * GRID_COLS < (end - start)) {
-            selected_index += GRID_COLS;
-        }
-    } else if (vpad_status->trigger == VPAD_BUTTON_LEFT
-                || vpad_status->trigger == VPAD_STICK_L_EMULATION_LEFT
-                || wpad_status->leftStick.x < -500) {
-        if (col > 0) {
-            selected_index--;
-        } else if (current_page_file_browser > 0) {
-            current_page_file_browser--;
-            start = current_page_file_browser * ITEMS_PER_PAGE;
-            end = std::min(start + ITEMS_PER_PAGE, total_items);
-            selected_index = start + std::min(row * GRID_COLS + (GRID_COLS - 1), end - start - 1);
-        }
-    } else if (vpad_status->trigger == VPAD_BUTTON_RIGHT
-                || vpad_status->trigger == VPAD_STICK_L_EMULATION_RIGHT
-                || wpad_status->leftStick.x > 500) {
-        if (col < GRID_COLS - 1 && selected_index + 1 < end) {
-            selected_index++;
-        } else if (current_page_file_browser < total_pages - 1) {
-            current_page_file_browser++;
-            start = current_page_file_browser * ITEMS_PER_PAGE;
-            end = std::min(start + ITEMS_PER_PAGE, total_items);
-            selected_index = start + row * GRID_COLS;
-            if (selected_index >= end) {
-                selected_index = end - 1;
-            }
+        if (selected_index < total_items) {
+            selected_index += 1;
         }
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_A, WPAD_PRO_BUTTON_A)) {
         start_file(selected_index);
-    } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_L, WPAD_PRO_TRIGGER_L)) {
-        if (current_page_file_browser > 0) {
-            current_page_file_browser--;
-            selected_index = current_page_file_browser * ITEMS_PER_PAGE;
-        }
-    } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_R, WPAD_PRO_TRIGGER_R)) {
-        if (current_page_file_browser < total_pages - 1) {
-            current_page_file_browser++;
-            selected_index = current_page_file_browser * ITEMS_PER_PAGE;
-        }
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_MINUS, WPAD_PRO_BUTTON_MINUS)) {
         scan_directory(MEDIA_PATH);
         selected_index = 0;
@@ -137,7 +94,7 @@ void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
         video_player_cleanup();
         
         scan_directory(MEDIA_PATH);
-        app_state_set(STATE_MENU_FILES);
+        app_state_set(STATE_MENU_VIDEO_FILES);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_LEFT, WPAD_PRO_BUTTON_LEFT))  {
         video_player_seek(-5.0f);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_RIGHT, WPAD_PRO_BUTTON_RIGHT)) {
@@ -201,9 +158,9 @@ void input_update(int& current_page_file_browser, int& selected_index, nk_contex
     
     switch(app_state_get()) {
         case STATE_MENU: break;
-        case STATE_MENU_FILES: input_menu(&vpad_status, &wpad_status, current_page_file_browser, selected_index); break;
+        case STATE_MENU_FILES: break;
         case STATE_MENU_NETWORK_FILES: break;
-        case STATE_MENU_VIDEO_FILES: break;
+        case STATE_MENU_VIDEO_FILES: input_menu(&vpad_status, &wpad_status, current_page_file_browser, selected_index); break;
         case STATE_MENU_AUDIO_FILES: break;
         case STATE_MENU_SETTINGS: input_settings(&vpad_status, &wpad_status); break;
         case STATE_PLAYING_VIDEO: input_video_player(&vpad_status, &wpad_status); break;

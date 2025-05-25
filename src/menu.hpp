@@ -13,6 +13,7 @@ bool valid_file_ending(const std::string& file_ending);
 void scan_directory(const char* path);
 void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_texture);
 void ui_render();
+void ui_render_sidebar();
 void ui_render_main_menu();
 void ui_render_settings();
 void ui_render_file_browser();
