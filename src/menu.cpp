@@ -225,6 +225,10 @@ void ui_render_sidebar() {
         if (nk_button_label(ctx, "Home")) {
             app_state_set(STATE_MENU);
         }
+        if (nk_button_label(ctx, "Local Media")) {
+            app_state_set(STATE_MENU_VIDEO_FILES);
+        }
+        /*
         if (nk_button_label(ctx, "Video")) {
             app_state_set(STATE_MENU_VIDEO_FILES);
         }
@@ -240,6 +244,7 @@ void ui_render_sidebar() {
         if (nk_button_label(ctx, "Images")) {
             app_state_set(STATE_MENU_FILES);
         }
+        */
         #ifdef DEBUG
         if (nk_button_label(ctx, "Debug")) {
             app_state_set(STATE_MENU_SETTINGS);
@@ -255,7 +260,6 @@ void ui_render_sidebar() {
 
 void ui_render_settings() {
     if (nk_begin(ctx, VERSION_STRING, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE | NK_WINDOW_BORDER)) {
-
         nk_layout_row_dynamic(ctx, 64 * UI_SCALE, 1);
         nk_label(ctx, "Settings -- TOUCH ONLY FOR THE TIME BEING SORRY NON DRC USERS", NK_TEXT_LEFT);
 
@@ -363,7 +367,6 @@ void ui_render_file_browser() {
 }
 
 void ui_render_player_hud(media_info* info) {
-    constexpr int max_filename_length = 50;
     const int hud_height = 80 * UI_SCALE;
     struct nk_rect hud_rect = nk_rect(0, SCREEN_HEIGHT - hud_height, SCREEN_WIDTH, hud_height);
 
@@ -527,6 +530,8 @@ void ui_render_audio_player() {
         scan_directory(MEDIA_PATH);
         app_state_set(STATE_MENU_FILES);
     }
+
+    media_info_get()->current_audio_playback_time = (int64_t)audio_player_get_current_play_time();
     ui_render_player_hud(media_info_get());
 }
 

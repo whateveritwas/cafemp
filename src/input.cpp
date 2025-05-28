@@ -94,7 +94,7 @@ void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
         video_player_cleanup();
         
         scan_directory(MEDIA_PATH);
-        app_state_set(STATE_MENU_VIDEO_FILES);
+        app_state_set(STATE_MENU);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_LEFT, WPAD_PRO_BUTTON_LEFT))  {
         video_player_seek(-5.0f);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_RIGHT, WPAD_PRO_BUTTON_RIGHT)) {
@@ -125,7 +125,7 @@ void input_audio_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_B, WPAD_PRO_BUTTON_B)) {
         audio_player_cleanup();
         scan_directory(MEDIA_PATH);
-        app_state_set(STATE_MENU_FILES);
+        app_state_set(STATE_MENU);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_LEFT, WPAD_PRO_BUTTON_LEFT)) {
         audio_player_seek(-5.0f);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_RIGHT, WPAD_PRO_BUTTON_RIGHT)) {
@@ -135,7 +135,8 @@ void input_audio_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
 
 void input_update(int& current_page_file_browser, int& selected_index, nk_context *ctx) {
     int key_press = 0;
-    WPADStatusProController wpad_status = { 0 };
+    WPADStatus wpad_status = { 0 };
+    WPADStatusProController wpad_status_pro = { 0 };
     VPADStatus vpad_status = { 0 };
     VPADTouchData touchpoint_calibrated = { 0 };
     key_press = VPADRead(VPAD_CHAN_0, &vpad_status, 1, nullptr);
@@ -160,10 +161,10 @@ void input_update(int& current_page_file_browser, int& selected_index, nk_contex
         case STATE_MENU: break;
         case STATE_MENU_FILES: break;
         case STATE_MENU_NETWORK_FILES: break;
-        case STATE_MENU_VIDEO_FILES: input_menu(&vpad_status, &wpad_status, current_page_file_browser, selected_index); break;
+        case STATE_MENU_VIDEO_FILES: input_menu(&vpad_status, &wpad_status_pro, current_page_file_browser, selected_index); break;
         case STATE_MENU_AUDIO_FILES: break;
-        case STATE_MENU_SETTINGS: input_settings(&vpad_status, &wpad_status); break;
-        case STATE_PLAYING_VIDEO: input_video_player(&vpad_status, &wpad_status); break;
-        case STATE_PLAYING_AUDIO: input_audio_player(&vpad_status, &wpad_status); break;
+        case STATE_MENU_SETTINGS: input_settings(&vpad_status, &wpad_status_pro); break;
+        case STATE_PLAYING_VIDEO: input_video_player(&vpad_status, &wpad_status_pro); break;
+        case STATE_PLAYING_AUDIO: input_audio_player(&vpad_status, &wpad_status_pro); break;
     }
 }

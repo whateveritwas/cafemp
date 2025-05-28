@@ -309,6 +309,8 @@ int audio_player_init(const char* filepath) {
     printf("[Audio player] Decode thread started\n");
     #endif
 
+    media_info_get()->total_audio_playback_time = (int64_t)audio_player_get_total_play_time();
+
     return 0;
 }
 
