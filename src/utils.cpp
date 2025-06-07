@@ -26,8 +26,28 @@ std::string truncate_filename(const std::string& name, size_t max_length) {
 }
 
 bool valid_file_ending(const std::string& file_ending) {
-    return valid_video_endings.count(file_ending) > 0 || valid_audio_endings.count(file_ending) > 0;
+    AppState state = app_state_get();
+    bool result = false;
+
+    switch (state) {
+        case STATE_MENU_VIDEO_FILES:
+            result = valid_video_endings.count(file_ending) > 0;
+            break;
+        case STATE_MENU_AUDIO_FILES:
+            result = valid_audio_endings.count(file_ending) > 0;
+            break;
+        default:
+            break;
+    }
+    #ifdef DEBUG
+    printf("[Debug] Checking extension '%s' in state %d => %s\n",
+           file_ending.c_str(),
+           static_cast<int>(state),
+           result ? "valid" : "invalid");
+    #endif
+    return result;
 }
+
 
 void scan_directory(const char* path) {
     clear_media_files();

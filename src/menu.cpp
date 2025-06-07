@@ -196,7 +196,10 @@ void ui_render() {
             ui_render_file_browser();
             break;
 
-        case STATE_MENU_AUDIO_FILES: break;
+        case STATE_MENU_AUDIO_FILES:
+            ui_handle_ambiance();
+            ui_render_file_browser();
+            break;
 
         case STATE_MENU_SETTINGS: 
             ui_handle_ambiance();
@@ -225,26 +228,34 @@ void ui_render_sidebar() {
         if (nk_button_label(ctx, "Home")) {
             app_state_set(STATE_MENU);
         }
+        /*
         if (nk_button_label(ctx, "Local Media")) {
             app_state_set(STATE_MENU_VIDEO_FILES);
         }
-        /*
+        */
         if (nk_button_label(ctx, "Video")) {
             app_state_set(STATE_MENU_VIDEO_FILES);
+            scan_directory(MEDIA_PATH);
         }
+        /*
         if (nk_button_label(ctx, "YouTube")) {
             app_state_set(STATE_MENU_VIDEO_FILES);
         }
+        */
         if (nk_button_label(ctx, "Audio")) {
             app_state_set(STATE_MENU_AUDIO_FILES);
+            scan_directory(MEDIA_PATH);
         }
+        /*
         if (nk_button_label(ctx, "Internet Radio")) {
             app_state_set(STATE_MENU_AUDIO_FILES);
         }
+        */
         if (nk_button_label(ctx, "Images")) {
             app_state_set(STATE_MENU_FILES);
+            scan_directory(MEDIA_PATH);
         }
-        */
+        
         #ifdef DEBUG
         if (nk_button_label(ctx, "Debug")) {
             app_state_set(STATE_MENU_SETTINGS);
@@ -289,8 +300,14 @@ void ui_render_tooltip(int _current_page_file_browser) {
                 nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page_file_browser + 1)).c_str(), NK_TEXT_RIGHT);
             break;
         case STATE_MENU_NETWORK_FILES: break;
-        case STATE_MENU_VIDEO_FILES: break;
-        case STATE_MENU_AUDIO_FILES: break;
+        case STATE_MENU_VIDEO_FILES:
+            nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
+            nk_label(ctx, "(Left Stick) Select (A) Open (+) Settings", NK_TEXT_LEFT);
+            break;
+        case STATE_MENU_AUDIO_FILES:
+            nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
+            nk_label(ctx, "(Left Stick) Select (A) Open (+) Settings", NK_TEXT_LEFT);
+            break;
         case STATE_MENU_SETTINGS: 
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 1);
             nk_label(ctx, "(A) Open (+) / (B) Back & Save", NK_TEXT_LEFT);
@@ -484,7 +501,7 @@ void ui_render_video_player() {
     if (std::abs(media_info_get()->current_video_playback_time - media_info_get()->total_video_playback_time) < epsilon) {
         video_player_cleanup();
         scan_directory(MEDIA_PATH);
-        app_state_set(STATE_MENU_FILES);
+        app_state_set(STATE_MENU_VIDEO_FILES);
     }
 
     #ifdef DEBUG_VIDEO
@@ -528,7 +545,7 @@ void ui_render_audio_player() {
         audio_player_cleanup();
         audio_player_play(false);
         scan_directory(MEDIA_PATH);
-        app_state_set(STATE_MENU_FILES);
+        app_state_set(STATE_MENU_VIDEO_FILES);
     }
 
     media_info_get()->current_audio_playback_time = (int64_t)audio_player_get_current_play_time();

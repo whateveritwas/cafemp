@@ -1,10 +1,12 @@
-# Cafemp – Experimental Media Player for the Nintendo Wii U
+# Cafémp – Experimental Media Player for the Nintendo Wii U
 
 ## About
 
-Cafemp is a lightweight, open-source media player for the Wii U, focused on basic media playback from the SD card. It's a work-in-progress and may be unstable. It supports most common video and audio formats at resolutions up to 720p at 30 FPS.
+Cafémp is a lightweight, open-source media player for the Wii U, focused on basic media playback from the SD card. It's a work-in-progress and may be unstable. It supports most common video and audio formats at resolutions up to 720p at 30 FPS.
 
-> ⚠️ **Note:** 720p at 30 FPS is the *target*, but not guaranteed. Playback may stutter or desync depending on video complexity and encoding.
+Made with ❤️ in 🇩🇪
+
+> ⚠️ **Note:** 720p at 30 FPS is the *target*, but not guaranteed. Playback may stutter or desync depending on video complexity and encoding.  
 
 ## Installation
 
@@ -12,14 +14,24 @@ Cafemp is a lightweight, open-source media player for the Wii U, focused on basi
 2. Extract the ZIP file to the **root of your SD card**.
 3. Copy your media files into: `sd:/wiiu/apps/cafemp/`
 
-## Running Cafemp
+**or**
 
-1. Launch Cafemp from the **Wii U Main Menu**.
-2. Use the file browser to select your media file.
+<p align="left">
+  <a href="https://hb-app.store/wiiu/cafmediaplayer">
+    <img src="branding/hbasbadge-wiiu.png" alt="Get it on the Homebrew App Store!" width="50%" height="50%">
+  </a>
+</p>
+
+## Using Cafémp
+
+1. Launch Cafémp from the **Wii U Main Menu**.
+2. Select wnated media type from the side bar
+3. Use the file browser to select your media file.
 3. Controls:
 
    * `A` → Play/Pause
    * `B` → Return to file browser
+   * `DPAD L/R` → Skip / Rewind (Audio only)
 
 ## ⚙️ Compatibility Notice
 
@@ -29,7 +41,7 @@ For best results, re-encode video files with FFmpeg using the following command:
 ffmpeg -i <input> \
 -map 0 \
 -c:v libx264 -profile:v baseline -level 3.1 -pix_fmt yuv420p -preset ultrafast -tune fastdecode -crf 23 -vf "scale=-2:480" \
--c:a aac -b:a 128k \
+-c:a aac -b:a 256k \
 -c:s copy \
 <output>
 ```
@@ -42,7 +54,7 @@ ffmpeg -i <input> \
 
 ## 🛠️ Planned Features
 
-* ⏩ Skip/Rewind support
+* ⏩ Skip/Rewind support (video)
 * 🌐 DLNA / Jellyfin streaming
 * 📀 USB drive support (ext4, exFAT)
 * 📊 Audio visualization
