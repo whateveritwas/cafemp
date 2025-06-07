@@ -1,0 +1,91 @@
+#---------------------------------------------------------------------------------
+.SUFFIXES:
+#---------------------------------------------------------------------------------
+
+ifeq ($(strip $(DEVKITPRO)),)
+$(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>/devkitPro")
+endif
+
+ifeq ($(strip $(DEVKITPPC)),)
+$(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>/devkitPro/devkitPPC")
+endif
+
+include $(DEVKITPPC)/base_rules
+
+PORTLIBS	:=	$(PORTLIBS_PATH)/wiiu $(PORTLIBS_PATH)/ppc
+
+export PATH := $(PORTLIBS_PATH)/wiiu/bin:$(PORTLIBS_PATH)/ppc/bin:$(PATH)
+
+WUT_ROOT	?=	$(DEVKITPRO)/wut
+
+RPXSPECS	:=	-specs=$(WUT_ROOT)/share/wut.specs
+RPLSPECS	:=	-specs=$(WUT_ROOT)/share/wut.specs -specs=$(WUT_ROOT)/share/rpl.specs
+
+MACHDEP	= -DESPRESSO -mcpu=750 -meabi -mhard-float
+
+WUHB_DEPS	:=
+WUHB_OPTIONS	:=
+
+ifneq ($(strip $(APP_CONTENT)),)
+WUHB_OPTIONS	+=	--content=$(APP_CONTENT)
+endif
+
+ifneq ($(strip $(APP_NAME)),)
+WUHB_OPTIONS	+=	--name "$(APP_NAME)"
+endif
+
+ifneq ($(strip $(APP_SHORTNAME)),)
+WUHB_OPTIONS	+=	--short-name "$(APP_SHORTNAME)"
+endif
+
+ifneq ($(strip $(APP_AUTHOR)),)
+WUHB_OPTIONS	+=	--author "$(APP_AUTHOR)"
+endif
+
+ifneq ($(strip $(APP_ICON)),)
+WUHB_DEPS	+=	$(APP_ICON)
+WUHB_OPTIONS	+=	--icon=$(APP_ICON)
+endif
+
+ifneq ($(strip $(APP_TV_SPLASH)),)
+WUHB_DEPS	+=	$(APP_TV_SPLASH)
+WUHB_OPTIONS	+=	--tv-image=$(APP_TV_SPLASH)
+endif
+
+ifneq ($(strip $(APP_DRC_SPLASH)),)
+WUHB_DEPS	+=	$(APP_DRC_SPLASH)
+WUHB_OPTIONS	+=	--drc-image=$(APP_DRC_SPLASH)
+endif
+
+ifneq ($(strip $(APP_BOOT_SOUND)),)
+WUHB_DEPS	+=	$(APP_BOOT_SOUND)
+WUHB_OPTIONS	+=	--boot-sound=$(APP_BOOT_SOUND)
+endif
+
+#---------------------------------------------------------------------------------
+%.wuhb: %.rpx $(WUHB_DEPS)
+	$(SILENTCMD)wuhbtool $< $@ $(WUHB_OPTIONS)
+	@echo built ... $(notdir $@)
+
+#---------------------------------------------------------------------------------
+%.rpx: %.elf
+	$(SILENTCMD)elf2rpl $< $@ $(ERROR_FILTER)
+	@echo built ... $(notdir $@)
+
+#---------------------------------------------------------------------------------
+%.rpl: %.elf
+	$(SILENTCMD)elf2rpl --rpl $< $@ $(ERROR_FILTER)
+	@echo built ... $(notdir $@)
+
+#---------------------------------------------------------------------------------
+%.elf:
+	@echo linking ... $(notdir $@)
+	$(ADD_COMPILE_COMMAND) end
+	$(SILENTCMD)$(LD) $(LDFLAGS) $(OFILES) $(LIBPATHS) $(LIBS) -o $@ $(ERROR_FILTER)
+	$(SILENTCMD)$(NM) -CSn $@ > $(notdir $*.lst) $(ERROR_FILTER)
+
+#---------------------------------------------------------------------------------
+%.o: %.def
+	$(SILENTMSG) $(notdir $<)
+	$(SILENTCMD)rplimportgen $< $*.s $(ERROR_FILTER)
+	$(SILENTCMD)$(CC) -x assembler-with-cpp $(ASFLAGS) -c $*.s -o $@ $(ERROR_FILTER)

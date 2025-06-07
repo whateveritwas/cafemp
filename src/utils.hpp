@@ -13,6 +13,10 @@ static const std::unordered_set<std::string> valid_audio_endings = {
     "mp3", "wav", "ogg", "flac", "aac"
 };
 
+static const std::unordered_set<std::string> valid_image_endings = {
+    "png", "jpg", "gif", "tga", "bmp"
+};
+
 std::string format_time(int seconds);
 std::string truncate_filename(const std::string& name, size_t max_length);
 bool valid_file_ending(const std::string& file_ending);
