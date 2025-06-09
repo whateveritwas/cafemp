@@ -291,27 +291,24 @@ void ui_render_tooltip(int _current_page_file_browser) {
         switch(app_state_get()) {
         case STATE_MENU: 
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
-            nk_label(ctx, "(Left Stick) Select (A) Open (+) Settings", NK_TEXT_LEFT);
+            nk_label(ctx, "(Left Stick) Select (A) Open", NK_TEXT_LEFT);
             break;
         case STATE_MENU_FILES:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
-            nk_label(ctx, "(A) Start (-) Refresh (+) Settings", NK_TEXT_LEFT);
-            if(_current_page_file_browser > 0)
-                nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page_file_browser + 1)).c_str(), NK_TEXT_RIGHT);
+            nk_label(ctx, "(A) Start (-) Refresh (-) Scan", NK_TEXT_LEFT);
             break;
         case STATE_MENU_NETWORK_FILES: break;
         case STATE_MENU_VIDEO_FILES:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
-            nk_label(ctx, "(Left Stick) Select (A) Open (+) Settings", NK_TEXT_LEFT);
+            nk_label(ctx, "(Left Stick) Select (A) Open (-) Scan", NK_TEXT_LEFT);
             break;
         case STATE_MENU_AUDIO_FILES:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
-            nk_label(ctx, "(Left Stick) Select (A) Open (+) Settings", NK_TEXT_LEFT);
+            nk_label(ctx, "(Left Stick) Select (A) Open (-) Scan", NK_TEXT_LEFT);
             break;
         case STATE_MENU_SETTINGS: 
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 1);
             nk_label(ctx, "(A) Open (+) / (B) Back & Save", NK_TEXT_LEFT);
-            //nk_label(ctx, ("[L]/[R] Page " + std::to_string(_current_page_file_browser + 1)).c_str(), NK_TEXT_RIGHT);
             break;
         case STATE_PLAYING_VIDEO: break;
         case STATE_PLAYING_AUDIO: break;
