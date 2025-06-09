@@ -413,9 +413,9 @@ void ui_render_player_hud(media_info* info) {
         nk_layout_row_push(ctx, 0.8f); // Left 80%: text label
         {
             std::string hud_str = (info->playback_status ? "> " : "|| ");
-            hud_str += format_time(info->current_video_playback_time);
+            hud_str += format_time(progress);
             hud_str += " / ";
-            hud_str += format_time(info->total_video_playback_time);
+            hud_str += format_time(total);
             hud_str += " [";
             hud_str += info->filename;
             hud_str += "]";
@@ -423,17 +423,19 @@ void ui_render_player_hud(media_info* info) {
             nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
         }
 
-        nk_layout_row_push(ctx, 0.2f);
-        {
-            std::string hud_str = "A:";
-            hud_str += std::to_string(info->current_audio_track_id);
-            hud_str += "/";
-            hud_str += std::to_string(info->total_audio_track_count);
-            hud_str += " S:";
-            hud_str += std::to_string(info->current_caption_id);
-            hud_str += "/";
-            hud_str += std::to_string(info->total_caption_count);
-            nk_label(ctx, hud_str.c_str(), NK_TEXT_RIGHT);
+        if(app_state_get() == STATE_PLAYING_VIDEO) {
+            nk_layout_row_push(ctx, 0.2f);
+            {
+                std::string hud_str = "A:";
+                hud_str += std::to_string(info->current_audio_track_id);
+                hud_str += "/";
+                hud_str += std::to_string(info->total_audio_track_count);
+                hud_str += " S:";
+                hud_str += std::to_string(info->current_caption_id);
+                hud_str += "/";
+                hud_str += std::to_string(info->total_caption_count);
+                nk_label(ctx, hud_str.c_str(), NK_TEXT_RIGHT);
+            }
         }
         nk_end(ctx);
     }
@@ -458,9 +460,11 @@ void ui_render_video_player() {
     if (!current_frame_info || !current_frame_info->texture) {
         no_current_frame_info_cound++;
         if (no_current_frame_info_cound < 10) return;
+
+        printf("[Video Player] Shuting down due to no video frames being present\n");
         video_player_cleanup();
         scan_directory(MEDIA_PATH);
-        app_state_set(STATE_MENU_FILES);
+        app_state_set(STATE_MENU_VIDEO_FILES);
         return;
     }
 
@@ -545,7 +549,7 @@ void ui_render_audio_player() {
         audio_player_cleanup();
         audio_player_play(false);
         scan_directory(MEDIA_PATH);
-        app_state_set(STATE_MENU_VIDEO_FILES);
+        app_state_set(STATE_MENU_AUDIO_FILES);
     }
 
     media_info_get()->current_audio_playback_time = (int64_t)audio_player_get_current_play_time();
