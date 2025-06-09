@@ -36,6 +36,9 @@ bool valid_file_ending(const std::string& file_ending) {
         case STATE_MENU_AUDIO_FILES:
             result = valid_audio_endings.count(file_ending) > 0;
             break;
+        case STATE_MENU_IMAGE_FILES:
+            result = valid_image_endings.count(file_ending) > 0;
+            break;
         default:
             break;
     }

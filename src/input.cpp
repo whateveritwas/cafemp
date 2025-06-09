@@ -162,9 +162,10 @@ void input_update(int& current_page_file_browser, int& selected_index, nk_contex
         case STATE_MENU: break;
         case STATE_MENU_FILES: break;
         case STATE_MENU_NETWORK_FILES: break;
-        case STATE_MENU_VIDEO_FILES: input_menu(&vpad_status, &wpad_status_pro, current_page_file_browser, selected_index); break;
+        case STATE_MENU_VIDEO_FILES: break;
         case STATE_MENU_AUDIO_FILES: break;
-        case STATE_MENU_SETTINGS: input_settings(&vpad_status, &wpad_status_pro); break;
+        case STATE_MENU_IMAGE_FILES: break;
+        case STATE_MENU_SETTINGS: break;
         case STATE_PLAYING_VIDEO: input_video_player(&vpad_status, &wpad_status_pro); break;
         case STATE_PLAYING_AUDIO: input_audio_player(&vpad_status, &wpad_status_pro); break;
     }
