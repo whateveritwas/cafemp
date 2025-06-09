@@ -188,29 +188,27 @@ void ui_render() {
             break;
         
         case STATE_MENU_FILES: break;
-
         case STATE_MENU_NETWORK_FILES: break;
-
         case STATE_MENU_VIDEO_FILES:
             ui_handle_ambiance();
             ui_render_file_browser();
             break;
-
         case STATE_MENU_AUDIO_FILES:
             ui_handle_ambiance();
             ui_render_file_browser();
             break;
-
+        case STATE_MENU_IMAGE_FILES: 
+            ui_handle_ambiance();
+            ui_render_file_browser();
+            break;
         case STATE_MENU_SETTINGS: 
             ui_handle_ambiance();
             ui_render_settings();
             break;
-
         case STATE_PLAYING_VIDEO: 
             SDL_RenderClear(ui_renderer);
             ui_render_video_player();
             break;
-
         case STATE_PLAYING_AUDIO:
             SDL_RenderClear(ui_renderer);
             ui_render_audio_player();
@@ -252,7 +250,7 @@ void ui_render_sidebar() {
         }
         */
         if (nk_button_label(ctx, "Images")) {
-            app_state_set(STATE_MENU_FILES);
+            app_state_set(STATE_MENU_IMAGE_FILES);
             scan_directory(MEDIA_PATH);
         }
         
@@ -270,16 +268,25 @@ void ui_render_sidebar() {
 }
 
 void ui_render_settings() {
-    if (nk_begin(ctx, VERSION_STRING, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE | NK_WINDOW_BORDER)) {
-        nk_layout_row_dynamic(ctx, 64 * UI_SCALE, 1);
-        nk_label(ctx, "Settings -- TOUCH ONLY FOR THE TIME BEING SORRY NON DRC USERS", NK_TEXT_LEFT);
+    if (nk_begin(ctx, VERSION_STRING, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
+        nk_layout_row_begin(ctx, NK_STATIC, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
+        ui_render_sidebar();
 
-        nk_layout_row_dynamic(ctx, 64 * UI_SCALE, 3);
-        if (nk_button_label(ctx, background_music_enabled ? "Background Music: On" : "Background Music: Off")) {
-            background_music_enabled = !background_music_enabled;
+        nk_layout_row_push(ctx, SCREEN_WIDTH - (200 * UI_SCALE));
+        if (nk_group_begin(ctx, "Content", NK_WINDOW_BORDER)) {
+            nk_layout_row_dynamic(ctx, 64, 1);
 
-            settings_set(SETTINGS_BKG_MUSIC_ENABLED, &background_music_enabled);
+            if (nk_button_label(ctx, background_music_enabled ? "Background Music: On" : "Background Music: Off")) {
+                background_music_enabled = !background_music_enabled;
+
+                settings_set(SETTINGS_BKG_MUSIC_ENABLED, &background_music_enabled);
+                settings_save();
+            }
+
+            nk_group_end(ctx);
         }
+
+        nk_layout_row_end(ctx);
         nk_end(ctx);
     }
 
@@ -292,23 +299,28 @@ void ui_render_tooltip(int _current_page_file_browser) {
         case STATE_MENU: 
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
             nk_label(ctx, "(Left Stick) Select (A) Open", NK_TEXT_LEFT);
+            nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
             break;
         case STATE_MENU_FILES:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
             nk_label(ctx, "(A) Start (-) Refresh (-) Scan", NK_TEXT_LEFT);
+            nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
             break;
         case STATE_MENU_NETWORK_FILES: break;
         case STATE_MENU_VIDEO_FILES:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
             nk_label(ctx, "(Left Stick) Select (A) Open (-) Scan", NK_TEXT_LEFT);
+            nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
             break;
         case STATE_MENU_AUDIO_FILES:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
             nk_label(ctx, "(Left Stick) Select (A) Open (-) Scan", NK_TEXT_LEFT);
+            nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
             break;
+        case STATE_MENU_IMAGE_FILES: break;
         case STATE_MENU_SETTINGS: 
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 1);
-            nk_label(ctx, "(A) Open (+) / (B) Back & Save", NK_TEXT_LEFT);
+            nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
             break;
         case STATE_PLAYING_VIDEO: break;
         case STATE_PLAYING_AUDIO: break;
