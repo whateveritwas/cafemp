@@ -53,7 +53,9 @@ AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int 
         return NULL;
     }
 
+    #ifdef DEBUG
     printf("[Video Player] Using decoder: %s\n", codec->name);
+    #endif
 
     AVCodecContext* codec_ctx = avcodec_alloc_context3(codec);
     if (!codec_ctx) {
@@ -83,7 +85,9 @@ AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int 
         return NULL;
     }
 
+    #ifdef DEBUG
     printf("[Video Player] Codec opened successfully\n");
+    #endif
 
     return codec_ctx;
 }
