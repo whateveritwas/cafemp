@@ -1,0 +1,11 @@
+#ifndef PHOTO_VIEWER_H
+#define PHOTO_VIEWER_H
+
+#include <SDL2/SDL.h>
+
+void photo_viewer_init(SDL_Renderer* renderer, SDL_Texture*& texture);
+void photo_viewer_open_picture(const char* filepath);
+void photo_viewer_render();
+void photo_viewer_cleanup();
+
+#endif

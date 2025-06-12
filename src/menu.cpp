@@ -27,6 +27,7 @@
 #include "main.hpp"
 #include "video_player.hpp"
 #include "audio_player.hpp"
+#include "photo_viewer.hpp"
 #include "input.hpp"
 #include "menu.hpp"
 
@@ -84,9 +85,6 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
 
         nk_style_set_font(ctx, &font->handle);
     }
-
-    // Scan local directories
-    scan_directory(MEDIA_PATH);
 }
 
 void start_file(int index) {
@@ -105,12 +103,11 @@ void start_file(int index) {
     auto new_info = std::make_unique<media_info>();
     media_info_set(std::move(new_info));
 
-    if (valid_video_endings.count(extension)) {
-        start_selected_video(index);
-    } else if (valid_audio_endings.count(extension)) {
-        start_selected_audio(index);
-    } else {
-        printf("[Menu] Unsupported file type: %s\n", extension.c_str());
+    switch (app_state_get()) {
+        case STATE_MENU_AUDIO_FILES: start_selected_audio(index); break;
+        case STATE_MENU_IMAGE_FILES: start_selected_photo(index); break;
+        case STATE_MENU_VIDEO_FILES: start_selected_video(index); break;
+        default: printf("[Menu] Unsupported file type: %s\n", extension.c_str()); break;
     }
 }
 
@@ -153,6 +150,26 @@ void start_selected_audio(int selected_index) {
     audio_player_init(full_path.c_str());
     audio_player_play(true);
     app_state_set(STATE_PLAYING_AUDIO);
+}
+
+void start_selected_photo(int selected_index) {
+    std::string full_path = std::string(MEDIA_PATH) + get_media_files()[selected_index];
+
+    media_info_get()->type = 'P';
+    media_info_get()->path = full_path;
+    media_info_get()->filename = get_media_files()[selected_index];
+    media_info_get()->current_video_playback_time = 0;
+    media_info_get()->current_audio_playback_time = 0;
+
+    media_info_get()->current_audio_track_id = 0;
+    media_info_get()->total_audio_track_count = 0;
+
+    media_info_get()->current_caption_id = 0;
+    media_info_get()->total_caption_count = 0;
+
+    photo_viewer_init(ui_renderer, ui_texture);
+    app_state_set(STATE_VIEWING_PHOTO);
+    photo_viewer_open_picture(full_path.c_str());
 }
 
 void ui_handle_ambiance() {
@@ -213,6 +230,10 @@ void ui_render() {
             SDL_RenderClear(ui_renderer);
             ui_render_audio_player();
             break;
+        case STATE_VIEWING_PHOTO: 
+            SDL_RenderClear(ui_renderer);
+            ui_render_photo_viewer();
+            break;
     }
 
     nk_sdl_render(NK_ANTI_ALIASING_ON);
@@ -249,7 +270,7 @@ void ui_render_sidebar() {
             app_state_set(STATE_MENU_AUDIO_FILES);
         }
         */
-        if (nk_button_label(ctx, "Images")) {
+        if (nk_button_label(ctx, "Photos")) {
             app_state_set(STATE_MENU_IMAGE_FILES);
             scan_directory(MEDIA_PATH);
         }
@@ -290,40 +311,48 @@ void ui_render_settings() {
         nk_end(ctx);
     }
 
-    ui_render_tooltip(current_page_file_browser);
+    ui_render_tooltip();
 }
 
-void ui_render_tooltip(int _current_page_file_browser) {
+void ui_render_tooltip() {
     if (nk_begin(ctx, "tooltip_bar", nk_rect(0, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE, SCREEN_WIDTH, TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER | NK_WINDOW_BACKGROUND)) {
         switch(app_state_get()) {
         case STATE_MENU: 
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
-            nk_label(ctx, "(Left Stick) Select (A) Open", NK_TEXT_LEFT);
+            nk_label(ctx, "(Left Stick) Select | (A) Open", NK_TEXT_LEFT);
             nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
             break;
         case STATE_MENU_FILES:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
-            nk_label(ctx, "(A) Start (-) Refresh (-) Scan", NK_TEXT_LEFT);
+            nk_label(ctx, "(A) Start | (-) Refresh | (-) Scan", NK_TEXT_LEFT);
             nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
             break;
         case STATE_MENU_NETWORK_FILES: break;
         case STATE_MENU_VIDEO_FILES:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
-            nk_label(ctx, "(Left Stick) Select (A) Open (-) Scan", NK_TEXT_LEFT);
+            nk_label(ctx, "(Left Stick) Select | (A) Open | (-) Scan", NK_TEXT_LEFT);
             nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
             break;
         case STATE_MENU_AUDIO_FILES:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
-            nk_label(ctx, "(Left Stick) Select (A) Open (-) Scan", NK_TEXT_LEFT);
+            nk_label(ctx, "(Left Stick) Select | (A) Open | (-) Scan", NK_TEXT_LEFT);
             nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
             break;
-        case STATE_MENU_IMAGE_FILES: break;
+        case STATE_MENU_IMAGE_FILES: 
+            nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
+            nk_label(ctx, "(Left Stick) Select | (A) Open | (-) Scan", NK_TEXT_LEFT);
+            nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
+            break;
         case STATE_MENU_SETTINGS: 
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 1);
             nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
             break;
         case STATE_PLAYING_VIDEO: break;
         case STATE_PLAYING_AUDIO: break;
+        case STATE_VIEWING_PHOTO:
+            nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 1);
+            nk_label(ctx, "(Left Stick) Change Photo | [ZL] Zoom + | [ZR] Zoom - | [+] Options | (Touch) Pan", NK_TEXT_LEFT);
+            break;
         }
 
         nk_end(ctx);
@@ -346,7 +375,7 @@ void ui_render_main_menu() {
         nk_end(ctx);
     }
 
-    ui_render_tooltip(current_page_file_browser);
+    ui_render_tooltip();
 }
 
 void ui_render_file_browser() {
@@ -389,7 +418,7 @@ void ui_render_file_browser() {
         nk_end(ctx);
     }
 
-    ui_render_tooltip(current_page_file_browser);
+    ui_render_tooltip();
 }
 
 void ui_render_player_hud(media_info* info) {
@@ -452,6 +481,17 @@ void ui_render_player_hud(media_info* info) {
 
 void ui_render_captions() {}
 
+void ui_render_photo_viewer() {
+
+    if (!dest_rect_initialised) {
+        dest_rect = calculate_aspect_fit_rect(current_frame_info->frame_width, current_frame_info->frame_height);
+        dest_rect_initialised = true;
+    }
+
+    photo_viewer_render();
+    ui_render_tooltip();
+}
+
 void ui_render_video_player() {
     SDL_RenderClear(ui_renderer);
 
@@ -487,24 +527,7 @@ void ui_render_video_player() {
     #endif
 
     if (!dest_rect_initialised) {
-        int video_width = current_frame_info->frame_width;
-        int video_height = current_frame_info->frame_height;
-
-        int screen_width = SCREEN_WIDTH;
-        int screen_height = SCREEN_HEIGHT;
-
-        int new_width = screen_width;
-        int new_height = (video_height * new_width) / video_width;
-
-        if (new_height > screen_height) {
-            new_height = screen_height;
-            new_width = (video_width * new_height) / video_height;
-        }
-
-        dest_rect = { 0, 0, new_width, new_height };
-        dest_rect.x = (screen_width - new_width) / 2;
-        dest_rect.y = (screen_height - new_height) / 2;
-
+        dest_rect = calculate_aspect_fit_rect(current_frame_info->frame_width, current_frame_info->frame_height);
         dest_rect_initialised = true;
     }
 
