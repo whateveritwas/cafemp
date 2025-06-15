@@ -351,7 +351,7 @@ void ui_render_tooltip() {
         case STATE_PLAYING_AUDIO: break;
         case STATE_VIEWING_PHOTO:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 1);
-            nk_label(ctx, "(Left Stick) Change Photo | [ZL] Zoom + | [ZR] Zoom - | [+] Options | (Touch) Pan", NK_TEXT_LEFT);
+            nk_label(ctx, "(Left Stick) Change Photo | [ZL] Zoom + | [ZR] Zoom - | (Touch) Pan", NK_TEXT_LEFT);
             break;
         }
 
@@ -489,7 +489,7 @@ void ui_render_photo_viewer() {
     }
 
     photo_viewer_render();
-    ui_render_tooltip();
+    if(input_is_vpad_touched()) ui_render_tooltip();
 }
 
 void ui_render_video_player() {
