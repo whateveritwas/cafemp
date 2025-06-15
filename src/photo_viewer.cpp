@@ -7,7 +7,9 @@ static SDL_Renderer* photo_renderer = nullptr;
 static SDL_Texture* photo_texture = nullptr;
 float x = 0.0f;
 float y = 0.0f;
+float scale = 1.0f;
 SDL_Rect dst = { 0, 0, 0, 0 };
+bool dst_set = false;
 
 void photo_viewer_init(SDL_Renderer* renderer, SDL_Texture*& texture) {
     photo_renderer = renderer;
@@ -34,6 +36,7 @@ void photo_viewer_open_picture(const char* filepath) {
     }
 
     dst = { 0, 0, 0, 0 };
+    dst_set = false;
 }
 
 void photo_viewer_pan(float delta_x, float delta_y) {
@@ -59,16 +62,42 @@ void photo_viewer_pan(float delta_x, float delta_y) {
     }
 }
 
+void draw_checkerboard_pattern(SDL_Renderer* renderer, int width, int height, int cell_size) {
+    SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
+    SDL_RenderClear(renderer);
+
+    SDL_SetRenderDrawColor(renderer, 150, 150, 150, 255);
+
+    bool toggle = false;
+    for (int y = 0; y < height; y += cell_size) {
+        toggle = !toggle;
+        for (int x = 0; x < width; x += cell_size) {
+            if (toggle) {
+                SDL_Rect cell = {x, y, cell_size, cell_size};
+                SDL_RenderFillRect(renderer, &cell);
+            }
+            toggle = !toggle;
+        }
+    }
+}
 
 void photo_viewer_render() {
     if (!photo_texture) return;
 
-    SDL_RenderClear(photo_renderer);
-
     int w, h;
-    SDL_QueryTexture(photo_texture, nullptr, nullptr, &w, &h);
-    dst.w = w;
-    dst.h = h;
+    SDL_GetRendererOutputSize(photo_renderer, &w, &h);
+
+    draw_checkerboard_pattern(photo_renderer, w, h, 40);
+
+    if (!dst_set) {
+        int tex_w, tex_h;
+        SDL_QueryTexture(photo_texture, nullptr, nullptr, &tex_w, &tex_h);
+
+        dst.w = tex_w;
+        dst.h = tex_h;
+
+        dst_set = true;
+    }
 
     SDL_RenderCopy(photo_renderer, photo_texture, nullptr, &dst);
 }
