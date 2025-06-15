@@ -484,7 +484,7 @@ void ui_render_captions() {}
 void ui_render_photo_viewer() {
 
     if (!dest_rect_initialised) {
-        dest_rect = calculate_aspect_fit_rect(current_frame_info->frame_width, current_frame_info->frame_height);
+        // dest_rect = calculate_aspect_fit_rect(current_frame_info->frame_width, current_frame_info->frame_height);
         dest_rect_initialised = true;
     }
 

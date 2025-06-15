@@ -11,12 +11,16 @@
 #include "media_files.hpp"
 #include "audio_player.hpp"
 #include "video_player.hpp"
+#include "photo_viewer.hpp"
 #include "input.hpp"
 
 bool use_wpad_pro = false;
 float touch_x = 0.0f;
 float touch_y = 0.0f;
+float old_touch_x = 0.0f;
+float old_touch_y = 0.0f;
 bool touched = false;
+static bool was_touched = false;
 int current_audio_track_id = 1;
 
 bool is_pressed(VPADStatus* vpad, WPADStatusProController* wpad, int vpad_btn, int wpad_btn) {
@@ -35,7 +39,7 @@ void input_menu(VPADStatus* vpad_status, WPADStatusProController* wpad_status, i
     } else if (vpad_status->trigger == VPAD_BUTTON_DOWN
                 || vpad_status->trigger == VPAD_STICK_L_EMULATION_DOWN
                 || wpad_status->leftStick.y < -500) {
-        if (selected_index < total_items) {
+        if (selected_index < total_items - 1) {
             selected_index += 1;
         }
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_A, WPAD_PRO_BUTTON_A)) {
@@ -45,7 +49,7 @@ void input_menu(VPADStatus* vpad_status, WPADStatusProController* wpad_status, i
         selected_index = 0;
         current_page_file_browser = 0;
     } else if(is_pressed(vpad_status, wpad_status, VPAD_BUTTON_PLUS, WPAD_PRO_BUTTON_PLUS)) {
-            app_state_set(STATE_MENU_SETTINGS);
+        app_state_set(STATE_MENU_SETTINGS);
     }
 }
 
@@ -78,7 +82,7 @@ bool input_is_vpad_touched() {
 }
 
 void input_settings(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
-    if(vpad_status->trigger == VPAD_BUTTON_PLUS
+    if (vpad_status->trigger == VPAD_BUTTON_PLUS
         || vpad_status->trigger == VPAD_BUTTON_B
         || wpad_status->buttons == WPAD_PRO_BUTTON_B) {
         settings_save();
@@ -134,26 +138,45 @@ void input_audio_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
     }
 }
 
+void input_photo_viewer(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
+    if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_B, WPAD_PRO_BUTTON_B)) {
+        photo_viewer_cleanup();
+        app_state_set(STATE_MENU_IMAGE_FILES);
+    } else if(input_is_vpad_touched()) {
+        photo_viewer_pan(touch_x - old_touch_x, touch_y - old_touch_y);
+    }
+}
+
 void input_update(int& current_page_file_browser, int& selected_index, nk_context *ctx) {
-    int key_press = 0;
     WPADStatus wpad_status = { 0 };
     WPADStatusProController wpad_status_pro = { 0 };
     VPADStatus vpad_status = { 0 };
     VPADTouchData touchpoint_calibrated = { 0 };
-    key_press = VPADRead(VPAD_CHAN_0, &vpad_status, 1, nullptr);
 
     if(use_wpad_pro) WPADRead(WPAD_CHAN_0, &wpad_status);
     
-    if(key_press) {    
+    if(VPADRead(VPAD_CHAN_0, &vpad_status, 1, nullptr)) {    
         VPADGetTPCalibratedPoint(VPAD_CHAN_0, &touchpoint_calibrated, &vpad_status.tpNormal);
-        touched = touchpoint_calibrated.touched;
-        if (touched) {
-            touch_x = (float)touchpoint_calibrated.x;
-            touch_y = (float)touchpoint_calibrated.y;
+        if (touchpoint_calibrated.touched) {
+            if (!was_touched) {
+                // First frame of touch — initialize both to avoid jump
+                touch_x = old_touch_x = (float)touchpoint_calibrated.x;
+                touch_y = old_touch_y = (float)touchpoint_calibrated.y;
+            } else {
+                old_touch_x = touch_x;
+                old_touch_y = touch_y;
+                touch_x = (float)touchpoint_calibrated.x;
+                touch_y = (float)touchpoint_calibrated.y;
+            }
+            touched = true;
+            was_touched = true;
         } else {
-            touch_x = 0;
-            touch_y = 0;
+            touched = false;
+            was_touched = false;
+            old_touch_x = touch_x = 0;
+            old_touch_y = touch_y = 0;
         }
+
         nk_input_motion(ctx, (int)touch_x, (int)touch_y);
         nk_input_button(ctx, NK_BUTTON_LEFT, (int)touch_x, (int)touch_y, touched);
     }
@@ -168,6 +191,6 @@ void input_update(int& current_page_file_browser, int& selected_index, nk_contex
         case STATE_MENU_SETTINGS: break;
         case STATE_PLAYING_VIDEO: input_video_player(&vpad_status, &wpad_status_pro); break;
         case STATE_PLAYING_AUDIO: input_audio_player(&vpad_status, &wpad_status_pro); break;
-        case STATE_VIEWING_PHOTO: break;
+        case STATE_VIEWING_PHOTO: input_photo_viewer(&vpad_status, &wpad_status_pro); break;
     }
 }
