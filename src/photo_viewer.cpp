@@ -1,4 +1,5 @@
 #include "main.hpp"
+#include "utils.hpp"
 #include "photo_viewer.hpp"
 #include <SDL2/SDL_image.h>
 #include <iostream>
@@ -33,11 +34,17 @@ void photo_viewer_open_picture(const char* filepath) {
 
     if (!photo_texture) {
         printf("[Photo Viewer] Failed to create texture: %s\n", SDL_GetError());
+        return;
     }
 
-    dst = { 0, 0, 0, 0 };
-    scale = 1.0f;
-    dst_set = false;
+    int tex_w, tex_h;
+    SDL_QueryTexture(photo_texture, nullptr, nullptr, &tex_w, &tex_h);
+
+    dst = calculate_aspect_fit_rect(tex_w, tex_h);
+
+    scale = static_cast<float>(dst.w) / tex_w;
+
+    dst_set = true;
 }
 
 void photo_texture_zoom(float delta_zoom) {
@@ -56,12 +63,12 @@ void photo_texture_zoom(float delta_zoom) {
     }
 
     // Vertical clamp
-    if (dst.h > (SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE)) {
+    if (dst.h > SCREEN_HEIGHT) {
         if (dst.y > 0) dst.y = 0;
-        if (dst.y < (SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE) - dst.h) dst.y = (SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE) - dst.h;
+        if (dst.y < SCREEN_HEIGHT - dst.h) dst.y = SCREEN_HEIGHT - dst.h;
     } else {
         if (dst.y < 0) dst.y = 0;
-        if (dst.y > (SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE) - dst.h) dst.y = (SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE) - dst.h;
+        if (dst.y > SCREEN_HEIGHT - dst.h) dst.y = SCREEN_HEIGHT - dst.h;
     }
 
     dst_set = false;
@@ -81,12 +88,12 @@ void photo_viewer_pan(float delta_x, float delta_y) {
     }
 
     // Vertical clamp
-    if (dst.h > (SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE)) {
+    if (dst.h > SCREEN_HEIGHT) {
         if (dst.y > 0) dst.y = 0;
-        if (dst.y < (SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE) - dst.h) dst.y = (SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE) - dst.h;
+        if (dst.y < SCREEN_HEIGHT - dst.h) dst.y = SCREEN_HEIGHT - dst.h;
     } else {
         if (dst.y < 0) dst.y = 0;
-        if (dst.y > (SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE) - dst.h) dst.y = (SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE) - dst.h;
+        if (dst.y > SCREEN_HEIGHT - dst.h) dst.y = SCREEN_HEIGHT - dst.h;
     }
 }
 
@@ -112,10 +119,10 @@ void draw_checkerboard_pattern(SDL_Renderer* renderer, int width, int height, in
 void photo_viewer_render() {
     if (!photo_texture) return;
 
-    int w, h;
-    SDL_GetRendererOutputSize(photo_renderer, &w, &h);
+    int screen_w, screen_h;
+    SDL_GetRendererOutputSize(photo_renderer, &screen_w, &screen_h);
 
-    draw_checkerboard_pattern(photo_renderer, w, h, 40);
+    draw_checkerboard_pattern(photo_renderer, screen_w, screen_h, 40);
 
     if (!dst_set) {
         int tex_w, tex_h;
