@@ -366,8 +366,20 @@ void ui_render_main_menu() {
 
         nk_layout_row_push(ctx, SCREEN_WIDTH - (200 * UI_SCALE));
         if (nk_group_begin(ctx, "Content", NK_WINDOW_BORDER)) {
-            nk_layout_row_dynamic(ctx, 20, 1);
+            nk_layout_row_dynamic(ctx, 25, 1);
             nk_label(ctx, "Welcome to " VERSION_STRING "!", NK_TEXT_LEFT);
+            nk_layout_row_dynamic(ctx, 25, 1);
+            nk_label(ctx, "What's new:", NK_TEXT_LEFT);
+            nk_layout_row_dynamic(ctx, 25, 1);
+            nk_label(ctx, "- New Ui", NK_TEXT_LEFT);
+            nk_layout_row_dynamic(ctx, 25, 1);
+            nk_label(ctx, "- Photo viewer", NK_TEXT_LEFT);
+            nk_layout_row_dynamic(ctx, 25, 1);
+            nk_label(ctx, "- Update Toolchain", NK_TEXT_LEFT);
+            nk_layout_row_dynamic(ctx, 25, 1);
+            nk_label(ctx, "- Video / Audio player hud updates", NK_TEXT_LEFT);
+            nk_layout_row_dynamic(ctx, 25, 1);
+            nk_label(ctx, "- Changing between multiple audio tracks in a video", NK_TEXT_LEFT);
             nk_group_end(ctx);
         }
 
