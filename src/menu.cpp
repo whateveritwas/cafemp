@@ -164,8 +164,8 @@ void start_selected_photo(int selected_index) {
     media_info_get()->current_audio_track_id = 0;
     media_info_get()->total_audio_track_count = 0;
 
-    media_info_get()->current_caption_id = 0;
-    media_info_get()->total_caption_count = 0;
+    media_info_get()->current_caption_id = selected_index;
+    media_info_get()->total_caption_count = get_media_files().size();       // Never do this again!
 
     photo_viewer_init(ui_renderer, ui_texture);
     app_state_set(STATE_VIEWING_PHOTO);
@@ -482,12 +482,6 @@ void ui_render_player_hud(media_info* info) {
 void ui_render_captions() {}
 
 void ui_render_photo_viewer() {
-
-    if (!dest_rect_initialised) {
-        // dest_rect = calculate_aspect_fit_rect(current_frame_info->frame_width, current_frame_info->frame_height);
-        dest_rect_initialised = true;
-    }
-
     photo_viewer_render();
     if(input_is_vpad_touched()) ui_render_tooltip();
 }
