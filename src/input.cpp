@@ -152,14 +152,29 @@ void input_photo_viewer(VPADStatus* vpad_status, WPADStatusProController* wpad_s
         photo_texture_zoom(0.05f);
     } else if (is_hold(vpad_status, VPAD_BUTTON_ZR)) {
         photo_texture_zoom(-0.05f);
-    } else if (is_hold(vpad_status, VPAD_STICK_L_EMULATION_UP)) {
+    } else if (is_hold(vpad_status, VPAD_STICK_R_EMULATION_UP)) {
         photo_viewer_pan(0, -10.0f);
-    } else if (is_hold(vpad_status, VPAD_STICK_L_EMULATION_DOWN)) {
+    } else if (is_hold(vpad_status, VPAD_STICK_R_EMULATION_DOWN)) {
         photo_viewer_pan(0, 10.0f);
-    } else if (is_hold(vpad_status, VPAD_STICK_L_EMULATION_LEFT)) {
+    } else if (is_hold(vpad_status, VPAD_STICK_R_EMULATION_LEFT)) {
         photo_viewer_pan(-10.0f, 0);
-    } else if (is_hold(vpad_status, VPAD_STICK_L_EMULATION_RIGHT)) {
+    } else if (is_hold(vpad_status, VPAD_STICK_R_EMULATION_RIGHT)) {
         photo_viewer_pan(10.0f, 0);
+    } else if (is_pressed(vpad_status, wpad_status, VPAD_STICK_L_EMULATION_LEFT, 0)) {
+        media_info* info = media_info_get();
+        if (--info->current_caption_id < 0)
+            info->current_caption_id = info->total_caption_count - 1;
+
+        std::string full_path = std::string(MEDIA_PATH) + get_media_files()[info->current_caption_id];
+        photo_viewer_open_picture(full_path.c_str());
+
+    } else if (is_pressed(vpad_status, wpad_status, VPAD_STICK_L_EMULATION_RIGHT, 0)) {
+        media_info* info = media_info_get();
+        if (++info->current_caption_id >= info->total_caption_count)
+            info->current_caption_id = 0;
+
+        std::string full_path = std::string(MEDIA_PATH) + get_media_files()[info->current_caption_id];
+        photo_viewer_open_picture(full_path.c_str());
     }
 }
 
