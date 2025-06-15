@@ -50,6 +50,7 @@ ffmpeg -i <input> \
 
 * 💼 Video playback (common formats, ≤720p)
 * 🎵 Audio playback
+* 🖼️ Photo viewer (common formats, no animated gifs yet)
 * ✋ Touch input via GamePad
 
 ## 🛠️ Planned Features
@@ -68,6 +69,7 @@ ffmpeg -i <input> \
 * ❗ **Video/audio desync** with high-res files
 * ❗ **App may crash** when exiting
 * ❗ **Unstable behavior** due to experimental state
+* ❗ **Not usable without gamepad** 
 
 ## Credits
 
