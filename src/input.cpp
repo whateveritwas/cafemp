@@ -104,9 +104,9 @@ void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
         app_state_set(STATE_MENU_VIDEO_FILES);
         scan_directory(MEDIA_PATH);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_LEFT, WPAD_PRO_BUTTON_LEFT))  {
-        video_player_seek(-5.0f);
+        // video_player_seek(-5.0f);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_RIGHT, WPAD_PRO_BUTTON_RIGHT)) {
-        video_player_seek(5.0f);
+        // video_player_seek(5.0f);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_X, WPAD_PRO_BUTTON_X)) {
         if(media_info_get()->total_audio_track_count == 1) return;
 
