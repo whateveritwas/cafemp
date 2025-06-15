@@ -26,6 +26,9 @@ int current_audio_track_id = 1;
 bool is_pressed(VPADStatus* vpad, WPADStatusProController* wpad, int vpad_btn, int wpad_btn) {
     return (int)vpad->trigger == vpad_btn || ((int)wpad->buttons & wpad_btn);
 }
+bool is_hold(VPADStatus* vpad, WPADStatusProController* wpad, int vpad_btn, int wpad_btn) {
+    return (int)vpad->hold == vpad_btn || ((int)wpad->buttons & wpad_btn);
+}
 
 void input_menu(VPADStatus* vpad_status, WPADStatusProController* wpad_status, int& current_page_file_browser, int& selected_index) {
     int total_items = static_cast<int>(get_media_files().size());
@@ -144,6 +147,10 @@ void input_photo_viewer(VPADStatus* vpad_status, WPADStatusProController* wpad_s
         app_state_set(STATE_MENU_IMAGE_FILES);
     } else if(input_is_vpad_touched()) {
         photo_viewer_pan(touch_x - old_touch_x, touch_y - old_touch_y);
+    } else if(is_hold(vpad_status, wpad_status, VPAD_BUTTON_ZL, WPAD_PRO_BUTTON_ZL)) {
+        photo_texture_zoom(0.05f);
+    } else if(is_hold(vpad_status, wpad_status, VPAD_BUTTON_ZR, WPAD_PRO_BUTTON_ZR)) {
+        photo_texture_zoom(-0.05f);
     }
 }
 

@@ -36,6 +36,34 @@ void photo_viewer_open_picture(const char* filepath) {
     }
 
     dst = { 0, 0, 0, 0 };
+    scale = 1.0f;
+    dst_set = false;
+}
+
+void photo_texture_zoom(float delta_zoom) {
+    scale += delta_zoom;
+
+    if (scale > 5.0f) scale = 5.0f;
+    if (scale < 0.5f) scale = 0.5f;
+
+    // Horizontal clamp
+    if (dst.w > SCREEN_WIDTH) {
+        if (dst.x > 0) dst.x = 0;
+        if (dst.x < SCREEN_WIDTH - dst.w) dst.x = SCREEN_WIDTH - dst.w;
+    } else {
+        if (dst.x < 0) dst.x = 0;
+        if (dst.x > SCREEN_WIDTH - dst.w) dst.x = SCREEN_WIDTH - dst.w;
+    }
+
+    // Vertical clamp
+    if (dst.h > (SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE)) {
+        if (dst.y > 0) dst.y = 0;
+        if (dst.y < (SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE) - dst.h) dst.y = (SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE) - dst.h;
+    } else {
+        if (dst.y < 0) dst.y = 0;
+        if (dst.y > (SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE) - dst.h) dst.y = (SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE) - dst.h;
+    }
+
     dst_set = false;
 }
 
@@ -63,10 +91,10 @@ void photo_viewer_pan(float delta_x, float delta_y) {
 }
 
 void draw_checkerboard_pattern(SDL_Renderer* renderer, int width, int height, int cell_size) {
-    SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
+    SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
     SDL_RenderClear(renderer);
 
-    SDL_SetRenderDrawColor(renderer, 150, 150, 150, 255);
+    SDL_SetRenderDrawColor(renderer, 10, 10, 10, 255);
 
     bool toggle = false;
     for (int y = 0; y < height; y += cell_size) {
@@ -93,8 +121,8 @@ void photo_viewer_render() {
         int tex_w, tex_h;
         SDL_QueryTexture(photo_texture, nullptr, nullptr, &tex_w, &tex_h);
 
-        dst.w = tex_w;
-        dst.h = tex_h;
+        dst.w = tex_w * scale;
+        dst.h = tex_h * scale;
 
         dst_set = true;
     }

@@ -5,6 +5,7 @@
 
 void photo_viewer_init(SDL_Renderer* renderer, SDL_Texture*& texture);
 void photo_viewer_open_picture(const char* filepath);
+void photo_texture_zoom(float delta_zoom);
 void photo_viewer_pan(float delta_x, float delta_y);
 void photo_viewer_render();
 void photo_viewer_cleanup();
