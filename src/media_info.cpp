@@ -12,7 +12,7 @@ media_info* media_info_get() {
         while (1);  // Crash intentionally for debugging
     }
 
-    #if defined(DEBUG_AUDIO) || defined(DEBUG_VIDEO)
+    #if defined(DEBUG_AUDIO) && defined(DEBUG_VIDEO)
     printf("=== Media Info Debug ===\n");
     printf("Path: %s\n", current_media_info->path.c_str());
     printf("Type: %c\n", current_media_info->type);
@@ -40,7 +40,7 @@ media_info media_info_get_copy() {
         while (1);
     }
 
-    #if defined(DEBUG_AUDIO) || defined(DEBUG_VIDEO)
+    #if defined(DEBUG_AUDIO) && defined(DEBUG_VIDEO)
     printf("=== Media Info Debug ===\n");
     printf("Path: %s\n", current_media_info->path.c_str());
     printf("Type: %c\n", current_media_info->type);
