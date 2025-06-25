@@ -112,7 +112,7 @@ void start_file(int index) {
 }
 
 void start_selected_video(int selected_index) {
-    std::string full_path = std::string(MEDIA_PATH) + get_media_files()[selected_index];
+    std::string full_path = std::string(MEDIA_PATH "Video/") + get_media_files()[selected_index];
 
     media_info_get()->type = 'V';
     media_info_get()->path = full_path;
@@ -133,7 +133,7 @@ void start_selected_video(int selected_index) {
 }
 
 void start_selected_audio(int selected_index) {
-    std::string full_path = std::string(MEDIA_PATH) + get_media_files()[selected_index];
+    std::string full_path = std::string(MEDIA_PATH "Audio/") + get_media_files()[selected_index];
 
     media_info_get()->type = 'A';
     media_info_get()->path = full_path;
@@ -153,7 +153,7 @@ void start_selected_audio(int selected_index) {
 }
 
 void start_selected_photo(int selected_index) {
-    std::string full_path = std::string(MEDIA_PATH) + get_media_files()[selected_index];
+    std::string full_path = std::string(MEDIA_PATH "Photo/") + get_media_files()[selected_index];
 
     media_info_get()->type = 'P';
     media_info_get()->path = full_path;
@@ -178,11 +178,7 @@ void ui_handle_ambiance() {
         audio_player_play(true);
         ambiance_playing = true;
     } else if((int)audio_player_get_current_play_time() == (int)audio_player_get_total_play_time() && ambiance_playing && background_music_enabled) {
-        audio_player_play(true);
-        audio_player_cleanup();
-        audio_player_play(false);
-        audio_player_init(AMBIANCE_PATH);
-        audio_player_play(true);
+        audio_player_seek(-1000);
     } else if(ambiance_playing && !background_music_enabled) {
         audio_player_play(true);
         audio_player_cleanup();
@@ -254,7 +250,7 @@ void ui_render_sidebar() {
         */
         if (nk_button_label(ctx, "Video")) {
             app_state_set(STATE_MENU_VIDEO_FILES);
-            scan_directory(MEDIA_PATH);
+            scan_directory(MEDIA_PATH "Video/");
         }
         /*
         if (nk_button_label(ctx, "YouTube")) {
@@ -263,16 +259,16 @@ void ui_render_sidebar() {
         */
         if (nk_button_label(ctx, "Audio")) {
             app_state_set(STATE_MENU_AUDIO_FILES);
-            scan_directory(MEDIA_PATH);
+            scan_directory(MEDIA_PATH "Audio/");
         }
         /*
         if (nk_button_label(ctx, "Internet Radio")) {
             app_state_set(STATE_MENU_AUDIO_FILES);
         }
         */
-        if (nk_button_label(ctx, "Photos")) {
+        if (nk_button_label(ctx, "Photo")) {
             app_state_set(STATE_MENU_IMAGE_FILES);
-            scan_directory(MEDIA_PATH);
+            scan_directory(MEDIA_PATH "Photo/");
         }
         
         #ifdef DEBUG
@@ -400,11 +396,9 @@ void ui_render_file_browser() {
         if (nk_group_begin(ctx, "FileList", NK_WINDOW_BORDER)) {
             nk_layout_row_dynamic(ctx, 64 * UI_SCALE, 1);
 
-            int total_files = static_cast<int>(get_media_files().size());
-            int start = current_page_file_browser * ITEMS_PER_PAGE;
-            int end = std::min(start + ITEMS_PER_PAGE, total_files);
+            int total_file_count = static_cast<int>(get_media_files().size());
 
-            for (int i = start; i < end; ++i) {
+            for (int i = 0; i < total_file_count; ++i) {
                 std::string display_str = truncate_filename(get_media_files()[i], 100);
                 struct nk_style_button button_style = ctx->style.button;
 
@@ -514,11 +508,11 @@ void ui_render_video_player() {
     frame_info* current_frame_info = video_player_get_current_frame_info();
     if (!current_frame_info || !current_frame_info->texture) {
         no_current_frame_info_cound++;
-        if (no_current_frame_info_cound < 10) return;
+        if (no_current_frame_info_cound < 20) return;
 
         printf("[Video Player] Shuting down due to no video frames being present\n");
         video_player_cleanup();
-        scan_directory(MEDIA_PATH);
+        scan_directory(MEDIA_PATH "Video/");
         app_state_set(STATE_MENU_VIDEO_FILES);
         return;
     }
@@ -542,7 +536,7 @@ void ui_render_video_player() {
     constexpr double epsilon = 1.0; // 1 ms tolerance
     if (std::abs(media_info_get()->current_video_playback_time - media_info_get()->total_video_playback_time) < epsilon) {
         video_player_cleanup();
-        scan_directory(MEDIA_PATH);
+        scan_directory(MEDIA_PATH "Video/");
         app_state_set(STATE_MENU_VIDEO_FILES);
     }
 
@@ -586,7 +580,7 @@ void ui_render_audio_player() {
         audio_player_play(true);
         audio_player_cleanup();
         audio_player_play(false);
-        scan_directory(MEDIA_PATH);
+        scan_directory(MEDIA_PATH "Audio/");
         app_state_set(STATE_MENU_AUDIO_FILES);
     }
 

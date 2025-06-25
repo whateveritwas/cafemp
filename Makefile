@@ -13,8 +13,8 @@ TOPDIR ?= $(CURDIR)
 # APP_SHORTNAME sets the short name of the application
 # APP_AUTHOR sets the author of the application
 #-------------------------------------------------------------------------------
-APP_NAME	:= café media player
-APP_SHORTNAME	:= cafémp
+APP_NAME	:= Café Media Player
+APP_SHORTNAME	:= CaféMP
 APP_AUTHOR	:= whateveritwas
 
 include $(DEVKITPRO)/wut/share/wut_rules
@@ -29,6 +29,7 @@ include $(DEVKITPRO)/wut/share/wut_rules
 # ICON is the game icon, leave blank to use default rule
 # TV_SPLASH is the image displayed during bootup on the TV, leave blank to use default rule
 # DRC_SPLASH is the image displayed during bootup on the DRC, leave blank to use default rule
+# BOOT_SOUND is the sound that plays during bootup on DRC and TV, leave blank to use default rule
 #-------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
@@ -44,7 +45,7 @@ BOOT_SOUND 	:=	branding/bootSound.btsnd
 #-------------------------------------------------------------------------------
 # options for code generation
 #-------------------------------------------------------------------------------
-CFLAGS := -DDEBUG -Wall -Werror $(INCLUDE) -D__WIIU__ -D__WUT__
+CFLAGS := -DDEBUG -DDEBUG_AUDIO -DDEBUG_VIDEO -Wall -Werror $(INCLUDE) -D__WIIU__ -D__WUT__
 CXXFLAGS	:= $(CFLAGS)
 
 ASFLAGS	:=	-g $(ARCH)
