@@ -45,7 +45,7 @@ BOOT_SOUND 	:=	branding/bootSound.btsnd
 #-------------------------------------------------------------------------------
 # options for code generation
 #-------------------------------------------------------------------------------
-CFLAGS := -DDEBUG -DDEBUG_AUDIO -DDEBUG_VIDEO -Wall -Werror $(INCLUDE) -D__WIIU__ -D__WUT__
+CFLAGS := -DDEBUG -DDEBUG_VIDEO -Wall -Werror $(INCLUDE) -D__WIIU__ -D__WUT__
 CXXFLAGS	:= $(CFLAGS)
 
 ASFLAGS	:=	-g $(ARCH)

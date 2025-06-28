@@ -45,7 +45,13 @@ bool dest_rect_initialised = false;
 
 bool ambiance_playing = false;
 static int background_music_enabled = 1;
+
 static int no_current_frame_info_cound = 0;
+#ifndef DEBUG
+int no_current_frame_info_threshold = 10;
+#else
+int no_current_frame_info_threshold = 20;
+#endif
 
 void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_texture) {
     WPADInit();
@@ -508,7 +514,7 @@ void ui_render_video_player() {
     frame_info* current_frame_info = video_player_get_current_frame_info();
     if (!current_frame_info || !current_frame_info->texture) {
         no_current_frame_info_cound++;
-        if (no_current_frame_info_cound < 20) return;
+        if (no_current_frame_info_cound < no_current_frame_info_threshold) return;
 
         printf("[Video Player] Shuting down due to no video frames being present\n");
         video_player_cleanup();
@@ -516,7 +522,6 @@ void ui_render_video_player() {
         app_state_set(STATE_MENU_VIDEO_FILES);
         return;
     }
-
     no_current_frame_info_cound = 0;
 
     #ifdef DEBUG_VIDEO
