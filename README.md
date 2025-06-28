@@ -1,8 +1,8 @@
-# Cafémp – Experimental Media Player for the Nintendo Wii U
+# CaféMP – Experimental Media Player for the Nintendo Wii U
 
 ## About
 
-Cafémp is a lightweight, open-source media player for the Wii U, focused on basic media playback from the SD card. It's a work-in-progress and may be unstable. It supports most common video and audio formats at resolutions up to 720p at 30 FPS.
+CaféMP is a lightweight, open-source media player for the Wii U, focused on basic media playback from the SD card. It's a work-in-progress and may be unstable. It supports most common video and audio formats at resolutions up to 720p at 30 FPS.
 
 Made with ❤️ in 🇩🇪
 
@@ -22,9 +22,9 @@ Made with ❤️ in 🇩🇪
   </a>
 </p>
 
-## Using Cafémp
+## Using CaféMP
 
-1. Launch Cafémp from the **Wii U Main Menu**.
+1. Launch CaféMP from the **Wii U Main Menu**.
 2. Select wnated media type from the side bar
 3. Use the file browser to select your media file.
 3. Controls:
@@ -70,6 +70,7 @@ ffmpeg -i <input> \
 * ❗ **App may crash** when exiting
 * ❗ **Unstable behavior** due to experimental state
 * ❗ **Not usable without gamepad** 
+* ❗ **MKV** not all mkv files will work only h264
 
 ## Credits
 

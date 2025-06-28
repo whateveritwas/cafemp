@@ -266,6 +266,8 @@ void process_video_frame_thread() {
     total_paused_duration = 0;
     pause_start_time = 0;
 
+    const int64_t frame_late_threshold_us = 50000; // 50ms
+
     while (video_thread_running) {
         {
             std::unique_lock<std::mutex> lock(playback_mutex);
@@ -276,41 +278,59 @@ void process_video_frame_thread() {
         }
 
         AVPacket pkt;
-        if (av_read_frame(fmt_ctx, &pkt) >= 0) {
-            if (pkt.stream_index == video_stream_index) {
-                if (!avcodec_send_packet(video_codec_ctx, &pkt)) {
-                    while (!avcodec_receive_frame(video_codec_ctx, local_frame)) {
-                        int64_t pts_us = local_frame->pts * av_q2d(time_base) * 1e6;
-                        int64_t now_us = av_gettime_relative() - start_time;
-                        int64_t delay = pts_us - now_us;
+        if (av_read_frame(fmt_ctx, &pkt) < 0) {
+            video_thread_running = false;
+            break;
+        }
 
-                        if (delay > 0) {
-                            av_usleep(delay);
-                        }
+        if (pkt.stream_index == video_stream_index) {
+            int ret = avcodec_send_packet(video_codec_ctx, &pkt);
+            if (ret < 0) {
+                av_packet_unref(&pkt);
+                continue;
+            }
 
-                        // Update playback time
-                        {
-                            std::lock_guard<std::mutex> info_lock(info_mutex);
-                            media_info_get()->current_video_playback_time = local_frame->pts * av_q2d(time_base);
-                        }
+            while (ret >= 0) {
+                ret = avcodec_receive_frame(video_codec_ctx, local_frame);
+                if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
+                else if (ret < 0) {
+                    printf("[Video Player] Error decoding frame\n");
+                    break;
+                }
 
-                        // Push frame to queue
-                        {
-                            std::lock_guard<std::mutex> lock(video_frame_mutex);
-                            if (video_frame_queue.size() < 10) { // Buffer limit
-                                video_frame_queue.push(local_frame);
-                                local_frame = av_frame_alloc(); // Prepare for next
-                            } else {
-                                av_frame_unref(local_frame); // Discard old
-                            }
-                        }
+                int64_t pts_us = local_frame->pts * av_q2d(time_base) * 1e6;
+                int64_t now_us = av_gettime_relative() - start_time;
+                int64_t delay = pts_us - now_us;
+
+                if (delay < -frame_late_threshold_us) { // Frame is too late, drop it
+                    av_frame_unref(local_frame);
+                    continue;
+                }
+
+                if (delay > 0) {
+                    // Don't sleep inside decode thread; just yield CPU briefly
+                    av_usleep(delay / 2);
+                }
+
+                AVFrame* queued_frame = av_frame_clone(local_frame);
+                av_frame_unref(local_frame);
+
+                {
+                    std::lock_guard<std::mutex> lock(video_frame_mutex);
+                    if (video_frame_queue.size() < 20) {
+                        video_frame_queue.push(queued_frame);
+                    } else {
+                        av_frame_free(&queued_frame); // drop if queue is full
                     }
                 }
+
+                {
+                    std::lock_guard<std::mutex> info_lock(info_mutex);
+                    media_info_get()->current_video_playback_time = local_frame->pts * av_q2d(time_base);
+                }
             }
-            av_packet_unref(&pkt);
-        } else {
-            video_thread_running = false;
         }
+        av_packet_unref(&pkt);
     }
 
     av_frame_free(&local_frame);

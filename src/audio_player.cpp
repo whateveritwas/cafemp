@@ -322,7 +322,6 @@ bool audio_player_switch_audio_stream(int new_stream_index) {
     if (new_stream->codecpar->codec_type != AVMEDIA_TYPE_AUDIO)
         return false;
 
-    // Step 1: Capture current playback time
     double target_time = audio_player_get_current_play_time();
 
     switching_audio_stream.store(true);
@@ -386,7 +385,6 @@ bool audio_player_switch_audio_stream(int new_stream_index) {
 
     audio_stream_index = new_stream_index;
 
-    // Step 2: Seek to preserved time
     int64_t seek_target = static_cast<int64_t>(target_time / av_q2d(fmt_ctx->streams[audio_stream_index]->time_base));
     if (av_seek_frame(fmt_ctx, audio_stream_index, seek_target, AVSEEK_FLAG_BACKWARD) < 0) {
         switching_audio_stream.store(false);
