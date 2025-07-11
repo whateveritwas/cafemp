@@ -10,3 +10,6 @@ todo.md
 *.rpx
 *.wuhb
 *.zip
+
+.project
+.cproject
