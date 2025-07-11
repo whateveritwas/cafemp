@@ -73,7 +73,7 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
     if(!background_music_enabled) {
         audio_player_init("/vol/content/empty.mp3");
         audio_player_play(true);
-        audio_player_cleanup();
+        audio_player_shutdown();
         audio_player_play(false);
     }
 
@@ -95,7 +95,7 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
 
 void start_file(int index) {
     if (ambiance_playing) {
-        audio_player_cleanup();
+        audio_player_shutdown();
         ambiance_playing = false;
     }
 
@@ -103,79 +103,90 @@ void start_file(int index) {
     dest_rect_initialised = false;
     std::string full_path = std::string(MEDIA_PATH) + get_media_files()[index];
     std::string extension = full_path.substr(full_path.find_last_of('.') + 1);
-    
+
     for (auto& c : extension) c = std::tolower(c);
 
     auto new_info = std::make_unique<media_info>();
     media_info_set(std::move(new_info));
 
-    switch (app_state_get()) {
-        case STATE_MENU_AUDIO_FILES: start_selected_audio(index); break;
-        case STATE_MENU_IMAGE_FILES: start_selected_photo(index); break;
-        case STATE_MENU_VIDEO_FILES: start_selected_video(index); break;
-        default: printf("[Menu] Unsupported file type: %s\n", extension.c_str()); break;
+    media_info_get()->type = '\0';
+    media_info_get()->path = "";
+    media_info_get()->filename = "";
+    media_info_get()->current_video_playback_time = 0;
+    media_info_get()->current_audio_playback_time = 0;
+
+    media_info_get()->current_audio_track_id = 1;
+    media_info_get()->total_audio_track_count = 1;
+
+    media_info_get()->current_caption_id = 1;
+    media_info_get()->total_caption_count = 1;
+
+    // Determine the media type from the app state
+    int state = app_state_get();
+
+    std::string media_folder;
+    char media_type = '\0';
+
+    switch (state) {
+        case STATE_MENU_AUDIO_FILES:
+            media_folder = "Audio/";
+            media_type = 'A';
+            break;
+        case STATE_MENU_IMAGE_FILES:
+            media_folder = "Photo/";
+            media_type = 'P';
+            break;
+        case STATE_MENU_VIDEO_FILES:
+            media_folder = "Video/";
+            media_type = 'V';
+            break;
+        default:
+            printf("[Menu] Unsupported file type: %s\n", extension.c_str());
+            return;
     }
-}
 
-void start_selected_video(int selected_index) {
-    std::string full_path = std::string(MEDIA_PATH "Video/") + get_media_files()[selected_index];
+    full_path = std::string(MEDIA_PATH) + media_folder + get_media_files()[index];
 
-    media_info_get()->type = 'V';
+    media_info_get()->type = media_type;
     media_info_get()->path = full_path;
-    media_info_get()->filename = get_media_files()[selected_index];
+    media_info_get()->filename = get_media_files()[index];
     media_info_get()->current_video_playback_time = 0;
     media_info_get()->current_audio_playback_time = 0;
 
-    media_info_get()->current_audio_track_id = 1;
-    media_info_get()->total_audio_track_count = 1;
+    if (media_type == 'A') {
+        media_info_get()->current_audio_track_id = 1;
+        media_info_get()->total_audio_track_count = 1;
 
-    media_info_get()->current_caption_id = 1;
-    media_info_get()->total_caption_count = 1;
+        media_info_get()->current_caption_id = 1;
+        media_info_get()->total_caption_count = 1;
 
-    video_player_start(full_path.c_str(), *ui_renderer, ui_texture);
-    audio_player_play(true);
-    video_player_play(true);
-    app_state_set(STATE_PLAYING_VIDEO);
-}
+        audio_player_init(full_path.c_str());
+        audio_player_play(true);
+        app_state_set(STATE_PLAYING_AUDIO);
+    }
+    else if (media_type == 'V') {
+        media_info_get()->current_audio_track_id = 1;
+        media_info_get()->total_audio_track_count = 1;
 
-void start_selected_audio(int selected_index) {
-    std::string full_path = std::string(MEDIA_PATH "Audio/") + get_media_files()[selected_index];
+        media_info_get()->current_caption_id = 1;
+        media_info_get()->total_caption_count = 1;
 
-    media_info_get()->type = 'A';
-    media_info_get()->path = full_path;
-    media_info_get()->filename = get_media_files()[selected_index];
-    media_info_get()->current_video_playback_time = 0;
-    media_info_get()->current_audio_playback_time = 0;
+        video_player_start(full_path.c_str(), *ui_renderer, ui_texture);
+        audio_player_play(true);
+        video_player_play(true);
+        app_state_set(STATE_PLAYING_VIDEO);
+    }
+    else if (media_type == 'P') {
+        media_info_get()->current_audio_track_id = 0;
+        media_info_get()->total_audio_track_count = 0;
 
-    media_info_get()->current_audio_track_id = 1;
-    media_info_get()->total_audio_track_count = 1;
+        media_info_get()->current_caption_id = index;
+        media_info_get()->total_caption_count = get_media_files().size();
 
-    media_info_get()->current_caption_id = 1;
-    media_info_get()->total_caption_count = 1;
-
-    audio_player_init(full_path.c_str());
-    audio_player_play(true);
-    app_state_set(STATE_PLAYING_AUDIO);
-}
-
-void start_selected_photo(int selected_index) {
-    std::string full_path = std::string(MEDIA_PATH "Photo/") + get_media_files()[selected_index];
-
-    media_info_get()->type = 'P';
-    media_info_get()->path = full_path;
-    media_info_get()->filename = get_media_files()[selected_index];
-    media_info_get()->current_video_playback_time = 0;
-    media_info_get()->current_audio_playback_time = 0;
-
-    media_info_get()->current_audio_track_id = 0;
-    media_info_get()->total_audio_track_count = 0;
-
-    media_info_get()->current_caption_id = selected_index;
-    media_info_get()->total_caption_count = get_media_files().size();       // Never do this again!
-
-    photo_viewer_init(ui_renderer, ui_texture);
-    app_state_set(STATE_VIEWING_PHOTO);
-    photo_viewer_open_picture(full_path.c_str());
+        photo_viewer_init(ui_renderer, ui_texture);
+        app_state_set(STATE_VIEWING_PHOTO);
+        photo_viewer_open_picture(full_path.c_str());
+    }
 }
 
 void ui_handle_ambiance() {
@@ -187,7 +198,7 @@ void ui_handle_ambiance() {
         audio_player_seek(-1000);
     } else if(ambiance_playing && !background_music_enabled) {
         audio_player_play(true);
-        audio_player_cleanup();
+        audio_player_shutdown();
         audio_player_play(false);
     }
 }
@@ -438,34 +449,41 @@ void ui_render_player_hud(media_info* info) {
     struct nk_rect hud_rect = nk_rect(0, SCREEN_HEIGHT - hud_height, SCREEN_WIDTH, hud_height);
 
     if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
-        // Progress bar
+        // Progress bar layout
         nk_layout_row_dynamic(ctx, (hud_height / 2) - 5, 1);
 
-        nk_size progress = static_cast<nk_size>(0);
-        nk_size total = static_cast<nk_size>(0);
+        // Calculate progress and total in seconds
+        double progress_seconds = 0.0;
+        double total_seconds = 0.0;
 
         switch(info->type) {
-            case 'V': // video
-            progress = static_cast<nk_size>(std::min(info->current_video_playback_time, info->total_video_playback_time));
-            total = static_cast<nk_size>(info->total_video_playback_time);
-            break;
-
-            case 'A': // audio
-            progress = static_cast<nk_size>(std::min(info->current_audio_playback_time, info->total_audio_playback_time));
-            total = static_cast<nk_size>(info->total_audio_playback_time);
-            break;
-
+            case 'V': // Video
+                progress_seconds = std::min(info->current_video_playback_time, info->total_video_playback_time);
+                total_seconds = info->total_video_playback_time;
+                break;
+            case 'A': // Audio
+                progress_seconds = std::min(info->current_audio_playback_time, info->total_audio_playback_time);
+                total_seconds = info->total_audio_playback_time;
+                break;
+            default:
+                progress_seconds = 0.0;
+                total_seconds = 1.0; // Avoid division by zero in nk_progress
+                break;
         }
+
+        nk_size progress = static_cast<nk_size>(progress_seconds);
+        nk_size total = static_cast<nk_size>(total_seconds > 0 ? total_seconds : 1);
+
         nk_progress(ctx, &progress, total, NK_FIXED);
 
-        // HUD text and buttons
+        // HUD text and buttons layout
         nk_layout_row_begin(ctx, NK_DYNAMIC, hud_height / 2, 2);
-        nk_layout_row_push(ctx, 0.8f); // Left 80%: text label
+        nk_layout_row_push(ctx, 0.8f); // 80% left for playback info text
         {
             std::string hud_str = (info->playback_status ? "> " : "|| ");
-            hud_str += format_time(progress);
+            hud_str += format_time(progress_seconds);
             hud_str += " / ";
-            hud_str += format_time(total);
+            hud_str += format_time(total_seconds);
             hud_str += " [";
             hud_str += info->filename;
             hud_str += "]";
@@ -474,7 +492,7 @@ void ui_render_player_hud(media_info* info) {
         }
 
         if(app_state_get() == STATE_PLAYING_VIDEO) {
-            nk_layout_row_push(ctx, 0.2f);
+            nk_layout_row_push(ctx, 0.2f); // 20% right for audio/caption track info
             {
                 std::string hud_str = "A:";
                 hud_str += std::to_string(info->current_audio_track_id);
@@ -537,14 +555,13 @@ void ui_render_video_player() {
     }
 
     SDL_RenderCopy(ui_renderer, current_frame_info->texture, NULL, &dest_rect);
-
-    constexpr double epsilon = 1.0; // 1 ms tolerance
-    if (std::abs(media_info_get()->current_video_playback_time - media_info_get()->total_video_playback_time) < epsilon) {
+    /*
+    if ((int)media_info_get()->current_video_playback_time == (int)video_player_get_total_play_time()) {
         video_player_cleanup();
         scan_directory(MEDIA_PATH "Video/");
         app_state_set(STATE_MENU_VIDEO_FILES);
     }
-
+    */
     #ifdef DEBUG_VIDEO
     uint64_t current_rendering_time = OSTicksToMicroseconds(OSGetSystemTime() - rendering_ticks);
     if (current_rendering_time > 5) {
@@ -580,22 +597,24 @@ void ui_render_video_player() {
 
 void ui_render_audio_player() {
     SDL_RenderClear(ui_renderer);
-
-    if((audio_player_get_total_play_time() - audio_player_get_current_play_time()) < 0.01) {
+    /*
+    if((int)audio_player_get_current_play_time() == (int)audio_player_get_total_play_time()) {
         audio_player_play(true);
-        audio_player_cleanup();
+        audio_player_shutdown();
         audio_player_play(false);
         scan_directory(MEDIA_PATH "Audio/");
         app_state_set(STATE_MENU_AUDIO_FILES);
     }
+    */
+    if (media_info_get()->total_audio_playback_time == 0) media_info_get()->total_audio_playback_time = audio_player_get_total_play_time();
+    media_info_get()->current_audio_playback_time = audio_player_get_current_play_time();
 
-    media_info_get()->current_audio_playback_time = (int64_t)audio_player_get_current_play_time();
     ui_render_player_hud(media_info_get());
 }
 
 void ui_shutdown() {
     WPADShutdown();
-    if (ambiance_playing) { audio_player_cleanup(); ambiance_playing = false; }
+    if (ambiance_playing) { audio_player_shutdown(); ambiance_playing = false; }
     if (!media_info_get()->playback_status) video_player_play(true);
     if (media_info_get()->playback_status) video_player_cleanup();
 
