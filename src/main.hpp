@@ -11,17 +11,25 @@
 #define SCREEN_HEIGHT 720
 #define UI_SCALE 1.2
 
+#ifndef LEGACY
 #define FONT_PATH "/vol/content/Roboto-Regular.ttf"
 #define AMBIANCE_PATH "/vol/content/769925__lightmister__game-main-menu-fluids.mp3"
+#else
+#define FONT_PATH "/vol/external01/wiiu/apps/cafemp/content/Roboto-Regular.ttf"
+#define AMBIANCE_PATH "/vol/external01/wiiu/apps/cafemp/content/769925__lightmister__game-main-menu-fluids.mp3"
+#endif
+
 #define MEDIA_PATH "/vol/external01/wiiu/apps/cafemp/"
 #define SETTINGS_PATH "/vol/external01/wiiu/apps/cafemp/settings.json"
 
 #define VERSION_STRING_NUMBER "v0.5.1"
 
 #ifdef DEBUG
-#define VERSION_STRING "café media player " VERSION_STRING_NUMBER " " __DATE__ " " __TIME__
+#define VERSION_STRING "CaféMP " VERSION_STRING_NUMBER " " __DATE__ " " __TIME__
+#elif LEGACY
+#define VERSION_STRING "CaféMP Legacy " VERSION_STRING_NUMBER
 #else
-#define VERSION_STRING "café media player " VERSION_STRING_NUMBER
+#define VERSION_STRING "CaféMP " VERSION_STRING_NUMBER
 #endif
 
 #define TOOLTIP_BAR_HEIGHT (48)
