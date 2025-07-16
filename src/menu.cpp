@@ -73,7 +73,7 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
     if(!background_music_enabled) {
         audio_player_init("/vol/content/empty.mp3");
         audio_player_play(true);
-        audio_player_shutdown();
+        audio_player_cleanup();
         audio_player_play(false);
     }
 
@@ -95,7 +95,7 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
 
 void start_file(int index) {
     if (ambiance_playing) {
-        audio_player_shutdown();
+        audio_player_cleanup();
         ambiance_playing = false;
     }
 
@@ -198,7 +198,7 @@ void ui_handle_ambiance() {
         audio_player_seek(-1000);
     } else if(ambiance_playing && !background_music_enabled) {
         audio_player_play(true);
-        audio_player_shutdown();
+        audio_player_cleanup();
         audio_player_play(false);
     }
 }
@@ -384,7 +384,7 @@ void ui_render_main_menu() {
             nk_layout_row_dynamic(ctx, 25, 1);
             nk_label(ctx, "What's new:", NK_TEXT_LEFT);
             nk_layout_row_dynamic(ctx, 25, 1);
-            nk_label(ctx, "- New Ui", NK_TEXT_LEFT);
+            nk_label(ctx, "- Support for tiramisu", NK_TEXT_LEFT);
             nk_layout_row_dynamic(ctx, 25, 1);
             nk_label(ctx, "- Photo viewer", NK_TEXT_LEFT);
             nk_layout_row_dynamic(ctx, 25, 1);
@@ -600,7 +600,7 @@ void ui_render_audio_player() {
     /*
     if((int)audio_player_get_current_play_time() == (int)audio_player_get_total_play_time()) {
         audio_player_play(true);
-        audio_player_shutdown();
+        audio_player_cleanup();
         audio_player_play(false);
         scan_directory(MEDIA_PATH "Audio/");
         app_state_set(STATE_MENU_AUDIO_FILES);
@@ -614,7 +614,7 @@ void ui_render_audio_player() {
 
 void ui_shutdown() {
     WPADShutdown();
-    if (ambiance_playing) { audio_player_shutdown(); ambiance_playing = false; }
+    if (ambiance_playing) { audio_player_cleanup(); ambiance_playing = false; }
     if (!media_info_get()->playback_status) video_player_play(true);
     if (media_info_get()->playback_status) video_player_cleanup();
 
