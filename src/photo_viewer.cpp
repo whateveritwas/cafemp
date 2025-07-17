@@ -6,9 +6,9 @@
 
 static SDL_Renderer* photo_renderer = nullptr;
 static SDL_Texture* photo_texture = nullptr;
-float x = 0.0f;
-float y = 0.0f;
 float scale = 1.0f;
+const float min_scale = 0.5f;
+const float max_scale = 5.0f;
 SDL_Rect dst = { 0, 0, 0, 0 };
 bool dst_set = false;
 
@@ -50,8 +50,8 @@ void photo_viewer_open_picture(const char* filepath) {
 void photo_texture_zoom(float delta_zoom) {
     scale += delta_zoom;
 
-    if (scale > 5.0f) scale = 5.0f;
-    if (scale < 0.5f) scale = 0.5f;
+    if (scale > max_scale) scale = max_scale;
+    if (scale < min_scale) scale = min_scale;
 
     // Horizontal clamp
     if (dst.w > SCREEN_WIDTH) {
@@ -74,9 +74,9 @@ void photo_texture_zoom(float delta_zoom) {
     dst_set = false;
 }
 
-void photo_viewer_pan(float delta_x, float delta_y) {
-    dst.x += (int)delta_x;
-    dst.y += (int)delta_y;
+void photo_viewer_pan(int delta_x, int delta_y) {
+    dst.x += delta_x;
+    dst.y += delta_y;
 
     // Horizontal clamp
     if (dst.w > SCREEN_WIDTH) {
