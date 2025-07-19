@@ -410,6 +410,18 @@ int audio_player_get_current_track_id() {
     return current_audio_track_id;
 }
 
+double get_audio_clock_from_sdl() {
+    uint32_t bytes_queued = SDL_GetQueuedAudioSize(audio_device);
+
+    int bytes_per_sample = SDL_AUDIO_BITSIZE(audio_spec.format) / 8;
+    int bytes_per_sec = audio_spec.freq * audio_spec.channels * bytes_per_sample;
+
+    double delay = static_cast<double>(bytes_queued) / bytes_per_sec;
+    double now = av_gettime_relative() / 1e6;
+
+    return now - delay;
+}
+
 double audio_player_get_current_play_time() {
     if (!audio_enabled) return 0.0;
 
