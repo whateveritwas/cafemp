@@ -83,7 +83,7 @@ ffmpeg -i <input> \
 
 * 🎥 Video playback (common formats, up to 720p)
 * 🎵 Audio playback (common formats)
-* 🖼️ Image viewer (common formats; no animated GIFs yet)
+* 🖼️ Image viewer (common formats)
 
 ---
 
@@ -94,7 +94,6 @@ ffmpeg -i <input> \
 * 💾 USB drive support (ext4, exFAT)
 * 📊 Audio visualizations
 * 📺 Playlist support (M3U)
-* 🎧 Mini player for audio
 * 🎮 Wiimote / Pro Controller input
 * ▶️ YouTube (via Invidious) playback
 
@@ -126,7 +125,7 @@ ffmpeg -i <input> \
 
 * 🎵 **Ambiance Music**: [LightMister on Freesound](https://freesound.org/people/LightMister/sounds/769925/)
 * 🛠️ **devkitPro**: [GitHub](https://github.com/devkitPro)
-* 💬 **`stdout` implementation by dkosmari**: [Github](https://github.com/dkosmari/devkitpro-autoconf/blob/main/examples/wiiu/sdl2-swkbd/src/stdout.cpp)
+* 💬 **stdout implementation by dkosmari**: [Github](https://github.com/dkosmari/devkitpro-autoconf/blob/main/examples/wiiu/sdl2-swkbd/src/stdout.cpp)
 * 🎞️ **FFmpeg**: [GitHub](https://github.com/FFmpeg/FFmpeg/)
 * 🧰 **FFmpeg Wii U Configure Script by GaryOderNichts**: [Github](https://github.com/GaryOderNichts/FFmpeg-wiiu/blob/master/configure-wiiu)
 * 🖼️ **Nuklear GUI Library**: [GitHub](https://github.com/Immediate-Mode-UI/Nuklear)

@@ -384,15 +384,18 @@ void ui_render_main_menu() {
             nk_layout_row_dynamic(ctx, 25, 1);
             nk_label(ctx, "What's new:", NK_TEXT_LEFT);
             nk_layout_row_dynamic(ctx, 25, 1);
-            nk_label(ctx, "- Support for tiramisu", NK_TEXT_LEFT);
+            nk_label(ctx, "- Support for Tiramisu cfw", NK_TEXT_LEFT);
             nk_layout_row_dynamic(ctx, 25, 1);
-            nk_label(ctx, "- Photo viewer", NK_TEXT_LEFT);
+            nk_label(ctx, "- General stability improvements", NK_TEXT_LEFT);
+            
             nk_layout_row_dynamic(ctx, 25, 1);
-            nk_label(ctx, "- Update Toolchain", NK_TEXT_LEFT);
+            nk_label(ctx, "- Animated gifs", NK_TEXT_LEFT);
+            /*
             nk_layout_row_dynamic(ctx, 25, 1);
             nk_label(ctx, "- Video / Audio player hud updates", NK_TEXT_LEFT);
             nk_layout_row_dynamic(ctx, 25, 1);
             nk_label(ctx, "- Changing between multiple audio tracks in a video", NK_TEXT_LEFT);
+            */
             nk_group_end(ctx);
         }
 
