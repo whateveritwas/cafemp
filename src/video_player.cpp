@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <coreinit/thread.h>
+#include <pthread.h>
 #include <coreinit/time.h>
 #include <SDL2/SDL.h>
 extern "C" {
@@ -63,7 +64,6 @@ AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int 
         return NULL;
     }
 
-    // Optional: Set pixel format early
     codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
 
     if (avcodec_parameters_to_context(codec_ctx, codecpar) < 0) {
@@ -104,7 +104,6 @@ void clear_video_frames() {
 void video_player_seek(float delta_seconds) {
     if (!fmt_ctx || video_stream_index < 0) return;
 
-    // Pause decoding thread safely
     video_player_play(false);
     {
         std::unique_lock<std::mutex> lock(playback_mutex);
@@ -125,13 +124,10 @@ void video_player_seek(float delta_seconds) {
 
         printf("[Video Player] Seek success!\n");
 
-        // Flush codec buffers after seek
         avcodec_flush_buffers(video_codec_ctx);
 
-        // Clear buffered frames
         clear_video_frames();
 
-        // Reset current frame info
         if (current_frame_info) {
             SDL_DestroyTexture(current_frame_info->texture);
             delete current_frame_info;
@@ -142,7 +138,6 @@ void video_player_seek(float delta_seconds) {
         start_time = av_gettime_relative() - target_time;
         media_info_get()->current_video_playback_time = target_time / static_cast<double>(AV_TIME_BASE);
 
-        // Sync audio with video
         audio_player_seek(media_info_get()->current_video_playback_time);
         printf("[Video Player] Seek done! New time: %.2lld seconds\n", media_info_get()->current_video_playback_time);
     }
@@ -250,11 +245,19 @@ void video_player_start(const char* path, SDL_Renderer& renderer, SDL_Texture*& 
     app_state_set(STATE_PLAYING_VIDEO);
 }
 
+void set_wiiu_thread_priority(std::thread& t, int priority) {
+    OSThread* os_thread = reinterpret_cast<OSThread*>(t.native_handle());
+    if (os_thread) {
+        OSSetThreadPriority(os_thread, priority);
+    }
+}
+
 void start_video_decoding_thread() {
     #ifdef DEBUG_VIDEO
     printf("[Video player] Starting video decoding thread...\n");
     #endif
     video_thread = std::thread(process_video_frame_thread);
+    set_wiiu_thread_priority(video_thread, 31);
 }
 
 std::mutex info_mutex;
@@ -332,7 +335,9 @@ int64_t video_player_get_total_play_time() {
     return static_cast<int64_t>(duration);
 }
 
-void render_video_frame(SDL_Renderer* renderer) {
+void video_player_update(SDL_Renderer* renderer) {
+    if (!media_info_get_copy().playback_status) return;
+
     AVFrame* frame = nullptr;
 
     {
@@ -360,12 +365,6 @@ void render_video_frame(SDL_Renderer* renderer) {
     }
 
     av_frame_free(&frame); // Free the cloned frame
-}
-
-void video_player_update(SDL_Renderer* renderer) {
-    if (!media_info_get_copy().playback_status) return;
-
-    render_video_frame(renderer);
 }
 
 void stop_video_decoding_thread() {
