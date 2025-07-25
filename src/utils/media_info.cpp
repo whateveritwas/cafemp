@@ -1,5 +1,5 @@
 #include <mutex>
-#include "media_info.hpp"
+#include "utils/media_info.hpp"
 
 static std::mutex media_info_mutex;
 static std::unique_ptr<media_info> current_media_info = std::make_unique<media_info>();

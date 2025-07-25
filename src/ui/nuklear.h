@@ -82,7 +82,7 @@ NK_IMPLEMENTATION in *one* .c/.cpp file before #including this file, e.g.:
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~C
     #define NK_IMPLEMENTATION
-    #include "nuklear.h"
+    #include "ui/nuklear.h"
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Also optionally define the symbols listed in the section "OPTIONAL DEFINES"
@@ -1087,7 +1087,7 @@ NK_API void nk_input_end(struct nk_context*);
  * ```c
  * //[... other defines ...]
  * #define NK_ZERO_COMMAND_MEMORY
- * #include "nuklear.h"
+ * #include "ui/nuklear.h"
  * //
  * // setup context
  * struct nk_context ctx;

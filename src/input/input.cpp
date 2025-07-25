@@ -2,17 +2,17 @@
 #include <vpad/input.h>
 #include <padscore/wpad.h>
 
-#include "app_state.hpp"
-#include "media_info.hpp"
+#include "utils/app_state.hpp"
+#include "utils/media_info.hpp"
 #include "main.hpp"
-#include "nuklear.h"
+#include "ui/nuklear.h"
 #include "utils.hpp"
-#include "settings.hpp"
+#include "settings/settings.hpp"
 #include "media_files.hpp"
-#include "audio_player.hpp"
-#include "video_player.hpp"
-#include "photo_viewer.hpp"
-#include "input.hpp"
+#include "player/audio_player.hpp"
+#include "player/video_player.hpp"
+#include "player/photo_viewer.hpp"
+#include "input/input.hpp"
 
 bool use_wpad_pro = false;
 float touch_x = 0.0f;

@@ -5,10 +5,10 @@
 #include <SDL2/SDL_image.h>
 
 #include "utils.hpp"
-#include "app_state.hpp"
+#include "utils/app_state.hpp"
 #include "media_files.hpp"
-#include "audio_player.hpp"
-#include "video_player.hpp"
+#include "player/audio_player.hpp"
+#include "player/video_player.hpp"
 
 std::string format_time(int seconds) {
     int mins = seconds / 60;

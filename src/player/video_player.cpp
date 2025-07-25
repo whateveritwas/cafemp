@@ -17,11 +17,11 @@ extern "C" {
 #include <mutex>
 #include <condition_variable>
 
-#include "app_state.hpp"
+#include "utils/app_state.hpp"
 #include "main.hpp"
-#include "media_info.hpp"
-#include "video_player.hpp"
-#include "audio_player.hpp"
+#include "utils/media_info.hpp"
+#include "player/video_player.hpp"
+#include "player/audio_player.hpp"
 
 int video_stream_index = -1;
 AVFormatContext* fmt_ctx = NULL;
