@@ -16,20 +16,20 @@
 #define NK_IMPLEMENTATION
 #define NK_SDL_RENDERER_IMPLEMENTATION
 #define NK_SDL_RENDERER_SDL_H <SDL2/SDL.h>
-#include "nuklear.h"
-#include "nuklear_sdl_renderer.h"
+#include "ui/nuklear.h"
+#include "ui/nuklear_sdl_renderer.h"
 
-#include "media_info.hpp"
-#include "media_files.hpp"
-#include "settings.hpp"
-#include "app_state.hpp"
-#include "utils.hpp"
+#include "utils/media_info.hpp"
+#include "utils/media_files.hpp"
+#include "settings/settings.hpp"
+#include "utils/app_state.hpp"
+#include "utils/utils.hpp"
 #include "main.hpp"
-#include "video_player.hpp"
-#include "audio_player.hpp"
-#include "photo_viewer.hpp"
-#include "input.hpp"
-#include "menu.hpp"
+#include "player/video_player.hpp"
+#include "player/audio_player.hpp"
+#include "player/photo_viewer.hpp"
+#include "input/input.hpp"
+#include "ui/menu.hpp"
 
 int current_page_file_browser = 0;
 int selected_index = 0;

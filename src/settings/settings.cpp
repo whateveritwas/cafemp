@@ -4,7 +4,7 @@
 #include <cstdlib>
 
 #include "main.hpp"
-#include "settings.hpp"
+#include "settings/settings.hpp"
 
 static settings_struct settings;
 

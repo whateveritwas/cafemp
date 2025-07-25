@@ -5,7 +5,7 @@
 
 #include "main.hpp"
 #include "utils.hpp"
-#include "photo_viewer.hpp"
+#include "player/photo_viewer.hpp"
 
 static SDL_Renderer* photo_renderer = nullptr;
 static SDL_Texture* photo_texture = nullptr;

@@ -1,5 +1,5 @@
 #include <mutex>
-#include "app_state.hpp"
+#include "utils/app_state.hpp"
 
 static AppState app_state = STATE_MENU;
 static std::mutex app_state_mutex;

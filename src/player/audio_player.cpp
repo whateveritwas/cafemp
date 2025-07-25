@@ -5,8 +5,8 @@
 #include <atomic>
 #include <cstring>
 
-#include "media_info.hpp"
-#include "audio_player.hpp"
+#include "utils/media_info.hpp"
+#include "player/audio_player.hpp"
 
 static SDL_AudioDeviceID audio_device = 0;
 static SDL_AudioSpec audio_spec;
