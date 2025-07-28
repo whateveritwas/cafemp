@@ -22,7 +22,7 @@
 #define MEDIA_PATH "/vol/external01/wiiu/apps/cafemp/"
 #define SETTINGS_PATH "/vol/external01/wiiu/apps/cafemp/settings.json"
 
-#define VERSION_STRING_NUMBER "v0.5.1"
+#define VERSION_STRING_NUMBER "v0.5.2"
 
 #ifdef DEBUG
 #define VERSION_STRING "CaféMP " VERSION_STRING_NUMBER " " __DATE__ " " __TIME__

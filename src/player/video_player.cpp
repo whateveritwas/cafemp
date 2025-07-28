@@ -45,6 +45,10 @@ std::condition_variable playback_cv;
 int64_t pause_start_time = 0;
 int64_t total_paused_duration = 0;
 
+#define FRAME_POOL_SIZE 16
+static AVFrame frame_pool[FRAME_POOL_SIZE];
+static int pool_index = 0;
+
 AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int stream_index) {
     AVCodecParameters* codecpar = fmt_ctx->streams[stream_index]->codecpar;
     const AVCodec* codec = avcodec_find_decoder(codecpar->codec_id);
@@ -151,10 +155,9 @@ void video_player_play(bool new_state) {
     if (!media_info_get()->playback_status && new_state) {
         int64_t now = av_gettime_relative();
         int64_t pause_duration = now - pause_start_time;
-        start_time += pause_duration; // Shift start_time forward
+        start_time += pause_duration;
         playback_cv.notify_one();
     } else if (media_info_get()->playback_status && !new_state) {
-        // We are pausing
         pause_start_time = av_gettime_relative();
     }
     #ifdef DEBUG_VIDEO
@@ -262,14 +265,24 @@ void start_video_decoding_thread() {
 
 std::mutex info_mutex;
 
+inline AVFrame* get_next_frame_from_pool() {
+    AVFrame* f = &frame_pool[pool_index];
+    av_frame_unref(f);
+    pool_index = (pool_index + 1) % FRAME_POOL_SIZE;
+    return f;
+}
+
 void process_video_frame_thread() {
-    AVFrame* local_frame = av_frame_alloc();
-    AVRational time_base = fmt_ctx->streams[video_stream_index]->time_base;
+    AVRational tb = fmt_ctx->streams[video_stream_index]->time_base;
+    int64_t tb_num = tb.num;
+    int64_t tb_den = tb.den;
+
     start_time = av_gettime_relative();  // microseconds
     total_paused_duration = 0;
     pause_start_time = 0;
 
     while (video_thread_running) {
+        // Wait for playback resume
         {
             std::unique_lock<std::mutex> lock(playback_mutex);
             playback_cv.wait(lock, [] {
@@ -277,46 +290,64 @@ void process_video_frame_thread() {
                 return media_info_get()->playback_status || !video_thread_running;
             });
         }
+        if (!video_thread_running) break;
 
         AVPacket pkt;
-        if (av_read_frame(fmt_ctx, &pkt) >= 0) {
-            if (pkt.stream_index == video_stream_index) {
-                if (!avcodec_send_packet(video_codec_ctx, &pkt)) {
-                    while (!avcodec_receive_frame(video_codec_ctx, local_frame)) {
-                        int64_t pts_us = local_frame->pts * av_q2d(time_base) * 1e6;
-                        int64_t now_us = av_gettime_relative() - start_time;
-                        int64_t delay = pts_us - now_us;
+        if (av_read_frame(fmt_ctx, &pkt) < 0) {
+            video_thread_running = false;
+            break;
+        }
 
-                        if (delay > 0) {
-                            av_usleep(delay);
-                        }
+        if (pkt.stream_index == video_stream_index) {
+            if (avcodec_send_packet(video_codec_ctx, &pkt) == 0) {
+                while (true) {
 
-                        // Update playback time
-                        {
+                    {
+                        std::unique_lock<std::mutex> lock(playback_mutex);
+                        playback_cv.wait(lock, [] {
                             std::lock_guard<std::mutex> info_lock(info_mutex);
-                            media_info_get()->current_video_playback_time = local_frame->pts * av_q2d(time_base);
-                        }
+                            return media_info_get()->playback_status || !video_thread_running;
+                        });
 
-                        // Push frame to queue
-                        {
-                            std::lock_guard<std::mutex> lock(video_frame_mutex);
-                            if (video_frame_queue.size() < 10) { // Buffer limit
-                                video_frame_queue.push(local_frame);
-                                local_frame = av_frame_alloc(); // Prepare for next
-                            } else {
-                                av_frame_unref(local_frame); // Discard old
-                            }
+                        if (!video_thread_running) break;
+                    }
+
+
+                    AVFrame* frame = get_next_frame_from_pool();
+                    if (avcodec_receive_frame(video_codec_ctx, frame) < 0) {
+                        break;
+                    }
+
+                    int64_t pts_us = (frame->pts * tb_num * 1000000LL) / tb_den;
+                    int64_t now_us = av_gettime_relative() - start_time;
+                    int64_t delay = pts_us - now_us;
+
+                    if (delay > 0) {
+                        if (delay > 500) av_usleep(delay);
+                    }
+
+                    {
+                        std::lock_guard<std::mutex> info_lock(info_mutex);
+                        media_info_get()->current_video_playback_time =
+                            (double)(frame->pts * tb_num) / tb_den;
+                    }
+
+                    {
+                        std::lock_guard<std::mutex> lock(video_frame_mutex);
+                        if (video_frame_queue.size() < FRAME_POOL_SIZE) {
+                            video_frame_queue.push(frame);
+                        } else {
+                            AVFrame* old = video_frame_queue.front();
+                            video_frame_queue.pop();
+                            av_frame_unref(old);
+                            video_frame_queue.push(frame);
                         }
                     }
                 }
             }
-            av_packet_unref(&pkt);
-        } else {
-            video_thread_running = false;
         }
+        av_packet_unref(&pkt);
     }
-
-    av_frame_free(&local_frame);
 }
 
 int64_t video_player_get_total_play_time() {
@@ -348,23 +379,29 @@ void video_player_update(SDL_Renderer* renderer) {
         }
     }
 
-    if (!frame) return; // Nothing to render safely
+    if (!frame) return;
 
     if (!current_frame_info) {
         current_frame_info = new frame_info;
-        current_frame_info->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, frame->width, frame->height);
+        current_frame_info->texture = SDL_CreateTexture(
+            renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
+            frame->width, frame->height
+        );
         current_frame_info->frame_width = frame->width;
         current_frame_info->frame_height = frame->height;
     }
 
+    // Update texture (no reallocation)
     if (current_frame_info->texture) {
-        SDL_UpdateYUVTexture(current_frame_info->texture, NULL,
+        SDL_UpdateYUVTexture(
+            current_frame_info->texture, nullptr,
             frame->data[0], frame->linesize[0],
             frame->data[1], frame->linesize[1],
-            frame->data[2], frame->linesize[2]);
+            frame->data[2], frame->linesize[2]
+        );
     }
 
-    av_frame_free(&frame); // Free the cloned frame
+    av_frame_unref(frame);
 }
 
 void stop_video_decoding_thread() {
@@ -387,61 +424,48 @@ int video_player_cleanup() {
     #endif
 
     audio_player_cleanup();
+
+    // 1) Stop decode thread and wait for it to finish
     stop_video_decoding_thread();
 
+    // 2) Clear video frame queue safely
     {
         std::lock_guard<std::mutex> lock(video_frame_mutex);
         while (!video_frame_queue.empty()) {
             AVFrame* f = video_frame_queue.front();
-            av_frame_free(&f);
             video_frame_queue.pop();
+            av_frame_unref(f);  // Unref only, no free!
         }
-    #ifdef DEBUG_VIDEO
-        printf("[Video player] Cleared video frame queue\n");
-    #endif
     }
 
+    // 3) Destroy current frame texture safely
     if (current_frame_info) {
         if (current_frame_info->texture) {
             SDL_DestroyTexture(current_frame_info->texture);
+            current_frame_info->texture = nullptr;
         }
         delete current_frame_info;
         current_frame_info = nullptr;
-    #ifdef DEBUG_VIDEO
-        printf("[Video player] Freed current_frame_info\n");
-    #endif
     }
 
+    // 4) Free last frame and packet only if allocated with av_frame_alloc/av_packet_alloc
     if (frame) {
         av_frame_free(&frame);
         frame = nullptr;
-    #ifdef DEBUG_VIDEO
-        printf("[Video player] Freed last video frame\n");
-    #endif
     }
-
     if (pkt) {
         av_packet_free(&pkt);
         pkt = nullptr;
-    #ifdef DEBUG_VIDEO
-        printf("[Video player] Freed packet\n");
-    #endif
     }
 
     if (video_codec_ctx) {
         avcodec_free_context(&video_codec_ctx);
         video_codec_ctx = nullptr;
-    #ifdef DEBUG_VIDEO
-        printf("[Video player] Freed codec context\n");
-    #endif
     }
 
     if (fmt_ctx) {
         avformat_close_input(&fmt_ctx);
         fmt_ctx = nullptr;
-    #ifdef DEBUG_VIDEO
-        printf("[Video player] Closed input file\n");
-    #endif
     }
 
     video_stream_index = -1;
@@ -449,10 +473,11 @@ int video_player_cleanup() {
     total_paused_duration = 0;
     pause_start_time = 0;
 
+    media_info_get()->playback_status = false;
+
     #ifdef DEBUG_VIDEO
     printf("[Video player] Cleanup complete\n");
     #endif
 
-    video_player_play(false);
     return 0;
 }
