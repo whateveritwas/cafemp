@@ -5,7 +5,7 @@
 #include "utils/app_state.hpp"
 #include "utils/media_info.hpp"
 #include "main.hpp"
-#include "ui/nuklear.h"
+#include "vendor/ui/nuklear.h"
 #include "utils.hpp"
 #include "settings/settings.hpp"
 #include "media_files.hpp"
