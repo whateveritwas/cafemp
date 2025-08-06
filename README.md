@@ -126,6 +126,7 @@ ffmpeg -i <input> \
 * 🎵 **Ambiance Music**: [LightMister on Freesound](https://freesound.org/people/LightMister/sounds/769925/)
 * 🛠️ **devkitPro**: [GitHub](https://github.com/devkitPro)
 * 💬 **stdout implementation by dkosmari**: [Github](https://github.com/dkosmari/devkitpro-autoconf/blob/main/examples/wiiu/sdl2-swkbd/src/stdout.cpp)
+* 💬 **srtparser.h**: [Github](https://github.com/saurabhshri/simple-yet-powerful-srt-subtitle-parser-cpp)
 * 🎞️ **FFmpeg**: [GitHub](https://github.com/FFmpeg/FFmpeg/)
 * 🧰 **FFmpeg Wii U Configure Script by GaryOderNichts**: [Github](https://github.com/GaryOderNichts/FFmpeg-wiiu/blob/master/configure-wiiu)
 * 🖼️ **Nuklear GUI Library**: [GitHub](https://github.com/Immediate-Mode-UI/Nuklear)

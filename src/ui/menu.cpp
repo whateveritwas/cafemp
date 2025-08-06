@@ -16,8 +16,8 @@
 #define NK_IMPLEMENTATION
 #define NK_SDL_RENDERER_IMPLEMENTATION
 #define NK_SDL_RENDERER_SDL_H <SDL2/SDL.h>
-#include "ui/nuklear.h"
-#include "ui/nuklear_sdl_renderer.h"
+#include "vendor/ui/nuklear.h"
+#include "vendor/ui/nuklear_sdl_renderer.h"
 
 #include "utils/media_info.hpp"
 #include "utils/media_files.hpp"
