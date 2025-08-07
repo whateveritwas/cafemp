@@ -2,6 +2,7 @@
 #include <whb/proc.h>
 #include "main.hpp"
 #include "ui/menu.hpp"
+#include "logger/logger.hpp"
 
 SDL_Window* main_window;
 SDL_Renderer* main_renderer;
@@ -26,12 +27,12 @@ int init_sdl() {
 int main(int argc, char **argv) {
     WHBProcInit();
 
-    printf("=======================BEGIN=======================\n");
+    log_message(LOG_OK, "Main", "Application Start.");
 
     if (init_sdl() != 0) return -1;
 
     if (!main_window || !main_renderer) {
-        printf("Failed to initialize SDL window or renderer.\n");
+        log_message(LOG_ERROR, "Main", "Failed to initialize SDL window or renderer.");
         SDL_Quit();
         return -1;
     }
@@ -50,7 +51,7 @@ int main(int argc, char **argv) {
     if (main_window) SDL_DestroyWindow(main_window);
     SDL_Quit();
 
-    printf("=======================END=======================\n");
+    log_message(LOG_OK, "Main", "Application End.");
 
     WHBProcShutdown();
     return 0;

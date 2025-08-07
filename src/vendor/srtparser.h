@@ -264,7 +264,7 @@ inline SubRipParser::SubRipParser(std::string fileName)
 
 inline SubRipParser::~SubRipParser(void)
 {
-    for(int i=0;i != _subtitles.size();++i)
+    for(int i=0;i != (int)_subtitles.size();++i)
     {
         if(_subtitles[i])
             delete _subtitles[i];
