@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <coreinit/time.h>
 #include <SDL2/SDL.h>
+
 extern "C" {
     #include <libavformat/avformat.h>
     #include <libavcodec/avcodec.h>
@@ -22,6 +23,7 @@ extern "C" {
 #include "utils/media_info.hpp"
 #include "player/video_player.hpp"
 #include "player/audio_player.hpp"
+#include "logger/logger.hpp"
 
 int video_stream_index = -1;
 AVFormatContext* fmt_ctx = NULL;
@@ -54,24 +56,24 @@ AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int 
     const AVCodec* codec = avcodec_find_decoder(codecpar->codec_id);
 
     if (!codec) {
-        printf("[Video Player] No decoder found for codec ID: %d\n", codecpar->codec_id);
+    	log_message(LOG_ERROR, "Video Player", "No decoder found for codec ID: %d", codecpar->codec_id);
         return NULL;
     }
 
     #ifdef DEBUG
-    printf("[Video Player] Using decoder: %s\n", codec->name);
+    log_message(LOG_DEBUG, "Video Player", "Using decoder: %s", codec->name);
     #endif
 
     AVCodecContext* codec_ctx = avcodec_alloc_context3(codec);
     if (!codec_ctx) {
-        printf("[Video Player] Failed to allocate codec context\n");
+    	log_message(LOG_ERROR, "Video Player", "Failed to allocate codec context");
         return NULL;
     }
 
     codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
 
     if (avcodec_parameters_to_context(codec_ctx, codecpar) < 0) {
-        printf("[Video Player] Failed to copy codec parameters to codec context\n");
+    	log_message(LOG_ERROR, "Video Player", "Failed to copy codec parameters to codec context");
         avcodec_free_context(&codec_ctx);
         return NULL;
     }
@@ -83,14 +85,14 @@ AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int 
     if (ret < 0) {
         char errbuf[256];
         av_strerror(ret, errbuf, sizeof(errbuf));
-        printf("[Video Player] Failed to open codec: %s\n", errbuf);
+        log_message(LOG_ERROR, "Video Player", "Failed to open codec: %s", errbuf);
 
         avcodec_free_context(&codec_ctx);
         return NULL;
     }
 
     #ifdef DEBUG
-    printf("[Video Player] Codec opened successfully\n");
+    log_message(LOG_DEBUG, "Video Player", "Codec opened successfully");
     #endif
 
     return codec_ctx;
@@ -122,11 +124,11 @@ void video_player_seek(float delta_seconds) {
 
         // Seek using flexible flags (can tweak to A/V needs)
         if (av_seek_frame(fmt_ctx, video_stream_index, target_time, AVSEEK_FLAG_BACKWARD | AVSEEK_FLAG_ANY) < 0) {
-            printf("[Video Player] Seek failed!\n");
+        	log_message(LOG_ERROR, "Video Player", "Seek failed");
             return;
         }
 
-        printf("[Video Player] Seek success!\n");
+        log_message(LOG_OK, "Video Player", "Seek success");
 
         avcodec_flush_buffers(video_codec_ctx);
 
@@ -143,7 +145,7 @@ void video_player_seek(float delta_seconds) {
         media_info_get()->current_video_playback_time = target_time / static_cast<double>(AV_TIME_BASE);
 
         audio_player_seek(media_info_get()->current_video_playback_time);
-        printf("[Video Player] Seek done! New time: %.2lld seconds\n", media_info_get()->current_video_playback_time);
+        log_message(LOG_OK, "Video Player", "Seek done. New time: %.2lld seconds", media_info_get()->current_video_playback_time);
     }
 
     // Resume playback
@@ -161,7 +163,7 @@ void video_player_play(bool new_state) {
         pause_start_time = av_gettime_relative();
     }
     #ifdef DEBUG_VIDEO
-    printf("[Video Player] Changing playback_status to %s\n", new_state ? "true" : "false");
+    log_message(LOG_OK, "Video Player", "Changing playback_status to %s", new_state ? "true" : "false");
     #endif
 
     media_info_get()->playback_status = new_state;
@@ -169,7 +171,7 @@ void video_player_play(bool new_state) {
 
 frame_info* video_player_get_current_frame_info() {
     if (!current_frame_info) {
-        printf("[Video Player] No current_frame_info\n");
+    	log_message(LOG_WARNING, "Video Player", "No current_frame_info");
         return NULL;
     }
     return current_frame_info;
@@ -177,8 +179,8 @@ frame_info* video_player_get_current_frame_info() {
 
 int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*& texture) {
     #ifdef DEBUG_VIDEO
-    printf("[Video player] Starting Video Player...\n");
-    printf("[Video player] Opening file %s\n", filepath);
+	log_message(LOG_DEBUG, "Video Player", "Starting Video Player");
+	log_message(LOG_DEBUG, "Video Player", "file %s", filepath);
     #endif
 
     AVDictionary *options = NULL;
@@ -187,7 +189,7 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
     av_dict_set(&options, "formatprobesize", "10000", 0);
     if (avformat_open_input(&fmt_ctx, filepath, NULL, &options) != 0) {
     #ifdef DEBUG_VIDEO
-        printf("[Video player] Could not open file: %s\n", filepath);
+    	log_message(LOG_DEBUG, "Video Player", "Could not open file: %s", filepath);
     #endif
         return -1;
     }
@@ -197,14 +199,12 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
     video_stream_index = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
 
     if (video_stream_index < 0) {
-    #ifdef DEBUG_VIDEO
-        printf("[Video player] Could not find video stream.\n");
-    #endif
+    	log_message(LOG_ERROR, "Video Player", "Could not find video stream.");
         return -1;
     }
 
     #ifdef DEBUG_VIDEO
-    printf("[Video player] Video stream found: index %d\n", video_stream_index);
+    log_message(LOG_DEBUG, "Video Player", "Video stream found: index %d", video_stream_index);
     #endif
 
     video_codec_ctx = video_player_create_codec_context(fmt_ctx, video_stream_index);
@@ -219,14 +219,14 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
     media_info_get()->total_video_playback_time = video_player_get_total_play_time();
 
     #ifdef DEBUG_VIDEO
-    printf("[Video player] FPS: %f\n", media_info_get()->framerate);
+    log_message(LOG_DEBUG, "Video Player", "FPS: %f", media_info_get()->framerate);
     #endif
 
     pkt = av_packet_alloc();
     frame = av_frame_alloc();
 
     #ifdef DEBUG_VIDEO
-    printf("[Video player] Codec, packet, and frame initialized\n");
+    log_message(LOG_DEBUG, "Video Player", "Codec, packet, and frame initialized\n");
     #endif
 
     return 0;
@@ -257,7 +257,7 @@ void set_wiiu_thread_priority(std::thread& t, int priority) {
 
 void start_video_decoding_thread() {
     #ifdef DEBUG_VIDEO
-    printf("[Video player] Starting video decoding thread...\n");
+	log_message(LOG_DEBUG, "Video Player", "Starting video decoding thread");
     #endif
     video_thread = std::thread(process_video_frame_thread);
     set_wiiu_thread_priority(video_thread, 31);
@@ -406,21 +406,21 @@ void video_player_update(SDL_Renderer* renderer) {
 
 void stop_video_decoding_thread() {
     #ifdef DEBUG_VIDEO
-    printf("[Video player] Stopping video decoding thread...\n");
+	log_message(LOG_DEBUG, "Video Player", "Stopping video decoding thread");
     #endif
     video_thread_running = false;
     playback_cv.notify_all();
     if (video_thread.joinable()) {
         video_thread.join();
     #ifdef DEBUG_VIDEO
-        printf("[Video player] Video decoding thread joined\n");
+        log_message(LOG_DEBUG, "Video Player", "Video decoding thread joined");
     #endif
     }
 }
 
 int video_player_cleanup() {
     #ifdef DEBUG_VIDEO
-    printf("[Video player] Stopping Video Player...\n");
+	log_message(LOG_DEBUG, "Video Player", "Stopping Video Player");
     #endif
 
     audio_player_cleanup();
@@ -476,7 +476,7 @@ int video_player_cleanup() {
     media_info_get()->playback_status = false;
 
     #ifdef DEBUG_VIDEO
-    printf("[Video player] Cleanup complete\n");
+    log_message(LOG_DEBUG, "Video Player", "Cleanup complete");
     #endif
 
     return 0;

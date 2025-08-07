@@ -29,6 +29,8 @@
 #include "player/audio_player.hpp"
 #include "player/photo_viewer.hpp"
 #include "input/input.hpp"
+#include "player/subtitle.hpp"
+#include "logger/logger.hpp"
 #include "ui/menu.hpp"
 
 int current_page_file_browser = 0;
@@ -67,7 +69,7 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
         settings_load();
         background_music_enabled = *static_cast<int*>(settings_get_value(SETTINGS_BKG_MUSIC_ENABLED));
     } catch(...) {
-        printf("[Menu] Unable to load settings.\n");
+    	log_message(LOG_ERROR, "Menu", "Unable to load settings");
     }
 
     if(!background_music_enabled) {
@@ -139,9 +141,10 @@ void start_file(int index) {
         case STATE_MENU_VIDEO_FILES:
             media_folder = "Video/";
             media_type = 'V';
+            subtitle_start("/vol/external01/wiiu/apps/cafemp/Test/test.srt");
             break;
         default:
-            printf("[Menu] Unsupported file type: %s\n", extension.c_str());
+        	log_message(LOG_ERROR, "Menu", "Unsupported file type: %s", extension.c_str());
             return;
     }
 
@@ -216,7 +219,6 @@ void ui_render() {
             ui_handle_ambiance();
             ui_render_main_menu();
             break;
-        
         case STATE_MENU_FILES: break;
         case STATE_MENU_NETWORK_FILES: break;
         case STATE_MENU_VIDEO_FILES:
@@ -537,7 +539,7 @@ void ui_render_video_player() {
         no_current_frame_info_cound++;
         if (no_current_frame_info_cound < no_current_frame_info_threshold) return;
 
-        printf("[Video Player] Shuting down due to no video frames being present\n");
+        log_message(LOG_WARNING, "Menu", "Shuting down due to no video frames being present\n");
         video_player_cleanup();
         scan_directory(MEDIA_PATH "Video/");
         app_state_set(STATE_MENU_VIDEO_FILES);
@@ -558,22 +560,12 @@ void ui_render_video_player() {
     }
 
     SDL_RenderCopy(ui_renderer, current_frame_info->texture, NULL, &dest_rect);
-    /*
-    if ((int)media_info_get()->current_video_playback_time == (int)video_player_get_total_play_time()) {
-        video_player_cleanup();
-        scan_directory(MEDIA_PATH "Video/");
-        app_state_set(STATE_MENU_VIDEO_FILES);
-    }
-    */
+
     #ifdef DEBUG_VIDEO
     uint64_t current_rendering_time = OSTicksToMicroseconds(OSGetSystemTime() - rendering_ticks);
     if (current_rendering_time > 5) {
         last_rendering_time = current_rendering_time;
     }
-
-    #ifdef DEBUG
-    printf("Dec: %lli Rndr: %lli\n", decoding_time, current_rendering_time);
-    #endif
 
     struct nk_rect hud_rect = nk_rect(0, 0, 512 * UI_SCALE, 30 * UI_SCALE);
     if (nk_begin(ctx, "Decoding", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
@@ -593,6 +585,9 @@ void ui_render_video_player() {
     }
     #endif
 
+    subtitle_update(media_info_get()->current_video_playback_time);
+    subtitle_render(ctx);
+
     if (!media_info_get()->playback_status || input_is_vpad_touched()) {
         ui_render_player_hud(media_info_get());
     }
@@ -600,15 +595,7 @@ void ui_render_video_player() {
 
 void ui_render_audio_player() {
     SDL_RenderClear(ui_renderer);
-    /*
-    if((int)audio_player_get_current_play_time() == (int)audio_player_get_total_play_time()) {
-        audio_player_play(true);
-        audio_player_cleanup();
-        audio_player_play(false);
-        scan_directory(MEDIA_PATH "Audio/");
-        app_state_set(STATE_MENU_AUDIO_FILES);
-    }
-    */
+
     if (media_info_get()->total_audio_playback_time == 0) media_info_get()->total_audio_playback_time = audio_player_get_total_play_time();
     media_info_get()->current_audio_playback_time = audio_player_get_current_play_time();
 

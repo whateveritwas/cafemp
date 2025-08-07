@@ -5,6 +5,7 @@
 
 #include "main.hpp"
 #include "utils.hpp"
+#include "logger/logger.hpp"
 #include "player/photo_viewer.hpp"
 
 static SDL_Renderer* photo_renderer = nullptr;
@@ -53,12 +54,12 @@ bool load_gif(const char* filepath, SDL_Renderer* renderer) {
     int err = 0;
     GifFileType* gif = DGifOpenFileName(filepath, &err);
     if (!gif) {
-        printf("[GIF] Failed to open: %s (error code: %d)\n", filepath, err);
+    	log_message(LOG_ERROR, "Photo Viewer", "Failed to open: %s (error code: %d)", filepath, err);
         return false;
     }
 
     if (DGifSlurp(gif) != GIF_OK) {
-        printf("[GIF] Failed to read data: %s\n", filepath);
+    	log_message(LOG_ERROR, "Photo Viewer", "Failed to read data: %s", filepath);
         DGifCloseFile(gif, &err);
         return false;
     }
@@ -98,7 +99,6 @@ bool load_gif(const char* filepath, SDL_Renderer* renderer) {
             }
         }
 
-        // --- Handle disposal of previous frame ---
         if (i > 0) {
             if (disposal == 2) {
                 SDL_Rect r = { desc.Left, desc.Top, desc.Width, desc.Height };
@@ -112,7 +112,6 @@ bool load_gif(const char* filepath, SDL_Renderer* renderer) {
             SDL_BlitSurface(canvas, nullptr, backup, nullptr);
         }
 
-        // --- Draw current frame onto canvas ---
         Uint32* pixels = (Uint32*)canvas->pixels;
         for (int y = 0; y < desc.Height; ++y) {
             for (int x = 0; x < desc.Width; ++x) {
@@ -159,14 +158,14 @@ void photo_viewer_open_picture(const char* filepath) {
             dst_set = true;
             return;
         } else {
-            printf("[Viewer] Failed to load animated GIF: %s\n", filepath);
+        	log_message(LOG_ERROR, "Photo Viewer", "Failed to load animated GIF: %s", filepath);
             return;
         }
     }
 
     SDL_Surface* surface = IMG_Load(filepath);
     if (!surface) {
-        printf("[Viewer] Failed to load image: %s\n", IMG_GetError());
+    	log_message(LOG_ERROR, "Photo Viewer", "Failed to load image: %s", IMG_GetError());
         return;
     }
 
@@ -174,7 +173,7 @@ void photo_viewer_open_picture(const char* filepath) {
     SDL_FreeSurface(surface);
 
     if (!photo_texture) {
-        printf("[Viewer] Failed to create texture: %s\n", SDL_GetError());
+    	log_message(LOG_ERROR, "Photo Viewer", "Failed to create texture: %s", SDL_GetError());
         return;
     }
 
