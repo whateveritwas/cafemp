@@ -23,20 +23,16 @@ struct AudioTrackInfo {
     std::string language;
 };
 
-#define RING_BUFFER_SIZE 65536 // 64KB
-
+void collect_audio_tracks(AVFormatContext* in_fmt_ctx);
+std::vector<AudioTrackInfo> get_audio_tracks();
 int audio_player_init(const char* filepath);
+bool audio_player_switch_audio_stream(int new_stream_index);
+void audio_player_play(bool state);
+bool audio_player_get_audio_play_state();
+void audio_player_seek(float delta_time);
 double audio_player_get_current_play_time();
 double audio_player_get_total_play_time();
-void audio_player_play(bool state);
-void audio_player_seek(float delta_time);
-bool audio_player_switch_audio_stream(int new_stream_index);
-bool audio_player_get_audio_play_state();
-double get_audio_clock_from_sdl();
-int audio_player_get_current_track_id();
-std::vector<AudioTrackInfo> get_audio_tracks();
 void audio_player_cleanup();
-
-extern bool audio_enabled;
+int audio_player_get_current_track_id();
 
 #endif

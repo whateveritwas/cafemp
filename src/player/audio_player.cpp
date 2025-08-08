@@ -1,9 +1,10 @@
-
 #include <mutex>
 #include <cstdio>
 #include <thread>
 #include <atomic>
+#include <vector>
 #include <cstring>
+#include <condition_variable>
 
 #include "utils/media_info.hpp"
 #include "logger/logger.hpp"
@@ -16,14 +17,13 @@ static AVFormatContext* fmt_ctx = nullptr;
 static AVCodecContext* audio_codec_ctx = nullptr;
 static SwrContext* swr_ctx = nullptr;
 static AVFrame* audio_frame = nullptr;
-static AVPacket* audio_packet = nullptr;
 
 static int audio_stream_index = -1;
 static std::thread audio_thread;
 static std::atomic<bool> audio_thread_running = false;
 static std::atomic<float> current_play_time(0.0f);
 bool audio_enabled = false;
-static bool audio_playing = false;
+static std::atomic<bool> audio_playing = false;
 
 static int out_channels = 2;
 static int out_sample_rate = 48000;
@@ -31,101 +31,118 @@ static int out_sample_rate = 48000;
 static std::mutex audio_mutex;
 static std::atomic<bool> switching_audio_stream = false;
 
-static int current_audio_track_id = 1;
+static int current_audio_track_id = -1;
 static std::vector<AudioTrackInfo> audioTracks;
 static std::mutex audioTracksMutex;
 
+struct AudioSharedSnapshot {
+    AVFormatContext* fmt_ctx;
+    AVCodecContext* codec_ctx;
+    SwrContext* swr_ctx;
+    int stream_index;
+    SDL_AudioDeviceID device;
+    SDL_AudioSpec spec;
+    bool enabled;
+    bool playing;
+};
+
 static void audio_decode_loop() {
-    while (audio_thread_running.load()) {
-        if (switching_audio_stream.load()) {
-            SDL_Delay(5); // Let main thread do the switching
+    AVPacket* local_packet = av_packet_alloc();
+    AVFrame* local_frame = audio_frame ? audio_frame : av_frame_alloc();
+    std::vector<uint8_t> out_buf;
+
+    while (audio_thread_running.load(std::memory_order_acquire)) {
+        if (switching_audio_stream.load(std::memory_order_acquire)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
             continue;
         }
 
-        std::lock_guard<std::mutex> lock(audio_mutex);
+        AudioSharedSnapshot snap;
+        {
+            std::lock_guard<std::mutex> lock(audio_mutex);
+            snap.fmt_ctx = fmt_ctx;
+            snap.codec_ctx = audio_codec_ctx;
+            snap.swr_ctx = swr_ctx;
+            snap.stream_index = audio_stream_index;
+            snap.device = audio_device;
+            snap.spec = audio_spec;
+            snap.enabled = audio_enabled;
+            snap.playing = audio_playing.load(std::memory_order_relaxed);
+        }
 
-        if (!fmt_ctx || !audio_enabled || !audio_playing) {
-            SDL_Delay(10);
+        if (!snap.fmt_ctx || !snap.enabled || !snap.codec_ctx || snap.stream_index < 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(8));
             continue;
         }
 
-        if (av_read_frame(fmt_ctx, audio_packet) >= 0) {
-            if (audio_packet->stream_index == audio_stream_index) {
-                if (avcodec_send_packet(audio_codec_ctx, audio_packet) == 0) {
-                    while (avcodec_receive_frame(audio_codec_ctx, audio_frame) == 0) {
-                        uint8_t temp_buffer[8192];
-                        uint8_t* out_buffers[] = { temp_buffer };
+        int ret = av_read_frame(snap.fmt_ctx, local_packet);
+        if (ret < 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(8));
+            continue;
+        }
 
-                        int out_samples = swr_convert(
-                            swr_ctx,
-                            out_buffers,
-                            sizeof(temp_buffer) / (out_channels * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16)),
-                            (const uint8_t**)audio_frame->data,
-                            audio_frame->nb_samples
-                        );
+        if (local_packet->stream_index != snap.stream_index) {
+            av_packet_unref(local_packet);
+            continue;
+        }
 
-                        if (out_samples <= 0) continue;
+        if (avcodec_send_packet(snap.codec_ctx, local_packet) == 0) {
+            while (avcodec_receive_frame(snap.codec_ctx, local_frame) == 0) {
+                int64_t delay = swr_get_delay(snap.swr_ctx, snap.codec_ctx->sample_rate);
+                int max_out_samples = av_rescale_rnd(local_frame->nb_samples + delay,
+                                                    out_sample_rate,
+                                                    snap.codec_ctx->sample_rate,
+                                                    AV_ROUND_UP);
 
-                        int data_size = out_samples * out_channels * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
+                size_t required_bytes = (size_t)max_out_samples * out_channels * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
+                if (required_bytes > out_buf.size()) out_buf.resize(required_bytes);
 
-                        if (audio_playing) {
-                            SDL_QueueAudio(audio_device, temp_buffer, data_size);
-                        }
+                uint8_t* out_ptrs[1] = { out_buf.data() };
 
-                        if (audio_frame->pts != AV_NOPTS_VALUE) {
-                            AVRational time_base = fmt_ctx->streams[audio_stream_index]->time_base;
-                            double pts_time = (double)audio_frame->pts * av_q2d(time_base);
-                            if (pts_time >= 0) {
-                                current_play_time.store((float)pts_time);
-                            }
-                        }
+                int out_samples = swr_convert(
+                    snap.swr_ctx,
+                    out_ptrs,
+                    max_out_samples,
+                    (const uint8_t**)local_frame->data,
+                    local_frame->nb_samples
+                );
+
+                if (out_samples <= 0) continue;
+
+                int data_size = out_samples * out_channels * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
+
+                if (snap.playing && snap.device != 0) {
+                    SDL_QueueAudio(snap.device, out_buf.data(), data_size);
+                }
+
+                if (local_frame->pts != AV_NOPTS_VALUE) {
+                    AVRational time_base = snap.fmt_ctx->streams[snap.stream_index]->time_base;
+                    double pts_time = (double)local_frame->pts * av_q2d(time_base);
+                    if (pts_time >= 0.0) {
+                        current_play_time.store((float)pts_time, std::memory_order_release);
                     }
                 }
             }
-            av_packet_unref(audio_packet);
-        } else {
-            SDL_Delay(10);
         }
+
+        av_packet_unref(local_packet);
     }
+
+    if (!audio_frame && local_frame) av_frame_free(&local_frame);
+    if (local_packet) av_packet_free(&local_packet);
 }
 
-#ifdef DEBUG_AUDIO
-void print_audio_tracks() {
-    if (!fmt_ctx) {
-    	log_message(LOG_ERROR, "Audio Player", "Format context not initialized");
-        return;
-    }
-
-    log_message(LOG_OK, "Audio Player", "Available audio tracks:\n");
-
-    for (unsigned int i = 0; i < fmt_ctx->nb_streams; ++i) {
-        AVStream* stream = fmt_ctx->streams[i];
-        if (stream->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
-            AVDictionaryEntry* lang = av_dict_get(stream->metadata, "language", NULL, 0);
-            const char* language = lang ? lang->value : "und";
-
-            log_message(LOG_OK, "Audio Player", "Stream %d: Codec: %s | Channels: %d | Sample Rate: %d | Language: %s\n",
-                i,
-                avcodec_get_name(stream->codecpar->codec_id),
-                stream->codecpar->channels,
-                stream->codecpar->sample_rate,
-                language);
-        }
-    }
-}
-#endif
-
-void collect_audio_tracks(AVFormatContext* fmt_ctx) {
-    if (!fmt_ctx) {
-    	log_message(LOG_ERROR, "Audio Player", "Format context not initialized");
+void collect_audio_tracks(AVFormatContext* in_fmt_ctx) {
+    if (!in_fmt_ctx) {
+        log_message(LOG_ERROR, "Audio Player", "Format context not initialized");
         return;
     }
 
     std::lock_guard<std::mutex> lock(audioTracksMutex);
     audioTracks.clear();
 
-    for (unsigned int i = 0; i < fmt_ctx->nb_streams; ++i) {
-        AVStream* stream = fmt_ctx->streams[i];
+    for (unsigned int i = 0; i < in_fmt_ctx->nb_streams; ++i) {
+        AVStream* stream = in_fmt_ctx->streams[i];
         if (stream->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
             AVDictionaryEntry* lang = av_dict_get(stream->metadata, "language", nullptr, 0);
             const char* language = lang ? lang->value : "und";
@@ -151,78 +168,42 @@ std::vector<AudioTrackInfo> get_audio_tracks() {
 }
 
 int audio_player_init(const char* filepath) {
-	log_message(LOG_OK, "Audio Player", "Starting Audio Player");
+    log_message(LOG_OK, "Audio Player", "Starting Audio Player");
 
     if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
         if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
-        	log_message(LOG_ERROR, "Audio Player", "SDL_InitSubSystem failed: %s", SDL_GetError());
+            log_message(LOG_ERROR, "Audio Player", "SDL_InitSubSystem failed: %s", SDL_GetError());
             return -1;
         }
-    #ifdef DEBUG_AUDIO
-        log_message(LOG_DEBUG, "Audio Player", "SDL audio subsystem initialized");
-    #endif
-    } else {
-    #ifdef DEBUG_AUDIO
-    	log_message(LOG_DEBUG, "Audio Player", "SDL audio subsystem already initialized");
-    #endif
     }
 
-    #ifdef DEBUG_AUDIO
-    log_message(LOG_DEBUG, "Audio Player", "Opening file %s", filepath);
-    #endif
     if (avformat_open_input(&fmt_ctx, filepath, nullptr, nullptr) != 0) {
-    #ifdef DEBUG_AUDIO
-    	log_message(LOG_DEBUG, "Audio Player", "Could not open input: %s", filepath);
-    #endif
         return -1;
     }
-    #ifdef DEBUG_AUDIO
-    log_message(LOG_DEBUG, "Audio Player", "File opened successfully");
-    #endif
 
     if (avformat_find_stream_info(fmt_ctx, nullptr) < 0) {
-    	log_message(LOG_ERROR, "Audio Player", "Could not find stream info");
         return -1;
     }
-    #ifdef DEBUG_AUDIO
-    log_message(LOG_DEBUG, "Audio Player", "Stream info loaded\n");
-    #endif
 
-    audio_stream_index = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
-    if (audio_stream_index < 0) {
-    	log_message(LOG_ERROR, "Audio Player", "No audio stream found");
+    int found_index = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
+    if (found_index < 0) {
         audio_enabled = false;
         return 0;
     }
-    #ifdef DEBUG_AUDIO
-    log_message(LOG_DEBUG, "Audio Player", "Audio stream found: index %d", audio_stream_index);
-    #endif
 
+    std::lock_guard<std::mutex> lock(audio_mutex);
+
+    audio_stream_index = found_index;
+    current_audio_track_id = found_index;
     audio_enabled = true;
 
     AVCodecParameters* codecpar = fmt_ctx->streams[audio_stream_index]->codecpar;
     const AVCodec* codec = avcodec_find_decoder(codecpar->codec_id);
-    if (!codec) {
-    	log_message(LOG_ERROR, "Audio Player", "Unsupported codec");
-        return -1;
-    }
-    #ifdef DEBUG_AUDIO
-    printf("[Audio player] Codec found: %s\n", codec->name);
-    #endif
+    if (!codec) return -1;
 
     audio_codec_ctx = avcodec_alloc_context3(codec);
-    if (avcodec_parameters_to_context(audio_codec_ctx, codecpar) < 0) {
-    	log_message(LOG_ERROR, "Audio Player", "Failed to copy codec parameters");
-        return -1;
-    }
-
-    if (avcodec_open2(audio_codec_ctx, codec, nullptr) < 0) {
-    	log_message(LOG_ERROR, "Audio Player", "Failed to open codec");
-        return -1;
-    }
-    #ifdef DEBUG_AUDIO
-    log_message(LOG_DEBUG, "Audio Player", "Codec opened successfully");
-    #endif
+    if (avcodec_parameters_to_context(audio_codec_ctx, codecpar) < 0) return -1;
+    if (avcodec_open2(audio_codec_ctx, codec, nullptr) < 0) return -1;
 
     SDL_AudioSpec wanted_spec;
     SDL_zero(wanted_spec);
@@ -233,13 +214,7 @@ int audio_player_init(const char* filepath) {
     wanted_spec.callback = nullptr;
 
     audio_device = SDL_OpenAudioDevice(nullptr, 0, &wanted_spec, &audio_spec, 0);
-    if (!audio_device) {
-    	log_message(LOG_ERROR, "Audio Player", "SDL_OpenAudioDevice failed: %s", SDL_GetError());
-        return -1;
-    }
-    #ifdef DEBUG_AUDIO
-    log_message(LOG_DEBUG, "Audio Player", "SDL audio device opened");
-    #endif
+    if (!audio_device) return -1;
 
     swr_ctx = swr_alloc_set_opts(
         nullptr,
@@ -251,44 +226,17 @@ int audio_player_init(const char* filepath) {
         audio_codec_ctx->sample_rate,
         0, nullptr
     );
-    if (!swr_ctx || swr_init(swr_ctx) < 0) {
-    	log_message(LOG_ERROR, "Audio Player", "Failed to initialize resampler");
-        return -1;
-    }
-    #ifdef DEBUG_AUDIO
-    log_message(LOG_DEBUG, "Audio Player", "Resampler initialized");
-    #endif
+    if (!swr_ctx || swr_init(swr_ctx) < 0) return -1;
 
     audio_frame = av_frame_alloc();
-    audio_packet = av_packet_alloc();
-    if (!audio_frame || !audio_packet) {
-    	log_message(LOG_ERROR, "Audio Player", "Failed to allocate frame or packet");
-        return -1;
-    }
-    #ifdef DEBUG_AUDIO
-    log_message(LOG_DEBUG, "Audio Player", "Frame and packet allocated");
-    #endif
 
-    #ifdef DEBUG_AUDIO
-    log_message(LOG_DEBUG, "Audio Player", "Getting audio tracks");
-    #endif
     collect_audio_tracks(fmt_ctx);
-
-    #ifdef DEBUG_AUDIO
-    print_audio_tracks();
-    #endif
 
     SDL_ClearQueuedAudio(audio_device);
     SDL_PauseAudioDevice(audio_device, 0);
-    #ifdef DEBUG_AUDIO
-    log_message(LOG_DEBUG, "Audio Player", "Audio playback started");
-    #endif
 
     audio_thread_running = true;
     audio_thread = std::thread(audio_decode_loop);
-    #ifdef DEBUG_AUDIO
-    log_message(LOG_DEBUG, "Audio Player", "Decode thread started");
-    #endif
 
     media_info_get()->total_audio_playback_time = (int64_t)audio_player_get_total_play_time();
 
@@ -296,26 +244,26 @@ int audio_player_init(const char* filepath) {
 }
 
 bool audio_player_switch_audio_stream(int new_stream_index) {
-    if (!fmt_ctx || new_stream_index < 0 || new_stream_index >= (int)fmt_ctx->nb_streams)
-        return false;
+    if (!fmt_ctx) return false;
+    if (new_stream_index < 0 || new_stream_index >= (int)fmt_ctx->nb_streams) return false;
 
     AVStream* new_stream = fmt_ctx->streams[new_stream_index];
-    if (new_stream->codecpar->codec_type != AVMEDIA_TYPE_AUDIO)
-        return false;
+    if (new_stream->codecpar->codec_type != AVMEDIA_TYPE_AUDIO) return false;
 
-    double target_time = audio_player_get_current_play_time();
+    double current_time = audio_player_get_current_play_time();
 
-    switching_audio_stream.store(true);
+    switching_audio_stream.store(true, std::memory_order_release);
     std::lock_guard<std::mutex> lock(audio_mutex);
 
-    SDL_PauseAudioDevice(audio_device, 1);
-    SDL_ClearQueuedAudio(audio_device);
+    if (audio_device != 0) {
+        SDL_PauseAudioDevice(audio_device, 1);
+        SDL_ClearQueuedAudio(audio_device);
+    }
 
     if (audio_codec_ctx) {
         avcodec_free_context(&audio_codec_ctx);
         audio_codec_ctx = nullptr;
     }
-
     if (swr_ctx) {
         swr_free(&swr_ctx);
         swr_ctx = nullptr;
@@ -357,89 +305,46 @@ bool audio_player_switch_audio_stream(int new_stream_index) {
     );
 
     if (!swr_ctx || swr_init(swr_ctx) < 0) {
-        if (swr_ctx)
-            swr_free(&swr_ctx);
+        if (swr_ctx) swr_free(&swr_ctx);
         avcodec_free_context(&audio_codec_ctx);
+        audio_codec_ctx = nullptr;
         switching_audio_stream.store(false);
         return false;
     }
 
     audio_stream_index = new_stream_index;
+    current_audio_track_id = new_stream_index;
 
-    int64_t seek_target = static_cast<int64_t>(target_time / av_q2d(fmt_ctx->streams[audio_stream_index]->time_base));
+    AVRational tb = fmt_ctx->streams[audio_stream_index]->time_base;
+    int64_t seek_target = static_cast<int64_t>(current_time / av_q2d(tb));
+
     if (av_seek_frame(fmt_ctx, audio_stream_index, seek_target, AVSEEK_FLAG_BACKWARD) < 0) {
-        switching_audio_stream.store(false);
-        return false;
+        log_message(LOG_ERROR, "Audio Player", "Seek after stream switch failed");
     }
 
-    avcodec_flush_buffers(audio_codec_ctx);
+    if (audio_codec_ctx) avcodec_flush_buffers(audio_codec_ctx);
     if (swr_ctx) swr_init(swr_ctx);
+
     SDL_ClearQueuedAudio(audio_device);
+    current_play_time.store((float)current_time);
 
-    current_play_time.store(static_cast<float>(target_time));
-
-    if (audio_playing)
-        SDL_PauseAudioDevice(audio_device, 0);
+    if (audio_playing.load(std::memory_order_relaxed)) SDL_PauseAudioDevice(audio_device, 0);
 
     switching_audio_stream.store(false);
-
-    current_audio_track_id = audio_stream_index;
     return true;
-}
-
-int audio_player_get_current_track_id() {
-    return current_audio_track_id;
-}
-
-double get_audio_clock_from_sdl() {
-    uint32_t bytes_queued = SDL_GetQueuedAudioSize(audio_device);
-
-    int bytes_per_sample = SDL_AUDIO_BITSIZE(audio_spec.format) / 8;
-    int bytes_per_sec = audio_spec.freq * audio_spec.channels * bytes_per_sample;
-
-    double delay = static_cast<double>(bytes_queued) / bytes_per_sec;
-    double now = av_gettime_relative() / 1e6;
-
-    return now - delay;
-}
-
-double audio_player_get_current_play_time() {
-    if (!audio_enabled) return 0.0;
-
-    float pts = current_play_time.load();
-
-    Uint32 queued_bytes = SDL_GetQueuedAudioSize(audio_device);
-
-    double queued_seconds = (double)queued_bytes / (audio_spec.freq * audio_spec.channels * (SDL_AUDIO_BITSIZE(audio_spec.format) / 8));
-
-    double corrected_time = (double)pts - queued_seconds;
-
-    if (corrected_time < 0.0)
-        corrected_time = 0.0;
-
-    return corrected_time;
-}
-
-double audio_player_get_total_play_time() {
-    if (!fmt_ctx || audio_stream_index < 0) return 0.0;
-
-    int64_t duration = fmt_ctx->streams[audio_stream_index]->duration;
-
-    double total_time = (double)duration * av_q2d(fmt_ctx->streams[audio_stream_index]->time_base);
-    return total_time;
 }
 
 void audio_player_play(bool state) {
     if (!audio_enabled) return;
-
-    audio_playing = state;
-
-    if (state) SDL_PauseAudioDevice(audio_device, 0);
-    else SDL_PauseAudioDevice(audio_device, 1);
+    audio_playing.store(state);
+    if (audio_device != 0) {
+        if (state) SDL_PauseAudioDevice(audio_device, 0);
+        else SDL_PauseAudioDevice(audio_device, 1);
+    }
 }
 
 bool audio_player_get_audio_play_state() {
-    return audio_playing;
+    return audio_playing.load(std::memory_order_relaxed);
 }
 
 void audio_player_seek(float delta_time) {
@@ -451,22 +356,21 @@ void audio_player_seek(float delta_time) {
     double base_time = audio_player_get_current_play_time();
     double target_time = base_time + delta_time;
 
-    if (target_time < 0.0)
-        target_time = 0.0;
+    if (target_time < 0.0) target_time = 0.0;
 
     double total_time = audio_player_get_total_play_time();
-    if (target_time > total_time)
-        target_time = total_time;
+    if (target_time > total_time) target_time = total_time;
 
-    int64_t seek_target = static_cast<int64_t>(target_time / av_q2d(fmt_ctx->streams[audio_stream_index]->time_base));
+    AVRational tb = fmt_ctx->streams[audio_stream_index]->time_base;
+    int64_t seek_target = static_cast<int64_t>(target_time / av_q2d(tb));
 
     if (av_seek_frame(fmt_ctx, audio_stream_index, seek_target, AVSEEK_FLAG_BACKWARD) < 0) {
-    	log_message(LOG_ERROR, "Audio Player", "Seek failed\n");
+        log_message(LOG_ERROR, "Audio Player", "Seek failed");
         switching_audio_stream.store(false);
         return;
     }
 
-    avcodec_flush_buffers(audio_codec_ctx);
+    if (audio_codec_ctx) avcodec_flush_buffers(audio_codec_ctx);
     SDL_ClearQueuedAudio(audio_device);
 
     if (swr_ctx) swr_init(swr_ctx);
@@ -476,88 +380,59 @@ void audio_player_seek(float delta_time) {
     switching_audio_stream.store(false);
 }
 
-void audio_player_cleanup() {
-    if (!audio_enabled) {
-    #ifdef DEBUG_AUDIO
-    	log_message(LOG_DEBUG, "Audio Player", "Audio already disabled, cleanup skipped");
-    #endif
-        return;
+double audio_player_get_current_play_time() {
+    if (!audio_enabled) return 0.0;
+    float pts = current_play_time.load(std::memory_order_acquire);
+
+    Uint32 queued_bytes = 0;
+    if (audio_device != 0) queued_bytes = SDL_GetQueuedAudioSize(audio_device);
+
+    double queued_seconds = 0.0;
+    if (audio_device != 0 && audio_spec.freq > 0 && audio_spec.channels > 0) {
+        queued_seconds = (double)queued_bytes / (audio_spec.freq * audio_spec.channels * (SDL_AUDIO_BITSIZE(audio_spec.format) / 8));
     }
 
-    #ifdef DEBUG_AUDIO
-    log_message(LOG_DEBUG, "Audio Player", "Stopping Audio Player");
-    #endif
+    double corrected_time = (double)pts - queued_seconds;
+    if (corrected_time < 0.0) corrected_time = 0.0;
+    return corrected_time;
+}
+
+double audio_player_get_total_play_time() {
+    if (!fmt_ctx || audio_stream_index < 0) return 0.0;
+    int64_t duration = fmt_ctx->streams[audio_stream_index]->duration;
+    double total_time = (double)duration * av_q2d(fmt_ctx->streams[audio_stream_index]->time_base);
+    return total_time;
+}
+
+void audio_player_cleanup() {
+    if (!audio_enabled) return;
 
     audio_thread_running = false;
-    if (audio_thread.joinable()) {
-        audio_thread.join();
-    #ifdef DEBUG_AUDIO
-        log_message(LOG_DEBUG, "Audio Player", "Decode thread stopped");
-    #endif
-    }
+    if (audio_thread.joinable()) audio_thread.join();
+
+    std::lock_guard<std::mutex> lock(audio_mutex);
 
     if (audio_device != 0) {
         SDL_PauseAudioDevice(audio_device, 1);
         SDL_ClearQueuedAudio(audio_device);
         SDL_CloseAudioDevice(audio_device);
         audio_device = 0;
-    #ifdef DEBUG_AUDIO
-        log_message(LOG_DEBUG, "Audio Player", "SDL audio device closed");
-    #endif
     }
 
-    if (audio_frame) {
-        av_frame_free(&audio_frame);
-        audio_frame = nullptr;
-    #ifdef DEBUG_AUDIO
-        log_message(LOG_DEBUG, "Audio Player", "Audio frame freed");
-    #endif
-    }
+    if (audio_frame) { av_frame_free(&audio_frame); audio_frame = nullptr; }
+    if (swr_ctx) { swr_free(&swr_ctx); swr_ctx = nullptr; }
+    if (audio_codec_ctx) { avcodec_free_context(&audio_codec_ctx); audio_codec_ctx = nullptr; }
+    if (fmt_ctx) { avformat_close_input(&fmt_ctx); fmt_ctx = nullptr; }
 
-    if (audio_packet) {
-        av_packet_free(&audio_packet);
-        audio_packet = nullptr;
-    #ifdef DEBUG_AUDIO
-        log_message(LOG_DEBUG, "Audio Player", "Audio packet freed");
-    #endif
-    }
-
-    if (swr_ctx) {
-        swr_free(&swr_ctx);
-        swr_ctx = nullptr;
-    #ifdef DEBUG_AUDIO
-        log_message(LOG_DEBUG, "Audio Player", "Resampler freed");
-    #endif
-    }
-
-    if (audio_codec_ctx) {
-        avcodec_free_context(&audio_codec_ctx);
-        audio_codec_ctx = nullptr;
-    #ifdef DEBUG_AUDIO
-        log_message(LOG_DEBUG, "Audio Player", "Codec context freed");
-    #endif
-    }
-
-    if (fmt_ctx) {
-        avformat_close_input(&fmt_ctx);
-        fmt_ctx = nullptr;
-    #ifdef DEBUG_AUDIO
-        log_message(LOG_DEBUG, "Audio Player", "Format context closed");
-    #endif
-    }
-
-    if (SDL_WasInit(SDL_INIT_AUDIO)) {
-        SDL_QuitSubSystem(SDL_INIT_AUDIO);
-    #ifdef DEBUG_AUDIO
-        log_message(LOG_DEBUG, "Audio Player", "SDL audio subsystem shut down");
-    #endif
-    }
+    if (SDL_WasInit(SDL_INIT_AUDIO)) SDL_QuitSubSystem(SDL_INIT_AUDIO);
 
     audio_enabled = false;
-    audio_playing = false;
+    audio_playing.store(false);
     audio_stream_index = -1;
+    current_audio_track_id = -1;
     current_play_time.store(0.0f);
-    #ifdef DEBUG_AUDIO
-    log_message(LOG_DEBUG, "Audio Player", "Cleanup complete");
-    #endif
+}
+
+int audio_player_get_current_track_id() {
+    return current_audio_track_id;
 }
