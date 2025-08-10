@@ -336,6 +336,8 @@ bool audio_player_switch_audio_stream(int new_stream_index) {
 
 void audio_player_play(bool state) {
     if (!audio_enabled) return;
+    media_info_get()->playback_status = state;
+
     audio_playing.store(state);
     if (audio_device != 0) {
         if (state) SDL_PauseAudioDevice(audio_device, 0);
