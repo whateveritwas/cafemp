@@ -10,17 +10,10 @@ extern "C" {
 }
 #include "main.hpp"
 
-AVCodecContext* video_player_create_codec_context(AVFormatContext* fmt_ctx, int stream_index);
-void clear_video_frames();
-void video_player_seek(float delta_seconds);
-void video_player_play(bool new_state);
-frame_info* video_player_get_current_frame_info();
-int64_t video_player_get_total_play_time();
 int video_player_init(const char* filepath);
-void start_video_decoding_thread();
-void process_video_frame_thread();
+void video_player_play(bool play);
+void video_player_seek(double seconds);
 void video_player_update();
-void stop_video_decoding_thread();
-int video_player_cleanup();
+void video_player_cleanup();
 
 #endif

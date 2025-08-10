@@ -38,9 +38,9 @@
 #define TOOLTIP_BAR_HEIGHT (48)
 
 struct frame_info {
-    SDL_Texture* texture;
-    int frame_width;
-    int frame_height;
+    SDL_Texture* texture = nullptr;
+    int width = 0;
+    int height = 0;
 };
 
 #endif
