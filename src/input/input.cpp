@@ -49,7 +49,20 @@ void input_menu(VPADStatus* vpad_status, WPADStatusProController* wpad_status, i
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_A, WPAD_PRO_BUTTON_A)) {
         start_file(selected_index);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_MINUS, WPAD_PRO_BUTTON_MINUS)) {
-        scan_directory(MEDIA_PATH);
+        switch (app_state_get()) {
+            case STATE_MENU_AUDIO_FILES:
+            	scan_directory(MEDIA_PATH "Audio/");
+                break;
+            case STATE_MENU_IMAGE_FILES:
+            	scan_directory(MEDIA_PATH "Photo/");
+                break;
+            case STATE_MENU_VIDEO_FILES:
+            	scan_directory(MEDIA_PATH_VIDEO);
+                break;
+            default:
+                return;
+        }
+
         selected_index = 0;
         current_page_file_browser = 0;
     } else if(is_pressed(vpad_status, wpad_status, VPAD_BUTTON_PLUS, WPAD_PRO_BUTTON_PLUS)) {
