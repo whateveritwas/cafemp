@@ -1,6 +1,6 @@
 #include "subtitle.hpp"
 
-#include "vendor/srtparser.h"
+#include "vendor/player/srtparser.h"
 #include <nuklear.h>
 #include <vector>
 #include <string>

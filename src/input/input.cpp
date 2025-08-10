@@ -51,10 +51,10 @@ void input_menu(VPADStatus* vpad_status, WPADStatusProController* wpad_status, i
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_MINUS, WPAD_PRO_BUTTON_MINUS)) {
         switch (app_state_get()) {
             case STATE_MENU_AUDIO_FILES:
-            	scan_directory(MEDIA_PATH "Audio/");
+            	scan_directory(MEDIA_PATH_AUDIO);
                 break;
             case STATE_MENU_IMAGE_FILES:
-            	scan_directory(MEDIA_PATH "Photo/");
+            	scan_directory(MEDIA_PATH_PHOTO);
                 break;
             case STATE_MENU_VIDEO_FILES:
             	scan_directory(MEDIA_PATH_VIDEO);
@@ -115,7 +115,7 @@ void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
         video_player_cleanup();
 
         app_state_set(STATE_MENU_VIDEO_FILES);
-        scan_directory(MEDIA_PATH "Video/");
+        scan_directory(MEDIA_PATH_VIDEO);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_LEFT, WPAD_PRO_BUTTON_LEFT))  {
 		#ifdef DEBUG
         video_player_seek(-5.0f);
@@ -151,7 +151,7 @@ void input_audio_player(VPADStatus* vpad_status, WPADStatusProController* wpad_s
         audio_player_cleanup();
 
         app_state_set(STATE_MENU_AUDIO_FILES);
-        scan_directory(MEDIA_PATH "Audio/");
+        scan_directory(MEDIA_PATH_AUDIO);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_LEFT, WPAD_PRO_BUTTON_LEFT)) {
         audio_player_seek(-5.0f);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_RIGHT, WPAD_PRO_BUTTON_RIGHT)) {
@@ -182,7 +182,7 @@ void input_photo_viewer(VPADStatus* vpad_status, WPADStatusProController* wpad_s
         if (--info->current_caption_id < 0)
             info->current_caption_id = info->total_caption_count - 1;
 
-        std::string full_path = std::string(MEDIA_PATH "Photo/") + get_media_files()[info->current_caption_id];
+        std::string full_path = std::string(MEDIA_PATH_PHOTO) + get_media_files()[info->current_caption_id];
         photo_viewer_open_picture(full_path.c_str());
 
     } else if (is_pressed(vpad_status, wpad_status, VPAD_STICK_L_EMULATION_RIGHT, 0)) {
@@ -190,7 +190,7 @@ void input_photo_viewer(VPADStatus* vpad_status, WPADStatusProController* wpad_s
         if (++info->current_caption_id >= info->total_caption_count)
             info->current_caption_id = 0;
 
-        std::string full_path = std::string(MEDIA_PATH "Photo/") + get_media_files()[info->current_caption_id];
+        std::string full_path = std::string(MEDIA_PATH_PHOTO) + get_media_files()[info->current_caption_id];
         photo_viewer_open_picture(full_path.c_str());
     }
 }

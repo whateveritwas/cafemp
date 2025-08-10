@@ -42,12 +42,6 @@ bool valid_file_ending(const std::string& file_ending) {
         default:
             break;
     }
-    #ifdef DEBUG
-    printf("[Debug] Checking extension '%s' in state %d => %s\n",
-           file_ending.c_str(),
-           static_cast<int>(state),
-           result ? "valid" : "invalid");
-    #endif
     return result;
 }
 
