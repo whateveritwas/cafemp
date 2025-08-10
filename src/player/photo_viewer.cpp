@@ -3,13 +3,11 @@
 #include <vector>
 #include <string.h>
 
+#include "utils/sdl.hpp"
 #include "main.hpp"
 #include "utils.hpp"
 #include "logger/logger.hpp"
 #include "player/photo_viewer.hpp"
-
-static SDL_Renderer* photo_renderer = nullptr;
-static SDL_Texture* photo_texture = nullptr;
 
 struct GIFFrame {
     SDL_Texture* texture;
@@ -17,19 +15,23 @@ struct GIFFrame {
 };
 
 static std::vector<GIFFrame> gif_frames;
-static int current_gif_frame = 0;
-static Uint32 last_frame_time = 0;
+static int current_gif_frame;
+static Uint32 last_frame_time;
 
-float scale = 1.0f;
-const float min_scale = 0.5f;
-const float max_scale = 5.0f;
+float scale;
+#define MIN_ZOOM_SCALE 0.5f
+#define MAX_ZOOM_SCALE 5.0f
 
-SDL_Rect dst = { 0, 0, 0, 0 };
-bool dst_set = false;
+SDL_Rect dst;
+bool dst_set;
 
-void photo_viewer_init(SDL_Renderer* renderer, SDL_Texture*& texture) {
-    photo_renderer = renderer;
-    photo_texture = texture;
+void photo_viewer_init() {
+	current_gif_frame = 0;
+	last_frame_time = 0;
+	scale = 1.0f;
+
+	dst = { 0, 0, 0, 0 };
+	dst_set = false;
 }
 
 void clamp_dst() {
@@ -150,7 +152,7 @@ void photo_viewer_open_picture(const char* filepath) {
 
     const char* ext = strrchr(filepath, '.');
     if (ext && strcasecmp(ext, ".gif") == 0) {
-        if (load_gif(filepath, photo_renderer)) {
+        if (load_gif(filepath, sdl_get()->sdl_renderer)) {
             int tex_w, tex_h;
             SDL_QueryTexture(gif_frames[0].texture, nullptr, nullptr, &tex_w, &tex_h);
             dst = calculate_aspect_fit_rect(tex_w, tex_h);
@@ -169,16 +171,16 @@ void photo_viewer_open_picture(const char* filepath) {
         return;
     }
 
-    photo_texture = SDL_CreateTextureFromSurface(photo_renderer, surface);
+    sdl_get()->sdl_texture = SDL_CreateTextureFromSurface(sdl_get()->sdl_renderer, surface);
     SDL_FreeSurface(surface);
 
-    if (!photo_texture) {
+    if (!sdl_get()->sdl_texture) {
     	log_message(LOG_ERROR, "Photo Viewer", "Failed to create texture: %s", SDL_GetError());
         return;
     }
 
     int tex_w, tex_h;
-    SDL_QueryTexture(photo_texture, nullptr, nullptr, &tex_w, &tex_h);
+    SDL_QueryTexture(sdl_get()->sdl_texture, nullptr, nullptr, &tex_w, &tex_h);
     dst = calculate_aspect_fit_rect(tex_w, tex_h);
     scale = (float)dst.w / tex_w;
     dst_set = true;
@@ -186,14 +188,14 @@ void photo_viewer_open_picture(const char* filepath) {
 
 void photo_texture_zoom(float delta_zoom) {
     scale += delta_zoom;
-    if (scale > max_scale) scale = max_scale;
-    if (scale < min_scale) scale = min_scale;
+    if (scale > MAX_ZOOM_SCALE) scale = MAX_ZOOM_SCALE;
+    if (scale < MIN_ZOOM_SCALE) scale = MIN_ZOOM_SCALE;
 
     int tex_w, tex_h;
     if (!gif_frames.empty()) {
         SDL_QueryTexture(gif_frames[current_gif_frame].texture, nullptr, nullptr, &tex_w, &tex_h);
-    } else if (photo_texture) {
-        SDL_QueryTexture(photo_texture, nullptr, nullptr, &tex_w, &tex_h);
+    } else if (sdl_get()->sdl_texture) {
+        SDL_QueryTexture(sdl_get()->sdl_texture, nullptr, nullptr, &tex_w, &tex_h);
     } else {
         return;
     }
@@ -231,8 +233,8 @@ void draw_checkerboard_pattern(SDL_Renderer* renderer, int width, int height, in
 
 void photo_viewer_render() {
     int screen_w, screen_h;
-    SDL_GetRendererOutputSize(photo_renderer, &screen_w, &screen_h);
-    draw_checkerboard_pattern(photo_renderer, screen_w, screen_h, 40);
+    SDL_GetRendererOutputSize(sdl_get()->sdl_renderer, &screen_w, &screen_h);
+    draw_checkerboard_pattern(sdl_get()->sdl_renderer, screen_w, screen_h, 40);
 
     SDL_Texture* tex = nullptr;
     if (!gif_frames.empty()) {
@@ -243,7 +245,7 @@ void photo_viewer_render() {
         }
         tex = gif_frames[current_gif_frame].texture;
     } else {
-        tex = photo_texture;
+        tex = sdl_get()->sdl_texture;
     }
 
     if (!tex) return;
@@ -256,7 +258,7 @@ void photo_viewer_render() {
         dst_set = true;
     }
 
-    SDL_RenderCopy(photo_renderer, tex, nullptr, &dst);
+    SDL_RenderCopy(sdl_get()->sdl_renderer, tex, nullptr, &dst);
 }
 
 void photo_viewer_cleanup() {
@@ -265,8 +267,8 @@ void photo_viewer_cleanup() {
     }
     gif_frames.clear();
 
-    if (photo_texture) {
-        SDL_DestroyTexture(photo_texture);
-        photo_texture = nullptr;
+    if (sdl_get()->sdl_texture) {
+        SDL_DestroyTexture(sdl_get()->sdl_texture);
+        sdl_get()->sdl_texture = nullptr;
     }
 }

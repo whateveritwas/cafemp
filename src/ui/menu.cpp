@@ -19,6 +19,7 @@
 #include "vendor/ui/nuklear.h"
 #include "vendor/ui/nuklear_sdl_renderer.h"
 
+#include "utils/sdl.hpp"
 #include "utils/media_info.hpp"
 #include "utils/media_files.hpp"
 #include "settings/settings.hpp"
@@ -36,11 +37,6 @@
 int current_page_file_browser = 0;
 int selected_index = 0;
 
-// Ui
-SDL_Window* ui_window;
-SDL_Renderer* ui_renderer;
-SDL_Texture* ui_texture;
-
 struct nk_context *ctx;
 SDL_Rect dest_rect = (SDL_Rect){0, 0, 0, 0};
 bool dest_rect_initialised = false;
@@ -50,20 +46,16 @@ static int background_music_enabled = 1;
 
 static int no_current_frame_info_cound = 0;
 #ifndef DEBUG
-int no_current_frame_info_threshold = 10;
+#define NO_CURRENT_FRAME_INFO_THRESHOLD 10
 #else
-int no_current_frame_info_threshold = 20;
+#define NO_CURRENT_FRAME_INFO_THRESHOLD 30
 #endif
 
-void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_texture) {
+void ui_init() {
     WPADInit();
     WPADEnableURCC(true);
     
     input_check_wpad_pro_connection();   
-
-    ui_window = _window;
-    ui_renderer = _renderer;
-    ui_texture = _texture;
 
     try {
         settings_load();
@@ -79,7 +71,7 @@ void ui_init(SDL_Window* _window, SDL_Renderer* _renderer, SDL_Texture* &_textur
         audio_player_play(false);
     }
 
-    ctx = nk_sdl_init(ui_window, ui_renderer);
+    ctx = nk_sdl_init(sdl_get()->sdl_window, sdl_get()->sdl_renderer);
     ctx->style.window.scrollbar_size.x = 32 * UI_SCALE;
 
     {
@@ -103,7 +95,7 @@ void start_file(int index) {
 
     no_current_frame_info_cound = 0;
     dest_rect_initialised = false;
-    std::string full_path = std::string(MEDIA_PATH) + get_media_files()[index];
+    std::string full_path = std::string(BASE_PATH) + get_media_files()[index];
     std::string extension = full_path.substr(full_path.find_last_of('.') + 1);
 
     for (auto& c : extension) c = std::tolower(c);
@@ -148,7 +140,7 @@ void start_file(int index) {
             return;
     }
 
-    full_path = std::string(MEDIA_PATH) + media_folder + get_media_files()[index];
+    full_path = std::string(BASE_PATH) + media_folder + get_media_files()[index];
 
     media_info_get()->type = media_type;
     media_info_get()->path = full_path;
@@ -174,7 +166,7 @@ void start_file(int index) {
         media_info_get()->current_caption_id = 1;
         media_info_get()->total_caption_count = 1;
 
-        video_player_start(full_path.c_str(), *ui_renderer, ui_texture);
+        video_player_init(full_path.c_str());
         audio_player_play(true);
         video_player_play(true);
         app_state_set(STATE_PLAYING_VIDEO);
@@ -186,7 +178,7 @@ void start_file(int index) {
         media_info_get()->current_caption_id = index;
         media_info_get()->total_caption_count = get_media_files().size();
 
-        photo_viewer_init(ui_renderer, ui_texture);
+        photo_viewer_init();
         app_state_set(STATE_VIEWING_PHOTO);
         photo_viewer_open_picture(full_path.c_str());
     }
@@ -238,15 +230,15 @@ void ui_render() {
             ui_render_settings();
             break;
         case STATE_PLAYING_VIDEO: 
-            SDL_RenderClear(ui_renderer);
+            SDL_RenderClear(sdl_get()->sdl_renderer);
             ui_render_video_player();
             break;
         case STATE_PLAYING_AUDIO:
-            SDL_RenderClear(ui_renderer);
+            SDL_RenderClear(sdl_get()->sdl_renderer);
             ui_render_audio_player();
             break;
         case STATE_VIEWING_PHOTO: 
-            SDL_RenderClear(ui_renderer);
+            SDL_RenderClear(sdl_get()->sdl_renderer);
             ui_render_photo_viewer();
             break;
     }
@@ -269,7 +261,7 @@ void ui_render_sidebar() {
         */
         if (nk_button_label(ctx, "Video")) {
             app_state_set(STATE_MENU_VIDEO_FILES);
-            scan_directory(MEDIA_PATH "Video/");
+            scan_directory(MEDIA_PATH_VIDEO);
         }
         /*
         if (nk_button_label(ctx, "YouTube")) {
@@ -278,7 +270,7 @@ void ui_render_sidebar() {
         */
         if (nk_button_label(ctx, "Audio")) {
             app_state_set(STATE_MENU_AUDIO_FILES);
-            scan_directory(MEDIA_PATH "Audio/");
+            scan_directory(MEDIA_PATH_AUDIO);
         }
         /*
         if (nk_button_label(ctx, "Internet Radio")) {
@@ -287,7 +279,7 @@ void ui_render_sidebar() {
         */
         if (nk_button_label(ctx, "Photo")) {
             app_state_set(STATE_MENU_IMAGE_FILES);
-            scan_directory(MEDIA_PATH "Photo/");
+            scan_directory(MEDIA_PATH_PHOTO);
         }
         
         #ifdef DEBUG
@@ -431,8 +423,8 @@ void ui_render_file_browser() {
 
                 if (nk_button_label(ctx, display_str.c_str())) {
                     selected_index = i;
-                    SDL_SetRenderDrawColor(ui_renderer, 0, 0, 0, 255);
-                    SDL_RenderClear(ui_renderer);
+                    SDL_SetRenderDrawColor(sdl_get()->sdl_renderer, 0, 0, 0, 255);
+                    SDL_RenderClear(sdl_get()->sdl_renderer);
                     start_file(selected_index);
                 }
 
@@ -522,13 +514,13 @@ void ui_render_photo_viewer() {
 }
 
 void ui_render_video_player() {
-    SDL_RenderClear(ui_renderer);
+    SDL_RenderClear(sdl_get()->sdl_renderer);
 
     #ifdef DEBUG_VIDEO
     uint64_t test_ticks = OSGetSystemTime();
     #endif
 
-    video_player_update(ui_renderer);
+    video_player_update();
 
     #ifdef DEBUG_VIDEO
     uint64_t decoding_time = OSTicksToMicroseconds(OSGetSystemTime() - test_ticks);
@@ -537,11 +529,11 @@ void ui_render_video_player() {
     frame_info* current_frame_info = video_player_get_current_frame_info();
     if (!current_frame_info || !current_frame_info->texture) {
         no_current_frame_info_cound++;
-        if (no_current_frame_info_cound < no_current_frame_info_threshold) return;
+        if (no_current_frame_info_cound < NO_CURRENT_FRAME_INFO_THRESHOLD) return;
 
-        log_message(LOG_WARNING, "Menu", "Shuting down due to no video frames being present\n");
+        log_message(LOG_ERROR, "Menu", "Shuting down due to no video frames being present\n");
         video_player_cleanup();
-        scan_directory(MEDIA_PATH "Video/");
+        scan_directory(MEDIA_PATH_VIDEO);
         app_state_set(STATE_MENU_VIDEO_FILES);
         return;
     }
@@ -559,7 +551,7 @@ void ui_render_video_player() {
         dest_rect_initialised = true;
     }
 
-    SDL_RenderCopy(ui_renderer, current_frame_info->texture, NULL, &dest_rect);
+    SDL_RenderCopy(sdl_get()->sdl_renderer, current_frame_info->texture, NULL, &dest_rect);
 
     #ifdef DEBUG_VIDEO
     uint64_t current_rendering_time = OSTicksToMicroseconds(OSGetSystemTime() - rendering_ticks);
@@ -594,7 +586,7 @@ void ui_render_video_player() {
 }
 
 void ui_render_audio_player() {
-    SDL_RenderClear(ui_renderer);
+    SDL_RenderClear(sdl_get()->sdl_renderer);
 
     if (media_info_get()->total_audio_playback_time == 0) media_info_get()->total_audio_playback_time = audio_player_get_total_play_time();
     media_info_get()->current_audio_playback_time = audio_player_get_current_play_time();
@@ -608,9 +600,5 @@ void ui_shutdown() {
     if (!media_info_get()->playback_status) video_player_play(true);
     if (media_info_get()->playback_status) video_player_cleanup();
 
-    if (ui_texture) {
-        SDL_DestroyTexture(ui_texture);
-        ui_texture = nullptr;
-    }
     nk_sdl_shutdown();
 }

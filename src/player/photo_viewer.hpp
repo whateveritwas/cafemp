@@ -3,7 +3,7 @@
 
 #include <SDL2/SDL.h>
 
-void photo_viewer_init(SDL_Renderer* renderer, SDL_Texture*& texture);
+void photo_viewer_init();
 void photo_viewer_open_picture(const char* filepath);
 void photo_texture_zoom(float delta_zoom);
 void photo_viewer_pan(int delta_x, int delta_y);

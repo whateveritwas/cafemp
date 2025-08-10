@@ -19,13 +19,16 @@
 #define AMBIANCE_PATH "/vol/external01/wiiu/apps/cafemp/content/769925__lightmister__game-main-menu-fluids.mp3"
 #endif
 
-#define MEDIA_PATH "/vol/external01/wiiu/apps/cafemp/"
+#define BASE_PATH "/vol/external01/wiiu/apps/cafemp/"
+#define MEDIA_PATH_AUDIO "/vol/external01/wiiu/apps/cafemp/Audio/"
+#define MEDIA_PATH_VIDEO "/vol/external01/wiiu/apps/cafemp/Video/"
+#define MEDIA_PATH_PHOTO "/vol/external01/wiiu/apps/cafemp/Photo/"
 #define SETTINGS_PATH "/vol/external01/wiiu/apps/cafemp/settings.json"
 
 #define VERSION_STRING_NUMBER "v0.5.2"
 
 #ifdef DEBUG
-#define VERSION_STRING "CaféMP " VERSION_STRING_NUMBER " " __DATE__ " " __TIME__
+#define VERSION_STRING "CaféMP " VERSION_STRING_NUMBER " (Build: " __DATE__ " " __TIME__ ")"
 #elif LEGACY
 #define VERSION_STRING "CaféMP Legacy " VERSION_STRING_NUMBER
 #else

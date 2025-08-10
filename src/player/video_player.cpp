@@ -24,6 +24,7 @@ extern "C" {
 #include "player/video_player.hpp"
 #include "player/audio_player.hpp"
 #include "logger/logger.hpp"
+#include "utils/sdl.hpp"
 
 int video_stream_index = -1;
 AVFormatContext* fmt_ctx = NULL;
@@ -177,7 +178,15 @@ frame_info* video_player_get_current_frame_info() {
     return current_frame_info;
 }
 
-int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*& texture) {
+int video_player_init(const char* filepath) {
+    video_thread_running = true;
+
+    if (current_frame_info) {
+        SDL_DestroyTexture(current_frame_info->texture);
+        delete current_frame_info;
+        current_frame_info = nullptr;
+    }
+
     #ifdef DEBUG_VIDEO
 	log_message(LOG_DEBUG, "Video Player", "Starting Video Player");
 	log_message(LOG_DEBUG, "Video Player", "file %s", filepath);
@@ -210,9 +219,9 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
     video_codec_ctx = video_player_create_codec_context(fmt_ctx, video_stream_index);
     if (!video_codec_ctx) return -1;
 
-    SDL_DestroyTexture(texture);
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
-                                 video_codec_ctx->width, video_codec_ctx->height);
+    SDL_DestroyTexture(sdl_get()->sdl_texture);
+    sdl_get()->sdl_texture = SDL_CreateTexture(sdl_get()->sdl_renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
+                                 	 	 	   video_codec_ctx->width, video_codec_ctx->height);
 
     framerate = fmt_ctx->streams[video_stream_index]->r_frame_rate;
     media_info_get()->framerate = av_q2d(framerate);
@@ -229,23 +238,12 @@ int video_player_init(const char* filepath, SDL_Renderer* renderer, SDL_Texture*
     log_message(LOG_DEBUG, "Video Player", "Codec, packet, and frame initialized\n");
     #endif
 
-    return 0;
-}
-
-void video_player_start(const char* path, SDL_Renderer& renderer, SDL_Texture*& texture) {
-    video_thread_running = true;
-
-    if (current_frame_info) {
-        SDL_DestroyTexture(current_frame_info->texture);
-        delete current_frame_info;
-        current_frame_info = nullptr;
-    }
-
-    video_player_init(path, &renderer, texture);
-    audio_player_init(path);
+    audio_player_init(filepath);
 
     start_video_decoding_thread();
     app_state_set(STATE_PLAYING_VIDEO);
+
+    return 0;
 }
 
 void set_wiiu_thread_priority(std::thread& t, int priority) {
@@ -366,7 +364,7 @@ int64_t video_player_get_total_play_time() {
     return static_cast<int64_t>(duration);
 }
 
-void video_player_update(SDL_Renderer* renderer) {
+void video_player_update() {
     if (!media_info_get_copy().playback_status) return;
 
     AVFrame* frame = nullptr;
@@ -384,7 +382,7 @@ void video_player_update(SDL_Renderer* renderer) {
     if (!current_frame_info) {
         current_frame_info = new frame_info;
         current_frame_info->texture = SDL_CreateTexture(
-            renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
+            sdl_get()->sdl_renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
             frame->width, frame->height
         );
         current_frame_info->frame_width = frame->width;
@@ -425,20 +423,17 @@ int video_player_cleanup() {
 
     audio_player_cleanup();
 
-    // 1) Stop decode thread and wait for it to finish
     stop_video_decoding_thread();
 
-    // 2) Clear video frame queue safely
     {
         std::lock_guard<std::mutex> lock(video_frame_mutex);
         while (!video_frame_queue.empty()) {
             AVFrame* f = video_frame_queue.front();
             video_frame_queue.pop();
-            av_frame_unref(f);  // Unref only, no free!
+            av_frame_unref(f);
         }
     }
 
-    // 3) Destroy current frame texture safely
     if (current_frame_info) {
         if (current_frame_info->texture) {
             SDL_DestroyTexture(current_frame_info->texture);
@@ -448,7 +443,6 @@ int video_player_cleanup() {
         current_frame_info = nullptr;
     }
 
-    // 4) Free last frame and packet only if allocated with av_frame_alloc/av_packet_alloc
     if (frame) {
         av_frame_free(&frame);
         frame = nullptr;
