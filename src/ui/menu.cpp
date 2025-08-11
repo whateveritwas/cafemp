@@ -57,7 +57,7 @@ void ui_init() {
 
     try {
         settings_load();
-        background_music_enabled = *static_cast<int*>(settings_get_value(SETTINGS_BKG_MUSIC_ENABLED));
+        settings_get(SETTINGS_BKG_MUSIC_ENABLED, &background_music_enabled);
     } catch(...) {
     	log_message(LOG_ERROR, "Menu", "Unable to load settings");
     }
