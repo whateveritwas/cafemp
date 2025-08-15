@@ -29,6 +29,7 @@
 #include "player/video_player.hpp"
 #include "player/audio_player.hpp"
 #include "player/photo_viewer.hpp"
+#include "player/pdf_viewer.hpp"
 #include "input/input.hpp"
 #include "player/subtitle.hpp"
 #include "logger/logger.hpp"
@@ -40,7 +41,9 @@ int selected_index = 0;
 struct nk_context *ctx;
 
 bool ambiance_playing = false;
-static int background_music_enabled = 1;
+static bool background_music_enabled = true;
+static char jellyfin_url[MAX_URL_LENGTH] = {0};
+static char api_key[MAX_API_KEY_LENGTH] = {0};
 
 static int no_current_frame_info_cound = 0;
 #ifndef DEBUG
@@ -52,7 +55,7 @@ static int no_current_frame_info_cound = 0;
 void ui_init() {
     WPADInit();
     WPADEnableURCC(true);
-    
+
     input_check_wpad_pro_connection();   
 
     try {
@@ -127,10 +130,14 @@ void start_file(int index) {
             media_folder = "Photo/";
             media_type = 'P';
             break;
+        case STATE_MENU_PDF_FILES:
+            media_folder = "Library/";
+            media_type = 'L';
+            break;
         case STATE_MENU_VIDEO_FILES:
             media_folder = "Video/";
             media_type = 'V';
-            subtitle_start("/vol/external01/wiiu/apps/cafemp/Test/test.srt");
+            // subtitle_start("/vol/external01/wiiu/apps/cafemp/Test/test.srt");
             break;
         default:
         	log_message(LOG_ERROR, "Menu", "Unsupported file type: %s", extension.c_str());
@@ -152,23 +159,25 @@ void start_file(int index) {
         media_info_get()->current_caption_id = 1;
         media_info_get()->total_caption_count = 1;
 
+        // full_path = "http://192.168.178.113:8096/Items/c8808f6fb3a1133926b35887ce286cfe/Download?api_key=e847650b901e4c1ea7b72b8404b40fdb&TranscodingMaxVideoBitrate=1500000&TranscodingMaxHeight=720";
+
         audio_player_init(full_path.c_str());
         audio_player_play(true);
         app_state_set(STATE_PLAYING_AUDIO);
-    }
-    else if (media_type == 'V') {
+    } else if (media_type == 'V') {
         media_info_get()->current_audio_track_id = 1;
         media_info_get()->total_audio_track_count = 1;
 
         media_info_get()->current_caption_id = 1;
         media_info_get()->total_caption_count = 1;
 
+        // full_path = "http://192.168.178.113:8096/Items/81b3564968b66075f27f5c83f4a98367/Download?api_key=e847650b901e4c1ea7b72b8404b40fdb&TranscodingMaxVideoBitrate=1500000&TranscodingMaxHeight=720";
+
         video_player_init(full_path.c_str());
         audio_player_play(true);
         video_player_play(true);
         app_state_set(STATE_PLAYING_VIDEO);
-    }
-    else if (media_type == 'P') {
+    } else if (media_type == 'P') {
         media_info_get()->current_audio_track_id = 0;
         media_info_get()->total_audio_track_count = 0;
 
@@ -178,6 +187,16 @@ void start_file(int index) {
         photo_viewer_init();
         app_state_set(STATE_VIEWING_PHOTO);
         photo_viewer_open_picture(full_path.c_str());
+    } else if (media_type == 'L') {
+        media_info_get()->current_audio_track_id = 0;
+        media_info_get()->total_audio_track_count = 0;
+
+        media_info_get()->current_caption_id = index;
+        media_info_get()->total_caption_count = get_media_files().size();
+
+        pdf_viewer_init();
+        app_state_set(STATE_VIEWING_PDF);
+        pdf_viewer_open_file(full_path.c_str());
     }
 }
 
@@ -225,12 +244,15 @@ void ui_render() {
             ui_handle_ambiance();
             ui_render_file_browser();
             break;
+        case STATE_MENU_PDF_FILES:
+            ui_handle_ambiance();
+            ui_render_file_browser();
+            break;
         case STATE_MENU_SETTINGS: 
             ui_handle_ambiance();
             ui_render_settings();
             break;
         case STATE_PLAYING_VIDEO: 
-
             ui_render_video_player();
             break;
         case STATE_PLAYING_AUDIO:
@@ -238,6 +260,9 @@ void ui_render() {
             break;
         case STATE_VIEWING_PHOTO:
             ui_render_photo_viewer();
+            break;
+        case STATE_VIEWING_PDF:
+        	ui_render_pdf_viewer();
             break;
     }
 
@@ -280,6 +305,11 @@ void ui_render_sidebar() {
             scan_directory(MEDIA_PATH_PHOTO);
         }
         
+        if (nk_button_label(ctx, "Library")) {
+            app_state_set(STATE_MENU_PDF_FILES);
+            scan_directory(MEDIA_PATH_PDF);
+        }
+
         #ifdef DEBUG
         if (nk_button_label(ctx, "Debug")) {
             app_state_set(STATE_MENU_SETTINGS);
@@ -302,11 +332,24 @@ void ui_render_settings() {
         if (nk_group_begin(ctx, "Content", NK_WINDOW_BORDER)) {
             nk_layout_row_dynamic(ctx, 64, 1);
 
+            nk_label(ctx, "General", NK_TEXT_CENTERED);
+
             if (nk_button_label(ctx, background_music_enabled ? "Background Music: On" : "Background Music: Off")) {
                 background_music_enabled = !background_music_enabled;
 
                 settings_set(SETTINGS_BKG_MUSIC_ENABLED, &background_music_enabled);
-                settings_save();
+            }
+
+            nk_label(ctx, "Jellyfin URL", NK_TEXT_CENTERED);
+            if (nk_edit_string_zero_terminated(ctx, NK_EDIT_FIELD, jellyfin_url, MAX_URL_LENGTH, nk_filter_default)) {
+            }
+
+            nk_label(ctx, "Jellyfin API Key", NK_TEXT_CENTERED);
+            if (nk_edit_string_zero_terminated(ctx, NK_EDIT_FIELD, api_key, MAX_API_KEY_LENGTH, nk_filter_default)) {
+            }
+
+            if (nk_button_label(ctx, "Save")) {
+            	settings_save();
             }
 
             nk_group_end(ctx);
@@ -328,22 +371,11 @@ void ui_render_tooltip() {
             nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
             break;
         case STATE_MENU_FILES:
-            nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
-            nk_label(ctx, "(A) Start | (-) Refresh | (-) Scan", NK_TEXT_LEFT);
-            nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
-            break;
-        case STATE_MENU_NETWORK_FILES: break;
+        case STATE_MENU_NETWORK_FILES:
         case STATE_MENU_VIDEO_FILES:
-            nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
-            nk_label(ctx, "(Left Stick) Select | (A) Open | (-) Scan", NK_TEXT_LEFT);
-            nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
-            break;
         case STATE_MENU_AUDIO_FILES:
-            nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
-            nk_label(ctx, "(Left Stick) Select | (A) Open | (-) Scan", NK_TEXT_LEFT);
-            nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
-            break;
         case STATE_MENU_IMAGE_FILES: 
+        case STATE_MENU_PDF_FILES:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
             nk_label(ctx, "(Left Stick) Select | (A) Open | (-) Scan", NK_TEXT_LEFT);
             nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
@@ -357,6 +389,10 @@ void ui_render_tooltip() {
         case STATE_VIEWING_PHOTO:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 1);
             nk_label(ctx, "(Left Stick) Change Photo | [ZL] Zoom + | [ZR] Zoom - | (Touch) Pan", NK_TEXT_LEFT);
+            break;
+        case STATE_VIEWING_PDF:
+            nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 1);
+            nk_label(ctx, "(Left Stick) Change Page | [ZL] Zoom + | [ZR] Zoom - | (Touch) Pan", NK_TEXT_LEFT);
             break;
         }
 
@@ -509,17 +545,17 @@ void ui_render_photo_viewer() {
     if(input_is_vpad_touched()) ui_render_tooltip();
 }
 
+void ui_render_pdf_viewer() {
+    pdf_viewer_render();
+    if(input_is_vpad_touched()) ui_render_tooltip();
+}
+
 void ui_render_video_player() {
-    /*
-    subtitle_update(media_info_get()->current_video_playback_time);
-    subtitle_render(ctx);
-    */
+    video_player_update();
 
     if (!media_info_get()->playback_status || input_is_vpad_touched()) {
         ui_render_player_hud(media_info_get());
     }
-
-    video_player_update();
 }
 
 void ui_render_audio_player() {

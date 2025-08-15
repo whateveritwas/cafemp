@@ -51,7 +51,7 @@ BOOT_SOUND  := branding/bootSound.btsnd
 #-------------------------------------------------------------------------------
 # options for code generation
 #-------------------------------------------------------------------------------
-CFLAGS := -DDEBUG -DDEBUG_VIDEO -Wall -Werror -O0 -g $(INCLUDE) -D__WIIU__ -D__WUT__
+CFLAGS := -DDEBUG -Wall -Werror -O0 -g $(INCLUDE) -D__WIIU__ -D__WUT__
 CXXFLAGS := $(CFLAGS)
 
 ASFLAGS := -g $(ARCH)
@@ -62,9 +62,8 @@ LIBS := `/opt/devkitpro/portlibs/wiiu/bin/sdl2-config --libs` \
         -lSDL2_image -ljpeg -lpng -lopusfile -lopus -ljansson \
         -lvorbisfile -lvorbis -logg -lmpg123 -lmodplug -lz \
         `/opt/devkitpro/portlibs/ppc/bin/powerpc-eabi-pkg-config --cflags --libs libavformat libavcodec libavutil` \
-        -lswresample -lavformat -lavcodec -lavutil -lswscale -lgif
-
-
+        -lswresample -lavformat -lavcodec -lavutil -lswscale -lgif -lwut
+        
 #-------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level
 # containing include and lib

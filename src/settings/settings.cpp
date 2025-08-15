@@ -30,6 +30,7 @@ void settings_save() {
     }
 
     json_decref(root);
+    log_message(LOG_OK, "Settings", "Settings saved");
 }
 
 void settings_load() {
@@ -71,6 +72,8 @@ void settings_load() {
     }
 
     json_decref(root);
+
+    log_message(LOG_OK, "Settings", "Settings loaded");
 }
 
 void settings_set(settings_keys key, const void* value) {

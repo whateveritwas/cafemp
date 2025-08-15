@@ -109,7 +109,6 @@ void input_settings(VPADStatus* vpad_status, WPADStatusProController* wpad_statu
 
 void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
     if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_A, WPAD_PRO_BUTTON_A)) {
-        audio_player_play(!media_info_get()->playback_status);
         video_player_play(!media_info_get()->playback_status);
     } else if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_B, WPAD_PRO_BUTTON_B)) {
         video_player_cleanup();
@@ -232,13 +231,17 @@ void input_update(int& current_page_file_browser, int& selected_index, nk_contex
     switch(app_state_get()) {
         case STATE_MENU: break;
         case STATE_MENU_FILES: break;
-        case STATE_MENU_NETWORK_FILES: break;
-        case STATE_MENU_VIDEO_FILES: input_menu(&vpad_status, &wpad_status_pro, current_page_file_browser, selected_index); break;
-        case STATE_MENU_AUDIO_FILES: input_menu(&vpad_status, &wpad_status_pro, current_page_file_browser, selected_index); break;
-        case STATE_MENU_IMAGE_FILES: input_menu(&vpad_status, &wpad_status_pro, current_page_file_browser, selected_index); break;
+        case STATE_MENU_NETWORK_FILES:
+        case STATE_MENU_VIDEO_FILES:
+        case STATE_MENU_AUDIO_FILES:
+        case STATE_MENU_IMAGE_FILES:
+        case STATE_MENU_PDF_FILES:
+        	input_menu(&vpad_status, &wpad_status_pro, current_page_file_browser, selected_index);
+        	break;
         case STATE_MENU_SETTINGS: break;
         case STATE_PLAYING_VIDEO: input_video_player(&vpad_status, &wpad_status_pro); break;
         case STATE_PLAYING_AUDIO: input_audio_player(&vpad_status, &wpad_status_pro); break;
         case STATE_VIEWING_PHOTO: input_photo_viewer(&vpad_status, &wpad_status_pro); break;
+        case STATE_VIEWING_PDF: break;
     }
 }
