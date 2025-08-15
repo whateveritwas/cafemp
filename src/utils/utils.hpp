@@ -18,6 +18,10 @@ static const std::unordered_set<std::string> valid_image_endings = {
     "png", "jpg", "gif", "tga", "bmp"
 };
 
+static const std::unordered_set<std::string> valid_pdf_ending = {
+    "pdf", "epub", "cbz"
+};
+
 std::string format_time(int seconds);
 std::string truncate_filename(const std::string& name, size_t max_length);
 bool valid_file_ending(const std::string& file_ending);
@@ -27,5 +31,6 @@ void start_selected_video(int selected_index);
 void start_selected_audio(int selected_index);
 void start_selected_photo(int selected_index);
 SDL_Rect calculate_aspect_fit_rect(int media_w, int media_h);
+void draw_checkerboard_pattern(SDL_Renderer* renderer, int width, int height, int cell_size);
 
 #endif

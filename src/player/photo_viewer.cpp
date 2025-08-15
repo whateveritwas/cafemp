@@ -213,28 +213,8 @@ void photo_viewer_pan(int delta_x, int delta_y) {
     clamp_dst();
 }
 
-void draw_checkerboard_pattern(SDL_Renderer* renderer, int width, int height, int cell_size) {
-    SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
-    SDL_RenderClear(renderer);
-
-    SDL_SetRenderDrawColor(renderer, 10, 10, 10, 255);
-    bool toggle = false;
-    for (int y = 0; y < height; y += cell_size) {
-        toggle = !toggle;
-        for (int x = 0; x < width; x += cell_size) {
-            if (toggle) {
-                SDL_Rect cell = { x, y, cell_size, cell_size };
-                SDL_RenderFillRect(renderer, &cell);
-            }
-            toggle = !toggle;
-        }
-    }
-}
-
 void photo_viewer_render() {
-    int screen_w, screen_h;
-    SDL_GetRendererOutputSize(sdl_get()->sdl_renderer, &screen_w, &screen_h);
-    draw_checkerboard_pattern(sdl_get()->sdl_renderer, screen_w, screen_h, 40);
+    draw_checkerboard_pattern(sdl_get()->sdl_renderer, SCREEN_WIDTH, SCREEN_HEIGHT, 40);
 
     SDL_Texture* tex = nullptr;
     if (!gif_frames.empty()) {

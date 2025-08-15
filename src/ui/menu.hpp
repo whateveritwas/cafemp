@@ -20,6 +20,7 @@ void ui_render_file_browser();
 void ui_render_video_player();
 void ui_render_audio_player();
 void ui_render_photo_viewer();
+void ui_render_pdf_viewer();
 void ui_render_player_hud(media_info* info);
 void ui_render_tooltip();
 void ui_render_console();

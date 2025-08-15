@@ -23,6 +23,7 @@
 #define MEDIA_PATH_AUDIO "/vol/external01/wiiu/apps/cafemp/Audio/"
 #define MEDIA_PATH_VIDEO "/vol/external01/wiiu/apps/cafemp/Video/"
 #define MEDIA_PATH_PHOTO "/vol/external01/wiiu/apps/cafemp/Photo/"
+#define MEDIA_PATH_PDF "/vol/external01/wiiu/apps/cafemp/Library/"
 #define SETTINGS_PATH "/vol/external01/wiiu/apps/cafemp/settings.json"
 
 #define VERSION_STRING_NUMBER "v0.5.2"

@@ -39,6 +39,9 @@ bool valid_file_ending(const std::string& file_ending) {
         case STATE_MENU_IMAGE_FILES:
             result = valid_image_endings.count(file_ending) > 0;
             break;
+        case STATE_MENU_PDF_FILES:
+            result = valid_pdf_ending.count(file_ending) > 0;
+            break;
         default:
             break;
     }
@@ -82,4 +85,22 @@ SDL_Rect calculate_aspect_fit_rect(int media_w, int media_h) {
     rect.y = (SCREEN_HEIGHT - new_h) / 2;
 
     return rect;
+}
+
+void draw_checkerboard_pattern(SDL_Renderer* renderer, int width, int height, int cell_size) {
+    SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
+    SDL_RenderClear(renderer);
+
+    SDL_SetRenderDrawColor(renderer, 10, 10, 10, 255);
+    bool toggle = false;
+    for (int y = 0; y < height; y += cell_size) {
+        toggle = !toggle;
+        for (int x = 0; x < width; x += cell_size) {
+            if (toggle) {
+                SDL_Rect cell = { x, y, cell_size, cell_size };
+                SDL_RenderFillRect(renderer, &cell);
+            }
+            toggle = !toggle;
+        }
+    }
 }

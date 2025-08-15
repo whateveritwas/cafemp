@@ -57,6 +57,8 @@ static AVRational video_time_base;
 SDL_Rect dest_rect = (SDL_Rect){0, 0, 0, 0};
 bool dest_rect_initialised = false;
 
+//static bool first_video_frame = true;
+
 static AVFrame* get_frame_from_pool() {
     AVFrame* f = &frame_pool[pool_index];
     av_frame_unref(f);
@@ -64,9 +66,13 @@ static AVFrame* get_frame_from_pool() {
     return f;
 }
 
-static int64_t get_time_us() {
-    return av_gettime_relative();
+inline int64_t get_time_us() {
+    using namespace std::chrono;
+    return duration_cast<microseconds>(
+        steady_clock::now().time_since_epoch()
+    ).count();
 }
+
 
 static void clear_frame_queue() {
     std::lock_guard<std::mutex> lock(queue_mutex);
@@ -85,6 +91,30 @@ static void free_current_frame_info() {
         }
         delete current_frame_info;
         current_frame_info = nullptr;
+    }
+}
+
+double video_player_get_total_playback_time() {
+    if (!fmt_ctx || video_stream_index < 0) return 0.0;
+
+    AVStream* stream = fmt_ctx->streams[video_stream_index];
+
+    if (stream->duration != AV_NOPTS_VALUE) {
+        return stream->duration * av_q2d(stream->time_base);
+    } else if (fmt_ctx->duration != AV_NOPTS_VALUE) {
+        return fmt_ctx->duration / (double)AV_TIME_BASE;
+    }
+
+    return -1.0; // unknown duration
+}
+
+double video_player_get_current_playback_time() {
+    if (!fmt_ctx || video_stream_index < 0) return -1.0;
+
+    if (playback_running.load()) {
+        return (get_time_us() - start_time_us) / 1'000'000.0;
+    } else {
+        return (pause_start_us - start_time_us) / 1'000'000.0;
     }
 }
 
@@ -164,15 +194,6 @@ static void decode_loop() {
 
                     av_frame_unref(frame);
                     frame = converted;
-                }
-
-                int64_t pts_us = av_rescale_q(frame->pts, video_time_base, AVRational{1, 1000000});
-                int64_t now_us = get_time_us() - start_time_us;
-
-                int64_t delay_us = pts_us - now_us;
-
-                if (delay_us > 0 && delay_us < 500000) {
-                    av_usleep(delay_us);
                 }
 
                 {
@@ -276,6 +297,9 @@ int video_player_init(const char* filepath) {
     start_time_us = get_time_us();
     pause_start_us = 0;
 
+    media_info_get()->playback_status = true;
+    media_info_get()->total_video_playback_time = video_player_get_total_playback_time();
+
     audio_player_init(filepath);
 
     decode_thread = std::thread(decode_loop);
@@ -284,13 +308,8 @@ int video_player_init(const char* filepath) {
 }
 
 void video_player_play(bool play) {
-	media_info_get()->playback_status = play;
-	audio_player_play(play);
-
     {
         std::lock_guard<std::mutex> lock(playback_mutex);
-        if (play == playback_running.load()) return;
-
         if (play) {
             if (pause_start_us != 0) {
                 int64_t paused_duration = get_time_us() - pause_start_us;
@@ -303,6 +322,12 @@ void video_player_play(bool play) {
         playback_running = play;
     }
     playback_cv.notify_one();
+
+	#ifdef DEBUG
+	log_message(LOG_DEBUG, "Video Player", "Updating play state to: %s", play ? "playing" : "paused");
+	#endif
+	media_info_get()->playback_status = play;
+	audio_player_play(play);
 }
 
 void video_player_seek(double seconds) {
@@ -326,13 +351,57 @@ void video_player_seek(double seconds) {
     video_player_play(true);
 }
 
+//static bool frame_due_now(const AVFrame* f) {
+//    if (f->pts == AV_NOPTS_VALUE) {
+//        log_message(LOG_DEBUG, "Video Player",
+//                    "[frame_due_now] No PTS → render immediately");
+//        return true;
+//    }
+//
+//    // Convert PTS to microseconds
+//    int64_t pts_us = av_rescale_q(f->pts, video_time_base, AVRational{1, 1000000});
+//
+//    // On first frame, align start_time_us so elapsed_us matches this frame’s PTS
+//    if (first_video_frame) {
+//        start_time_us = get_time_us() - pts_us;
+//        log_message(LOG_DEBUG, "Video Player",
+//                    "[frame_due_now] First frame detected → start_time_us aligned to PTS (%" PRId64 " us)",
+//                    pts_us);
+//        first_video_frame = false;
+//    }
+//
+//    int64_t now_us = get_time_us();
+//    int64_t elapsed_us = now_us - start_time_us;
+//    int64_t delta_us = pts_us - elapsed_us;
+//
+//    log_message(LOG_DEBUG, "Video Player",
+//                "[frame_due_now] raw_pts=%" PRId64
+//                "  pts_us=%" PRId64 " (%.3f s)"
+//                "  elapsed_us=%" PRId64 " (%.3f s)"
+//                "  delta_us=%" PRId64 " (%.3f s)"
+//                "  decision=%s",
+//                f->pts,
+//                pts_us, pts_us / 1e6,
+//                elapsed_us, elapsed_us / 1e6,
+//                delta_us, delta_us / 1e6,
+//                (delta_us <= 0 ? "RENDER" : "WAIT"));
+//
+//    return delta_us <= 0;
+//}
+
 void video_player_update() {
+	media_info_get()->current_video_playback_time = video_player_get_current_playback_time();
+
+	if (!playback_running.load()) return;
+
+
     AVFrame* frame = nullptr;
 
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
         if (frame_queue.empty()) return;
         frame = frame_queue.front();
+//        if (!frame_due_now(frame)) return;
         frame_queue.pop();
     }
 
