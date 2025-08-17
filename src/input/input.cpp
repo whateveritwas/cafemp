@@ -12,6 +12,7 @@
 #include "player/audio_player.hpp"
 #include "player/video_player.hpp"
 #include "player/photo_viewer.hpp"
+#include "player/pdf_viewer.hpp"
 #include "input/input.hpp"
 
 bool use_wpad_pro = false;
@@ -194,6 +195,31 @@ void input_photo_viewer(VPADStatus* vpad_status, WPADStatusProController* wpad_s
     }
 }
 
+void input_pdf_viewer(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
+    if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_B, WPAD_PRO_BUTTON_B)) {
+        pdf_viewer_cleanup();
+        app_state_set(STATE_MENU_PDF_FILES);
+    } else if (input_is_vpad_touched()) {
+        pdf_viewer_pan(touch_x - old_touch_x, touch_y - old_touch_y);
+    } else if (is_hold(vpad_status, VPAD_BUTTON_ZL)) {
+        pdf_texture_zoom(0.05f);
+    } else if (is_hold(vpad_status, VPAD_BUTTON_ZR)) {
+        pdf_texture_zoom(-0.05f);
+    } else if (is_hold(vpad_status, VPAD_STICK_R_EMULATION_UP)) {
+        pdf_viewer_pan(0, -10.0f);
+    } else if (is_hold(vpad_status, VPAD_STICK_R_EMULATION_DOWN)) {
+        pdf_viewer_pan(0, 10.0f);
+    } else if (is_hold(vpad_status, VPAD_STICK_R_EMULATION_LEFT)) {
+        pdf_viewer_pan(-10.0f, 0);
+    } else if (is_hold(vpad_status, VPAD_STICK_R_EMULATION_RIGHT)) {
+        pdf_viewer_pan(10.0f, 0);
+    } else if (is_pressed(vpad_status, wpad_status, VPAD_STICK_L_EMULATION_UP, 0)) {
+    	pdf_viewer_prev_page();
+    } else if (is_pressed(vpad_status, wpad_status, VPAD_STICK_L_EMULATION_DOWN, 0)) {
+    	pdf_viewer_next_page();
+    }
+}
+
 void input_update(int& current_page_file_browser, int& selected_index, nk_context *ctx) {
     WPADStatus wpad_status = { 0 };
     WPADStatusProController wpad_status_pro = { 0 };
@@ -242,6 +268,6 @@ void input_update(int& current_page_file_browser, int& selected_index, nk_contex
         case STATE_PLAYING_VIDEO: input_video_player(&vpad_status, &wpad_status_pro); break;
         case STATE_PLAYING_AUDIO: input_audio_player(&vpad_status, &wpad_status_pro); break;
         case STATE_VIEWING_PHOTO: input_photo_viewer(&vpad_status, &wpad_status_pro); break;
-        case STATE_VIEWING_PDF: break;
+        case STATE_VIEWING_PDF: input_pdf_viewer(&vpad_status, &wpad_status_pro); break;
     }
 }

@@ -131,3 +131,5 @@ ffmpeg -i <input> \
 * 🧰 **FFmpeg Wii U Configure Script by GaryOderNichts**: [Github](https://github.com/GaryOderNichts/FFmpeg-wiiu/blob/master/configure-wiiu)
 * 🖼️ **Nuklear GUI Library**: [GitHub](https://github.com/Immediate-Mode-UI/Nuklear)
 * 🔧 **Wii U Toolchain (WUT)**: [GitHub](https://github.com/devkitPro/wut)
+* 📄 **mupdf port by hito16**: [GitHub](https://github.com/hito16/mupdf-devkitppc)
+* 🔧 **Helper files from hito16** [Github](https://github.com/hito16/SDLReader/blob/main/ports/wiiu/wiiu_mupdf_hb_wrappers.c) [Github](https://github.com/hito16/SDLReader/blob/main/ports/wiiu/wiiu_time_utils.c)
