@@ -51,14 +51,17 @@ BOOT_SOUND  := branding/bootSound.btsnd
 #-------------------------------------------------------------------------------
 # options for code generation
 #-------------------------------------------------------------------------------
-CFLAGS := -DDEBUG -Wall -Werror -O0 -g $(INCLUDE) -D__WIIU__ -D__WUT__
+CFLAGS := -DDEBUG -Wall -Werror -O0 -g \
+			-I/opt/devkitpro/portlibs/wiiu/include/freetype2 \
+			$(INCLUDE) -D__WIIU__ -D__WUT__
+			
 CXXFLAGS := $(CFLAGS)
 
 ASFLAGS := -g $(ARCH)
 LDFLAGS = -g $(ARCH) $(RPXSPECS) -Wl,-Map,$(notdir $*.map)
 
 LIBS := `/opt/devkitpro/portlibs/wiiu/bin/sdl2-config --libs` \
-        -lSDL2_ttf -lSDL2 -lfreetype -lbz2 -lharfbuzz -lSDL2_mixer \
+        -lSDL2_ttf -lSDL2 -lmupdf -lmupdf-third -lharfbuzz -lfreetype -lbz2 -lSDL2_mixer \
         -lSDL2_image -ljpeg -lpng -lopusfile -lopus -ljansson \
         -lvorbisfile -lvorbis -logg -lmpg123 -lmodplug -lz \
         `/opt/devkitpro/portlibs/ppc/bin/powerpc-eabi-pkg-config --cflags --libs libavformat libavcodec libavutil` \
