@@ -2,6 +2,7 @@
 #include <vpad/input.h>
 #include <padscore/wpad.h>
 
+#include "logger/logger.hpp"
 #include "utils/app_state.hpp"
 #include "utils/media_info.hpp"
 #include "main.hpp"
@@ -100,12 +101,20 @@ bool input_is_vpad_touched() {
 }
 
 void input_settings(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
-    if (vpad_status->trigger == VPAD_BUTTON_PLUS
-        || vpad_status->trigger == VPAD_BUTTON_B
-        || wpad_status->buttons == WPAD_PRO_BUTTON_B) {
-        settings_save();
-        app_state_set(STATE_MENU_FILES);
-    }
+//	if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_A, WPAD_PRO_BUTTON_A)) {
+//		if (!keyboard_is_open()) {
+//		    keyboard_open("Enter your name", "Player");
+//		}
+//
+//    	std::string text = keyboard_get_result();
+//    	if (!text.empty()) {
+//    	    log_message(LOG_OK, "Keyboard", "User entered: %s", text.c_str());
+//    	}
+//    } else 	if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_B, WPAD_PRO_BUTTON_B)) {
+//		if (keyboard_is_open()) {
+//		    keyboard_close();
+//		}
+//    }
 }
 
 void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
@@ -264,7 +273,7 @@ void input_update(int& current_page_file_browser, int& selected_index, nk_contex
         case STATE_MENU_PDF_FILES:
         	input_menu(&vpad_status, &wpad_status_pro, current_page_file_browser, selected_index);
         	break;
-        case STATE_MENU_SETTINGS: break;
+        case STATE_MENU_SETTINGS: input_settings(&vpad_status, &wpad_status_pro); break;
         case STATE_PLAYING_VIDEO: input_video_player(&vpad_status, &wpad_status_pro); break;
         case STATE_PLAYING_AUDIO: input_audio_player(&vpad_status, &wpad_status_pro); break;
         case STATE_VIEWING_PHOTO: input_photo_viewer(&vpad_status, &wpad_status_pro); break;

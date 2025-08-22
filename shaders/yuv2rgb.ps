@@ -1,0 +1,28 @@
+#version 150
+in vec2 v_texcoord;
+out vec4 fragColor;
+
+uniform sampler2D texY;
+uniform sampler2D texU;
+uniform sampler2D texV;
+
+uniform vec2 texSizeY; // (visible_w / stride_w, visible_h / stored_h)
+uniform vec2 texSizeU; // ((visible_w/2) / stride_w, (visible_h/2) / stored_h)
+uniform vec2 texSizeV;
+
+void main() {
+    vec2 uvY = v_texcoord * texSizeY;
+    vec2 uvU = v_texcoord * texSizeU;
+    vec2 uvV = v_texcoord * texSizeV;
+
+    float y = texture(texY, uvY).r;
+    float u = texture(texU, uvU).r - 0.5;
+    float v = texture(texV, uvV).r - 0.5;
+
+    // BT.601
+    float r = y + 1.402 * v;
+    float g = y - 0.344136 * u - 0.714136 * v;
+    float b = y + 1.772 * u;
+
+    fragColor = vec4(r, g, b, 1.0);
+}

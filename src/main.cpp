@@ -1,4 +1,5 @@
 #include <whb/proc.h>
+#include <whb/gfx.h>
 #include <nn/ac.h>
 #include <sys/socket.h>
 
@@ -38,10 +39,13 @@ int main(int argc, char **argv) {
 
     ui_init();
 
+//    WHBGfxInit();
+
     while (WHBProcIsRunning()) {
         ui_render();
         sdl_render();
     }
+
 
     ui_shutdown();
 
@@ -53,6 +57,7 @@ int main(int argc, char **argv) {
     log_message(LOG_OK, "Main", "Application End");
 
     WHBProcShutdown();
+    // WHBGfxShutdown();
     nn::ac::Finalize();
     return 0;
 }
