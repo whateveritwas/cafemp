@@ -21,6 +21,7 @@ extern "C" {
 #include "logger/logger.hpp"
 #include "player/audio_player.hpp"
 #include "player/video_player.hpp"
+#include "shader/yuv2rgb.hpp"
 
 #include <SDL2/SDL.h>
 
@@ -57,7 +58,7 @@ static AVRational video_time_base;
 SDL_Rect dest_rect = (SDL_Rect){0, 0, 0, 0};
 bool dest_rect_initialised = false;
 
-//static bool first_video_frame = true;
+yuv_texture* yt;
 
 static AVFrame* get_frame_from_pool() {
     AVFrame* f = &frame_pool[pool_index];
@@ -300,6 +301,8 @@ int video_player_init(const char* filepath) {
     media_info_get()->playback_status = true;
     media_info_get()->total_video_playback_time = video_player_get_total_playback_time();
 
+    yuv2rgb_init();
+
     audio_player_init(filepath);
 
     decode_thread = std::thread(decode_loop);
@@ -352,41 +355,15 @@ void video_player_seek(double seconds) {
 }
 
 //static bool frame_due_now(const AVFrame* f) {
-//    if (f->pts == AV_NOPTS_VALUE) {
-//        log_message(LOG_DEBUG, "Video Player",
-//                    "[frame_due_now] No PTS → render immediately");
-//        return true;
-//    }
+//    if (f->pts == AV_NOPTS_VALUE) return true;
 //
-//    // Convert PTS to microseconds
 //    int64_t pts_us = av_rescale_q(f->pts, video_time_base, AVRational{1, 1000000});
-//
-//    // On first frame, align start_time_us so elapsed_us matches this frame’s PTS
-//    if (first_video_frame) {
-//        start_time_us = get_time_us() - pts_us;
-//        log_message(LOG_DEBUG, "Video Player",
-//                    "[frame_due_now] First frame detected → start_time_us aligned to PTS (%" PRId64 " us)",
-//                    pts_us);
-//        first_video_frame = false;
-//    }
-//
 //    int64_t now_us = get_time_us();
 //    int64_t elapsed_us = now_us - start_time_us;
-//    int64_t delta_us = pts_us - elapsed_us;
 //
-//    log_message(LOG_DEBUG, "Video Player",
-//                "[frame_due_now] raw_pts=%" PRId64
-//                "  pts_us=%" PRId64 " (%.3f s)"
-//                "  elapsed_us=%" PRId64 " (%.3f s)"
-//                "  delta_us=%" PRId64 " (%.3f s)"
-//                "  decision=%s",
-//                f->pts,
-//                pts_us, pts_us / 1e6,
-//                elapsed_us, elapsed_us / 1e6,
-//                delta_us, delta_us / 1e6,
-//                (delta_us <= 0 ? "RENDER" : "WAIT"));
+//    log_message(LOG_DEBUG, "Video Player", "pts_us %i now_us %i elapsed_us %i", pts_us, now_us, elapsed_us);
 //
-//    return delta_us <= 0;
+//    return elapsed_us >= pts_us;
 //}
 
 void video_player_update() {
@@ -407,23 +384,28 @@ void video_player_update() {
 
     if (!frame) return;
 
-    SDL_UpdateYUVTexture(current_frame_info->texture, nullptr,
-                         frame->data[0], frame->linesize[0],
-                         frame->data[1], frame->linesize[1],
-                         frame->data[2], frame->linesize[2]);
+    yt = make_yuv_texture(frame);
+    yuv2rgb_render(yt);
 
-    if (!dest_rect_initialised) {
-        dest_rect = calculate_aspect_fit_rect(current_frame_info->width, current_frame_info->height);
-        dest_rect_initialised = true;
-    }
-
-    SDL_RenderCopy(sdl_get()->sdl_renderer, current_frame_info->texture, nullptr, &dest_rect);
+//    SDL_UpdateYUVTexture(current_frame_info->texture, nullptr,
+//                         frame->data[0], frame->linesize[0],
+//                         frame->data[1], frame->linesize[1],
+//                         frame->data[2], frame->linesize[2]);
+//
+//    if (!dest_rect_initialised) {
+//        dest_rect = calculate_aspect_fit_rect(current_frame_info->width, current_frame_info->height);
+//        dest_rect_initialised = true;
+//    }
+//
+//    SDL_RenderCopy(sdl_get()->sdl_renderer, current_frame_info->texture, nullptr, &dest_rect);
 
     av_frame_unref(frame);
 }
 
 void video_player_cleanup() {
 	audio_player_cleanup();
+
+	yuv2rgb_shutdown();
 
     thread_running = false;
     playback_running = false;

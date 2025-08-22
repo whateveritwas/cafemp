@@ -222,11 +222,11 @@ void ui_render() {
 
     nk_input_end(ctx);
 
-    SDL_SetRenderDrawColor(sdl_get()->sdl_renderer, 0, 0, 0, 255);
-    SDL_RenderClear(sdl_get()->sdl_renderer);
+//    SDL_SetRenderDrawColor(sdl_get()->sdl_renderer, 0, 0, 0, 255);
+//    SDL_RenderClear(sdl_get()->sdl_renderer);
 
     switch(app_state_get()) {
-        case STATE_MENU: 
+        case STATE_MENU:
             ui_handle_ambiance();
             ui_render_main_menu();
             break;
@@ -240,7 +240,7 @@ void ui_render() {
             ui_handle_ambiance();
             ui_render_file_browser();
             break;
-        case STATE_MENU_IMAGE_FILES: 
+        case STATE_MENU_IMAGE_FILES:
             ui_handle_ambiance();
             ui_render_file_browser();
             break;
@@ -248,11 +248,11 @@ void ui_render() {
             ui_handle_ambiance();
             ui_render_file_browser();
             break;
-        case STATE_MENU_SETTINGS: 
+        case STATE_MENU_SETTINGS:
             ui_handle_ambiance();
             ui_render_settings();
             break;
-        case STATE_PLAYING_VIDEO: 
+        case STATE_PLAYING_VIDEO:
             ui_render_video_player();
             break;
         case STATE_PLAYING_AUDIO:
@@ -478,10 +478,8 @@ void ui_render_player_hud(media_info* info) {
     struct nk_rect hud_rect = nk_rect(0, SCREEN_HEIGHT - hud_height, SCREEN_WIDTH, hud_height);
 
     if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
-        // Progress bar layout
         nk_layout_row_dynamic(ctx, (hud_height / 2) - 5, 1);
 
-        // Calculate progress and total in seconds
         double progress_seconds = 0.0;
         double total_seconds = 0.0;
 
@@ -496,7 +494,7 @@ void ui_render_player_hud(media_info* info) {
                 break;
             default:
                 progress_seconds = 0.0;
-                total_seconds = 1.0; // Avoid division by zero in nk_progress
+                total_seconds = 1.0;
                 break;
         }
 
@@ -505,7 +503,6 @@ void ui_render_player_hud(media_info* info) {
 
         nk_progress(ctx, &progress, total, NK_FIXED);
 
-        // HUD text and buttons layout
         nk_layout_row_begin(ctx, NK_DYNAMIC, hud_height / 2, 2);
         nk_layout_row_push(ctx, 0.8f); // 80% left for playback info text
         {
