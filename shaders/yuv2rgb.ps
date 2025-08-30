@@ -6,9 +6,11 @@ uniform sampler2D texY;
 uniform sampler2D texU;
 uniform sampler2D texV;
 
-uniform vec2 texSizeY; // (visible_w / stride_w, visible_h / stored_h)
-uniform vec2 texSizeU; // ((visible_w/2) / stride_w, (visible_h/2) / stored_h)
+uniform vec2 texSizeY;
+uniform vec2 texSizeU;
 uniform vec2 texSizeV;
+
+uniform mat3 yuv2rgb;
 
 void main() {
     vec2 uvY = v_texcoord * texSizeY;
@@ -19,10 +21,6 @@ void main() {
     float u = texture(texU, uvU).r - 0.5;
     float v = texture(texV, uvV).r - 0.5;
 
-    // BT.601
-    float r = y + 1.402 * v;
-    float g = y - 0.344136 * u - 0.714136 * v;
-    float b = y + 1.772 * u;
-
-    fragColor = vec4(r, g, b, 1.0);
+    vec3 rgb = yuv2rgb * vec3(y, u, v);
+    fragColor = vec4(rgb, 1.0);
 }

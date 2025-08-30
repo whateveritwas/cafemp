@@ -14,6 +14,7 @@
 #include "player/video_player.hpp"
 #include "player/photo_viewer.hpp"
 #include "player/pdf_viewer.hpp"
+#include "shader/easter_egg.hpp"
 #include "input/input.hpp"
 
 bool use_wpad_pro = false;
@@ -115,6 +116,13 @@ void input_settings(VPADStatus* vpad_status, WPADStatusProController* wpad_statu
 //		    keyboard_close();
 //		}
 //    }
+}
+
+void input_easter_egg(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
+	if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_B, WPAD_PRO_BUTTON_B)) {
+		easter_egg_shutdown();
+		app_state_set(STATE_MENU);
+	}
 }
 
 void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
@@ -274,6 +282,7 @@ void input_update(int& current_page_file_browser, int& selected_index, nk_contex
         	input_menu(&vpad_status, &wpad_status_pro, current_page_file_browser, selected_index);
         	break;
         case STATE_MENU_SETTINGS: input_settings(&vpad_status, &wpad_status_pro); break;
+        case STATE_MENU_EASTER_EGG: input_easter_egg(&vpad_status, &wpad_status_pro); break;
         case STATE_PLAYING_VIDEO: input_video_player(&vpad_status, &wpad_status_pro); break;
         case STATE_PLAYING_AUDIO: input_audio_player(&vpad_status, &wpad_status_pro); break;
         case STATE_VIEWING_PHOTO: input_photo_viewer(&vpad_status, &wpad_status_pro); break;

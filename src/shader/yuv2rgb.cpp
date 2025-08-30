@@ -18,6 +18,18 @@ static bool quad_set = false;
 static yuv_texture tex;
 static bool textures_created = false;
 
+float yuv2rgb601[3][3] = {
+    {1.0f,  0.0f,  1.402f},
+    {1.0f, -0.344136f, -0.714136f},
+    {1.0f,  1.772f, 0.0f}
+};
+
+float yuv2rgb709[3][3] = {
+    {1.0f,  0.0f,  1.5748f},
+    {1.0f, -0.187324f, -0.468124f},
+    {1.0f,  1.8556f, 0.0f}
+};
+
 static void update_quad_aspect(float videoWidth, float videoHeight, float screenWidth, float screenHeight) {
     float screenAspect = screenWidth / screenHeight;
     float videoAspect  = videoWidth / videoHeight;
@@ -99,6 +111,12 @@ yuv_texture* make_yuv_texture(AVFrame* frame) {
         ySize[0]  = 1.0f; ySize[1]  = 1.0f;
         uvSize[0] = 1.0f; uvSize[1] = 1.0f;
 
+        if(frame->colorspace == AVCOL_SPC_BT709) {
+            GX2SetPixelUniformReg(0, 6, &yuv2rgb709[0][0]);
+        } else {
+            GX2SetPixelUniformReg(0, 6, &yuv2rgb601[0][0]);
+        }
+
         textures_created = true;
     }
 
@@ -108,7 +126,6 @@ yuv_texture* make_yuv_texture(AVFrame* frame) {
 
     return &tex;
 }
-
 
 void yuv2rgb_render(yuv_texture* tex) {
 	if (!quad_set) {
@@ -122,35 +139,6 @@ void yuv2rgb_render(yuv_texture* tex) {
 
 		quad_set = true;
 	}
-
-    WHBGfxBeginRender();
-    WHBGfxBeginRenderTV();
-
-    GX2SetPixelTexture(&tex->yPlane, 0);
-    GX2SetPixelTexture(&tex->uPlane, 1);
-    GX2SetPixelTexture(&tex->vPlane, 2);
-
-    GX2SetPixelUniformReg(0, 2, ySize);
-    GX2SetPixelUniformReg(1, 2, uvSize);
-    GX2SetPixelUniformReg(2, 2, uvSize);
-
-    GX2SetPixelSampler(&sampler, 0);
-    GX2SetPixelSampler(&sampler, 1);
-    GX2SetPixelSampler(&sampler, 2);
-
-    GX2SetFetchShader(&shaderGroup.fetchShader);
-    GX2SetVertexShader(shaderGroup.vertexShader);
-    GX2SetPixelShader(shaderGroup.pixelShader);
-
-    GX2Invalidate(GX2_INVALIDATE_MODE_CPU_ATTRIBUTE_BUFFER, quad, sizeof(quad));
-    GX2SetAttribBuffer(0, sizeof(quad), sizeof(Vertex), quad); // position
-    GX2SetAttribBuffer(1, sizeof(quad), sizeof(Vertex), quad); // texcoord
-
-    GX2DrawEx(GX2_PRIMITIVE_MODE_TRIANGLE_STRIP, 4, 0, 1);
-
-    WHBGfxFinishRenderTV();
-
-    WHBGfxBeginRenderDRC();
 
     GX2SetPixelTexture(&tex->yPlane, 0);
     GX2SetPixelTexture(&tex->uPlane, 1);
@@ -169,9 +157,6 @@ void yuv2rgb_render(yuv_texture* tex) {
     GX2SetAttribBuffer(1, sizeof(quad), sizeof(Vertex), quad);
 
     GX2DrawEx(GX2_PRIMITIVE_MODE_TRIANGLE_STRIP, 4, 0, 1);
-
-    WHBGfxFinishRenderDRC();
-    WHBGfxFinishRender();
 }
 
 void yuv2rgb_shutdown() {

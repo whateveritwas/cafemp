@@ -8,6 +8,8 @@ todo.md
 *.wuhb
 *.zip
 
+shaders/easter_egg.*
+
 .project
 .cproject
 .map
