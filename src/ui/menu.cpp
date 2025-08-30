@@ -30,6 +30,7 @@
 #include "player/audio_player.hpp"
 #include "player/photo_viewer.hpp"
 #include "player/pdf_viewer.hpp"
+#include "shader/easter_egg.hpp"
 #include "input/input.hpp"
 #include "player/subtitle.hpp"
 #include "logger/logger.hpp"
@@ -222,8 +223,10 @@ void ui_render() {
 
     nk_input_end(ctx);
 
-//    SDL_SetRenderDrawColor(sdl_get()->sdl_renderer, 0, 0, 0, 255);
-//    SDL_RenderClear(sdl_get()->sdl_renderer);
+    if (!easter_egg_enabled()) {
+		SDL_SetRenderDrawColor(sdl_get()->sdl_renderer, 0, 0, 0, 255);
+		SDL_RenderClear(sdl_get()->sdl_renderer);
+    }
 
     switch(app_state_get()) {
         case STATE_MENU:
@@ -252,6 +255,10 @@ void ui_render() {
             ui_handle_ambiance();
             ui_render_settings();
             break;
+        case STATE_MENU_EASTER_EGG:
+            ui_handle_ambiance();
+            easter_egg_render();
+            break;
         case STATE_PLAYING_VIDEO:
             ui_render_video_player();
             break;
@@ -266,7 +273,7 @@ void ui_render() {
             break;
     }
 
-    nk_sdl_render(NK_ANTI_ALIASING_ON);
+	nk_sdl_render(NK_ANTI_ALIASING_ON);
 }
 
 void ui_render_sidebar() {
@@ -311,8 +318,10 @@ void ui_render_sidebar() {
         }
 
         #ifdef DEBUG
-        if (nk_button_label(ctx, "Debug")) {
-            app_state_set(STATE_MENU_SETTINGS);
+        if (nk_button_label(ctx, "Easter Egg")) {
+            app_state_set(STATE_MENU_EASTER_EGG);
+            easter_egg_init();
+
         }
         #endif
         if (nk_button_label(ctx, "Settings")) {
@@ -384,6 +393,7 @@ void ui_render_tooltip() {
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 1);
             nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
             break;
+        case STATE_MENU_EASTER_EGG: break;
         case STATE_PLAYING_VIDEO: break;
         case STATE_PLAYING_AUDIO: break;
         case STATE_VIEWING_PHOTO:
