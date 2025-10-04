@@ -54,20 +54,21 @@ BOOT_SOUND  := branding/bootSound.btsnd
 CFLAGS := -O3 -Ofast -ffast-math -funroll-loops -fexceptions -Wall -Werror \
           -fdata-sections -ffunction-sections -flto \
           -fomit-frame-pointer -fno-common -falign-loops -falign-jumps \
-          -mcpu=750 -meabi -mhard-float $(INCLUDE) -D__WIIU__ -D__WUT__
+          -mcpu=750 -meabi -mhard-float $(INCLUDE) \
+          -I/opt/devkitpro/portlibs/wiiu/include/freetype2 \
+          -maltivec -mabi=altivec -D__WIIU__ -D__WUT__
 CXXFLAGS := $(CFLAGS)
 
 ASFLAGS := -g $(ARCH)
 LDFLAGS = -g $(ARCH) $(RPXSPECS) -Wl,-Map,$(notdir $*.map)
 
 LIBS := `/opt/devkitpro/portlibs/wiiu/bin/sdl2-config --libs` \
-        -lSDL2_ttf -lSDL2 -lfreetype -lbz2 -lharfbuzz -lSDL2_mixer \
+        -lSDL2_ttf -lSDL2 -lmupdf -lmupdf-third -lharfbuzz -lfreetype -lbz2 -lSDL2_mixer \
         -lSDL2_image -ljpeg -lpng -lopusfile -lopus -ljansson \
         -lvorbisfile -lvorbis -logg -lmpg123 -lmodplug -lz \
         `/opt/devkitpro/portlibs/ppc/bin/powerpc-eabi-pkg-config --cflags --libs libavformat libavcodec libavutil` \
-        -lswresample -lavformat -lavcodec -lavutil -lswscale -lgif
-
-
+        -lswresample -lavformat -lavcodec -lavutil -lswscale -lgif -lwut
+        
 #-------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level
 # containing include and lib

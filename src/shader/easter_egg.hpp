@@ -1,3 +1,4 @@
+#ifdef DEBUG
 #ifndef EASTEREGG_H
 #define EASTEREGG_H
 
@@ -91,4 +92,5 @@ void easter_egg_render();
 bool easter_egg_enabled();
 void easter_egg_shutdown();
 
+#endif
 #endif

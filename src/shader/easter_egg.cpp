@@ -1,8 +1,10 @@
+#ifdef DEBUG
 #include <gx2/draw.h>
 #include <gx2/mem.h>
 #include <gx2/display.h>
 #include <whb/gfx.h>
 #include "logger/logger.hpp"
+#include "utils/sdl.hpp"
 #include "shader/easter_egg.hpp"
 
 struct Vertex { float pos[2]; };
@@ -12,7 +14,6 @@ static Vertex quad[4] = {
 };
 
 static WHBGfxShaderGroup shaderGroup;
-bool enabled = false;
 
 void easter_egg_init() {
     if (!WHBGfxLoadGFDShaderGroup(&shaderGroup, 0, easter_egg_shader)) {
@@ -22,7 +23,7 @@ void easter_egg_init() {
     WHBGfxInitShaderAttribute(&shaderGroup, "aPosition", 0, 0, GX2_ATTRIB_FORMAT_FLOAT_32_32);
     WHBGfxInitFetchShader(&shaderGroup);
 
-    enabled = true;
+    sdl_get()->use_native_renderer = true;
 }
 
 static void render_quad() {
@@ -41,12 +42,9 @@ void easter_egg_render() {
 	render_quad();
 }
 
-bool easter_egg_enabled() {
-	return enabled;
-}
-
 void easter_egg_shutdown() {
     WHBGfxFreeShaderGroup(&shaderGroup);
 
-    enabled = false;
+    sdl_get()->use_native_renderer = false;
 }
+#endif
