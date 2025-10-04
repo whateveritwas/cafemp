@@ -14,7 +14,9 @@
 #include "player/video_player.hpp"
 #include "player/photo_viewer.hpp"
 #include "player/pdf_viewer.hpp"
+#ifdef DEBUG
 #include "shader/easter_egg.hpp"
+#endif
 #include "input/input.hpp"
 
 bool use_wpad_pro = false;
@@ -120,7 +122,9 @@ void input_settings(VPADStatus* vpad_status, WPADStatusProController* wpad_statu
 
 void input_easter_egg(VPADStatus* vpad_status, WPADStatusProController* wpad_status) {
 	if (is_pressed(vpad_status, wpad_status, VPAD_BUTTON_B, WPAD_PRO_BUTTON_B)) {
+#ifdef DEBUG
 		easter_egg_shutdown();
+#endif
 		app_state_set(STATE_MENU);
 	}
 }

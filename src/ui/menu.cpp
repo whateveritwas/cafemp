@@ -30,7 +30,9 @@
 #include "player/audio_player.hpp"
 #include "player/photo_viewer.hpp"
 #include "player/pdf_viewer.hpp"
+#ifdef DEBUG
 #include "shader/easter_egg.hpp"
+#endif
 #include "input/input.hpp"
 #include "player/subtitle.hpp"
 #include "logger/logger.hpp"
@@ -67,10 +69,10 @@ void ui_init() {
     }
 
     if(!background_music_enabled) {
-        audio_player_init("/vol/content/empty.mp3");
-        audio_player_play(true);
-        audio_player_cleanup();
-        audio_player_play(false);
+//        audio_player_init("/vol/content/empty.mp3");
+//        audio_player_play(true);
+//        audio_player_cleanup();
+//        audio_player_play(false);
     }
 
     ctx = nk_sdl_init(sdl_get()->sdl_window, sdl_get()->sdl_renderer);
@@ -223,7 +225,7 @@ void ui_render() {
 
     nk_input_end(ctx);
 
-    if (!easter_egg_enabled()) {
+    if (!sdl_get()->use_native_renderer) {
 		SDL_SetRenderDrawColor(sdl_get()->sdl_renderer, 0, 0, 0, 255);
 		SDL_RenderClear(sdl_get()->sdl_renderer);
     }
@@ -256,8 +258,10 @@ void ui_render() {
             ui_render_settings();
             break;
         case STATE_MENU_EASTER_EGG:
+#ifdef DEBUG
             ui_handle_ambiance();
             easter_egg_render();
+#endif
             break;
         case STATE_PLAYING_VIDEO:
             ui_render_video_player();
