@@ -38,6 +38,9 @@ static std::mutex audioTracksMutex;
 
 static std::atomic<int> audio_decode_users{0};
 
+static std::condition_variable audio_cv;
+static std::mutex audio_cv_mutex;
+
 struct AudioSharedSnapshot {
     AVFormatContext* fmt_ctx;
     AVCodecContext* codec_ctx;
@@ -50,103 +53,64 @@ struct AudioSharedSnapshot {
 };
 
 static void audio_decode_loop() {
-    AVPacket* local_packet = av_packet_alloc();
-    AVFrame* local_frame = audio_frame ? audio_frame : av_frame_alloc();
-    std::vector<uint8_t> out_buf;
+    constexpr size_t OUT_BUF_SIZE = 256 * 1024; // 256 KB
+    std::vector<uint8_t> out_buf(OUT_BUF_SIZE);
+
+    AVPacket* pkt = av_packet_alloc();
+    AVFrame* frame = av_frame_alloc();
 
     while (audio_thread_running.load(std::memory_order_acquire)) {
-        if (switching_audio_stream.load(std::memory_order_acquire)) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        if (!audio_enabled || switching_audio_stream.load(std::memory_order_acquire)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
             continue;
         }
 
-        AudioSharedSnapshot snap;
-        bool have_user = false;
-
-        {
-            std::lock_guard<std::mutex> lock(audio_mutex);
-            if (switching_audio_stream.load(std::memory_order_acquire)) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(2));
-                continue;
-            }
-
-            snap.fmt_ctx = fmt_ctx;
-            snap.codec_ctx = audio_codec_ctx;
-            snap.swr_ctx = swr_ctx;
-            snap.stream_index = audio_stream_index;
-            snap.device = audio_device;
-            snap.spec = audio_spec;
-            snap.enabled = audio_enabled;
-            snap.playing = audio_playing.load(std::memory_order_relaxed);
-
-            audio_decode_users.fetch_add(1, std::memory_order_acq_rel);
-            have_user = true;
-        }
-
-        if (!snap.fmt_ctx || !snap.enabled || !snap.codec_ctx || snap.stream_index < 0) {
-            if (have_user) audio_decode_users.fetch_sub(1, std::memory_order_acq_rel);
-            std::this_thread::sleep_for(std::chrono::milliseconds(8));
+        if (!fmt_ctx || !audio_codec_ctx || !swr_ctx || audio_stream_index < 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
             continue;
         }
 
-        int ret = av_read_frame(snap.fmt_ctx, local_packet);
-        if (ret < 0) {
-            if (have_user) audio_decode_users.fetch_sub(1, std::memory_order_acq_rel);
-            std::this_thread::sleep_for(std::chrono::milliseconds(8));
+        while (SDL_GetQueuedAudioSize(audio_device) > OUT_BUF_SIZE / 2 &&
+               audio_thread_running.load(std::memory_order_acquire)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+
+        if (av_read_frame(fmt_ctx, pkt) < 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            continue;
+        }
+        if (pkt->stream_index != audio_stream_index) {
+            av_packet_unref(pkt);
             continue;
         }
 
-        if (local_packet->stream_index != snap.stream_index) {
-            av_packet_unref(local_packet);
-            if (have_user) audio_decode_users.fetch_sub(1, std::memory_order_acq_rel);
-            continue;
-        }
+        if (avcodec_send_packet(audio_codec_ctx, pkt) == 0) {
+            while (avcodec_receive_frame(audio_codec_ctx, frame) == 0) {
+                int delay = swr_get_delay(swr_ctx, audio_codec_ctx->sample_rate);
+                int max_samples = av_rescale_rnd(frame->nb_samples + delay,
+                                                 out_sample_rate,
+                                                 audio_codec_ctx->sample_rate,
+                                                 AV_ROUND_UP);
 
-        if (avcodec_send_packet(snap.codec_ctx, local_packet) == 0) {
-            while (avcodec_receive_frame(snap.codec_ctx, local_frame) == 0) {
-                int64_t delay = swr_get_delay(snap.swr_ctx, snap.codec_ctx->sample_rate);
-                int max_out_samples = av_rescale_rnd(local_frame->nb_samples + delay,
-                                                    out_sample_rate,
-                                                    snap.codec_ctx->sample_rate,
-                                                    AV_ROUND_UP);
-
-                size_t required_bytes = (size_t)max_out_samples * out_channels * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
-                if (required_bytes > out_buf.size()) out_buf.resize(required_bytes);
-
-                uint8_t* out_ptrs[1] = { out_buf.data() };
-
-                int out_samples = swr_convert(
-                    snap.swr_ctx,
-                    out_ptrs,
-                    max_out_samples,
-                    (const uint8_t**)local_frame->data,
-                    local_frame->nb_samples
-                );
-
-                if (out_samples <= 0) continue;
-
-                int data_size = out_samples * out_channels * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
-
-                if (snap.playing && snap.device != 0) {
-                    SDL_QueueAudio(snap.device, out_buf.data(), data_size);
+                uint8_t* out_ptr = out_buf.data();
+                int out_samples = swr_convert(swr_ctx, &out_ptr, max_samples,
+                                              (const uint8_t**)frame->data, frame->nb_samples);
+                if (out_samples > 0 && audio_playing.load()) {
+                    int bytes = out_samples * out_channels * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
+                    SDL_QueueAudio(audio_device, out_buf.data(), bytes);
                 }
 
-                if (local_frame->pts != AV_NOPTS_VALUE) {
-                    AVRational time_base = snap.fmt_ctx->streams[snap.stream_index]->time_base;
-                    double pts_time = (double)local_frame->pts * av_q2d(time_base);
-                    if (pts_time >= 0.0) {
-                        current_play_time.store((float)pts_time, std::memory_order_release);
-                    }
+                if (frame->pts != AV_NOPTS_VALUE) {
+                    double pts = frame->pts * av_q2d(fmt_ctx->streams[audio_stream_index]->time_base);
+                    current_play_time.store((float)pts, std::memory_order_release);
                 }
             }
         }
-
-        av_packet_unref(local_packet);
-        if (have_user) audio_decode_users.fetch_sub(1, std::memory_order_acq_rel);
+        av_packet_unref(pkt);
     }
 
-    if (!audio_frame && local_frame) av_frame_free(&local_frame);
-    if (local_packet) av_packet_free(&local_packet);
+    av_frame_free(&frame);
+    av_packet_free(&pkt);
 }
 
 void collect_audio_tracks(AVFormatContext* in_fmt_ctx) {
@@ -269,11 +233,14 @@ bool audio_player_switch_audio_stream(int new_stream_index) {
 
     double current_time = audio_player_get_current_play_time();
 
-    switching_audio_stream.store(true, std::memory_order_release);
+    {
+        std::lock_guard<std::mutex> lock(audio_mutex);
+        switching_audio_stream.store(true, std::memory_order_release);
+    }
 
-    // wait until decoder is not using old ctx
-    while (audio_decode_users.load(std::memory_order_acquire) > 0) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    {
+        std::unique_lock<std::mutex> lock(audio_cv_mutex);
+        audio_cv.wait(lock, []{ return audio_decode_users.load(std::memory_order_acquire) == 0; });
     }
 
     std::lock_guard<std::mutex> lock(audio_mutex);
@@ -283,14 +250,8 @@ bool audio_player_switch_audio_stream(int new_stream_index) {
         SDL_ClearQueuedAudio(audio_device);
     }
 
-    if (audio_codec_ctx) {
-        avcodec_free_context(&audio_codec_ctx);
-        audio_codec_ctx = nullptr;
-    }
-    if (swr_ctx) {
-        swr_free(&swr_ctx);
-        swr_ctx = nullptr;
-    }
+    if (audio_codec_ctx) { avcodec_free_context(&audio_codec_ctx); audio_codec_ctx = nullptr; }
+    if (swr_ctx) { swr_free(&swr_ctx); swr_ctx = nullptr; }
 
     const AVCodec* codec = avcodec_find_decoder(new_stream->codecpar->codec_id);
     if (!codec) {
@@ -304,13 +265,8 @@ bool audio_player_switch_audio_stream(int new_stream_index) {
         return false;
     }
 
-    if (avcodec_parameters_to_context(audio_codec_ctx, new_stream->codecpar) < 0) {
-        avcodec_free_context(&audio_codec_ctx);
-        switching_audio_stream.store(false);
-        return false;
-    }
-
-    if (avcodec_open2(audio_codec_ctx, codec, nullptr) < 0) {
+    if (avcodec_parameters_to_context(audio_codec_ctx, new_stream->codecpar) < 0 ||
+        avcodec_open2(audio_codec_ctx, codec, nullptr) < 0) {
         avcodec_free_context(&audio_codec_ctx);
         switching_audio_stream.store(false);
         return false;
@@ -353,7 +309,10 @@ bool audio_player_switch_audio_stream(int new_stream_index) {
 
     if (audio_playing.load(std::memory_order_relaxed)) SDL_PauseAudioDevice(audio_device, 0);
 
-    switching_audio_stream.store(false);
+    switching_audio_stream.store(false, std::memory_order_release);
+
+    audio_cv.notify_all();
+
     return true;
 }
 
@@ -374,19 +333,30 @@ bool audio_player_get_audio_play_state() {
 void audio_player_seek(float delta_time) {
     if (!fmt_ctx || !audio_enabled) return;
 
-    switching_audio_stream.store(true, std::memory_order_release);
+    {
+        std::lock_guard<std::mutex> lock(audio_mutex);
+        switching_audio_stream.store(true, std::memory_order_release);
+    }
 
-    while (audio_decode_users.load(std::memory_order_acquire) > 0) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    {
+        std::unique_lock<std::mutex> lock(audio_cv_mutex);
+        audio_cv.wait(lock, [] { return audio_decode_users.load(std::memory_order_acquire) == 0; });
     }
 
     std::lock_guard<std::mutex> lock(audio_mutex);
 
     double base_time = audio_player_get_current_play_time();
-    double target_time = std::clamp(base_time + delta_time, 0.0, audio_player_get_total_play_time());
+    double total_time = audio_player_get_total_play_time();
+    double target_time = std::clamp(base_time + delta_time, 0.0, total_time);
 
-    AVRational tb = fmt_ctx->streams[audio_stream_index]->time_base;
+    AVStream* stream = fmt_ctx->streams[audio_stream_index];
+    AVRational tb = stream->time_base;
+
     int64_t seek_target = (int64_t)llround(target_time / av_q2d(tb));
+
+    int64_t start_time = stream->start_time;
+    if (start_time != AV_NOPTS_VALUE && start_time > 0)
+        seek_target += start_time;
 
     if (av_seek_frame(fmt_ctx, audio_stream_index, seek_target, AVSEEK_FLAG_BACKWARD) < 0) {
         log_message(LOG_ERROR, "Audio Player", "Seek failed");
@@ -395,25 +365,41 @@ void audio_player_seek(float delta_time) {
         if (audio_codec_ctx) avcodec_flush_buffers(audio_codec_ctx);
         SDL_ClearQueuedAudio(audio_device);
         if (swr_ctx) swr_init(swr_ctx);
-        current_play_time.store((float)target_time, std::memory_order_release);
+
+        current_play_time.store(-1.0f, std::memory_order_release);
     }
 
     switching_audio_stream.store(false, std::memory_order_release);
+    audio_cv.notify_all();
 }
 
 double audio_player_get_current_play_time() {
+    if (!audio_enabled || audio_device == 0 || audio_spec.freq == 0 || audio_spec.channels == 0)
+        return 0.0;
+
     float pts = current_play_time.load(std::memory_order_acquire);
 
-    Uint32 queued_bytes = 0;
-    if (audio_device != 0) queued_bytes = SDL_GetQueuedAudioSize(audio_device);
+    if (pts <= 0.0f && fmt_ctx && audio_stream_index >= 0) {
+        AVStream* stream = fmt_ctx->streams[audio_stream_index];
 
-    double queued_seconds = 0.0;
-    if (audio_device != 0 && audio_spec.freq > 0 && audio_spec.channels > 0) {
-        queued_seconds = (double)queued_bytes / (audio_spec.freq * audio_spec.channels * (SDL_AUDIO_BITSIZE(audio_spec.format) / 8));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+        int64_t best_pts = av_frame_get_best_effort_timestamp(audio_frame);
+#pragma GCC diagnostic pop
+
+        if (best_pts != AV_NOPTS_VALUE) {
+            pts = (float)(best_pts * av_q2d(stream->time_base));
+            current_play_time.store(pts, std::memory_order_release);
+        }
     }
+
+    Uint32 queued_bytes = SDL_GetQueuedAudioSize(audio_device);
+    double queued_seconds = (double)queued_bytes /
+        (audio_spec.freq * audio_spec.channels * (SDL_AUDIO_BITSIZE(audio_spec.format) / 8));
 
     double corrected_time = (double)pts - queued_seconds;
     if (corrected_time < 0.0) corrected_time = 0.0;
+
     return corrected_time;
 }
 
