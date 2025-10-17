@@ -26,7 +26,7 @@
 #define MEDIA_PATH_PDF "/vol/external01/wiiu/apps/cafemp/Library/"
 #define SETTINGS_PATH "/vol/external01/wiiu/apps/cafemp/settings.json"
 
-#define VERSION_STRING_NUMBER "v0.5.2"
+#define VERSION_STRING_NUMBER "v0.6.0.this.is.pain"
 
 #ifdef DEBUG
 #define VERSION_STRING "CaféMP " VERSION_STRING_NUMBER " (Build: " __DATE__ " " __TIME__ ")"

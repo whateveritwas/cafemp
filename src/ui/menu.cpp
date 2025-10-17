@@ -69,10 +69,10 @@ void ui_init() {
     }
 
     if(!background_music_enabled) {
-//        audio_player_init("/vol/content/empty.mp3");
-//        audio_player_play(true);
-//        audio_player_cleanup();
-//        audio_player_play(false);
+        audio_player_init("/vol/content/empty.mp3");
+        audio_player_play(true);
+        audio_player_cleanup();
+        audio_player_play(false);
     }
 
     ctx = nk_sdl_init(sdl_get()->sdl_window, sdl_get()->sdl_renderer);
@@ -426,12 +426,11 @@ void ui_render_main_menu() {
             nk_layout_row_dynamic(ctx, 25, 1);
             nk_label(ctx, "What's new:", NK_TEXT_LEFT);
             nk_layout_row_dynamic(ctx, 25, 1);
-            nk_label(ctx, "- Support for Tiramisu cfw", NK_TEXT_LEFT);
+            nk_label(ctx, "- Hardware video decoding for h264 baseline 720p@30 (NO 1080p!)", NK_TEXT_LEFT);
             nk_layout_row_dynamic(ctx, 25, 1);
             nk_label(ctx, "- General stability improvements", NK_TEXT_LEFT);
-            
             nk_layout_row_dynamic(ctx, 25, 1);
-            nk_label(ctx, "- Animated gifs", NK_TEXT_LEFT);
+            nk_label(ctx, "- Library for reading pdf and epub files", NK_TEXT_LEFT);
             /*
             nk_layout_row_dynamic(ctx, 25, 1);
             nk_label(ctx, "- Video / Audio player hud updates", NK_TEXT_LEFT);
