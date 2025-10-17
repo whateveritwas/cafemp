@@ -13,8 +13,8 @@ TOPDIR ?= $(CURDIR)
 # APP_SHORTNAME sets the short name of the application
 # APP_AUTHOR sets the author of the application
 #-------------------------------------------------------------------------------
-APP_NAME       := Café Media Player
-APP_SHORTNAME  := CaféMP
+APP_NAME       := Café Media Player Dev
+APP_SHORTNAME  := CaféMP Dev
 APP_AUTHOR     := whateveritwas
 
 include $(DEVKITPRO)/wut/share/wut_rules
