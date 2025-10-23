@@ -19,6 +19,14 @@
 #include "vendor/ui/nuklear.h"
 #include "vendor/ui/nuklear_sdl_renderer.h"
 
+#include "widgets/widget_audio_player.hpp"
+#include "widgets/widget_main_menu.hpp"
+#include "widgets/widget_pdf_viewer.hpp"
+#include "widgets/widget_photo_viewer.hpp"
+#include "widgets/widget_player_hud.hpp"
+#include "widgets/widget_tooltip.hpp"
+#include "widgets/widget_sidebar.hpp"
+
 #include "utils/sdl.hpp"
 #include "utils/media_info.hpp"
 #include "utils/media_files.hpp"
@@ -28,8 +36,6 @@
 #include "main.hpp"
 #include "player/video_player.hpp"
 #include "player/audio_player.hpp"
-#include "player/photo_viewer.hpp"
-#include "player/pdf_viewer.hpp"
 #ifdef DEBUG
 #include "shader/easter_egg.hpp"
 #endif
@@ -45,10 +51,9 @@ struct nk_context *ctx;
 
 bool ambiance_playing = false;
 static bool background_music_enabled = true;
-static char jellyfin_url[MAX_URL_LENGTH] = {0};
-static char api_key[MAX_API_KEY_LENGTH] = {0};
+static char jellyfin_url[MAX_URL_LENGTH] = { 0 };
+static char api_key[MAX_API_KEY_LENGTH] = { 0 };
 
-static int no_current_frame_info_cound = 0;
 #ifndef DEBUG
 #define NO_CURRENT_FRAME_INFO_THRESHOLD 10
 #else
@@ -97,7 +102,6 @@ void start_file(int index) {
         ambiance_playing = false;
     }
 
-    no_current_frame_info_cound = 0;
     std::string full_path = std::string(BASE_PATH) + get_media_files()[index];
     std::string extension = full_path.substr(full_path.find_last_of('.') + 1);
 
@@ -164,8 +168,7 @@ void start_file(int index) {
 
         // full_path = "http://192.168.178.113:8096/Items/c8808f6fb3a1133926b35887ce286cfe/Download?api_key=e847650b901e4c1ea7b72b8404b40fdb&TranscodingMaxVideoBitrate=1500000&TranscodingMaxHeight=720";
 
-        audio_player_init(full_path.c_str());
-        audio_player_play(true);
+        widget_audio_player_init(full_path);
         app_state_set(STATE_PLAYING_AUDIO);
     } else if (media_type == 'V') {
         media_info_get()->current_audio_track_id = 1;
@@ -187,9 +190,8 @@ void start_file(int index) {
         media_info_get()->current_caption_id = index;
         media_info_get()->total_caption_count = get_media_files().size();
 
-        photo_viewer_init();
-        app_state_set(STATE_VIEWING_PHOTO);
-        photo_viewer_open_picture(full_path.c_str());
+		app_state_set(STATE_VIEWING_PHOTO);
+		widget_photo_viewer_init(full_path);
     } else if (media_type == 'L') {
         media_info_get()->current_audio_track_id = 0;
         media_info_get()->total_audio_track_count = 0;
@@ -197,9 +199,8 @@ void start_file(int index) {
         media_info_get()->current_caption_id = index;
         media_info_get()->total_caption_count = get_media_files().size();
 
-        pdf_viewer_init();
         app_state_set(STATE_VIEWING_PDF);
-        pdf_viewer_open_file(full_path.c_str());
+        widget_pdf_viewer_init(full_path);
     }
 }
 
@@ -233,7 +234,7 @@ void ui_render() {
     switch(app_state_get()) {
         case STATE_MENU:
             ui_handle_ambiance();
-            ui_render_main_menu();
+            widget_main_menu_render(ctx);
             break;
         case STATE_MENU_FILES: break;
         case STATE_MENU_NETWORK_FILES: break;
@@ -267,79 +268,23 @@ void ui_render() {
             ui_render_video_player();
             break;
         case STATE_PLAYING_AUDIO:
-            ui_render_audio_player();
+            widget_audio_player_render(ctx);
             break;
         case STATE_VIEWING_PHOTO:
-            ui_render_photo_viewer();
+            widget_photo_viewer_render(ctx);
             break;
         case STATE_VIEWING_PDF:
-        	ui_render_pdf_viewer();
+        	widget_pdf_viewer_render(ctx);
             break;
     }
 
 	nk_sdl_render(NK_ANTI_ALIASING_ON);
 }
 
-void ui_render_sidebar() {
-    nk_layout_row_push(ctx, 200 * UI_SCALE);
-    if (nk_group_begin(ctx, "Sidebar", NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
-        nk_layout_row_dynamic(ctx, 64 * UI_SCALE, 1);
-
-        if (nk_button_label(ctx, "Home")) {
-            app_state_set(STATE_MENU);
-        }
-        /*
-        if (nk_button_label(ctx, "Local Media")) {
-            app_state_set(STATE_MENU_VIDEO_FILES);
-        }
-        */
-        if (nk_button_label(ctx, "Video")) {
-            app_state_set(STATE_MENU_VIDEO_FILES);
-            scan_directory(MEDIA_PATH_VIDEO);
-        }
-        /*
-        if (nk_button_label(ctx, "YouTube")) {
-            app_state_set(STATE_MENU_VIDEO_FILES);
-        }
-        */
-        if (nk_button_label(ctx, "Audio")) {
-            app_state_set(STATE_MENU_AUDIO_FILES);
-            scan_directory(MEDIA_PATH_AUDIO);
-        }
-        /*
-        if (nk_button_label(ctx, "Internet Radio")) {
-            app_state_set(STATE_MENU_AUDIO_FILES);
-        }
-        */
-        if (nk_button_label(ctx, "Photo")) {
-            app_state_set(STATE_MENU_IMAGE_FILES);
-            scan_directory(MEDIA_PATH_PHOTO);
-        }
-        
-        if (nk_button_label(ctx, "Library")) {
-            app_state_set(STATE_MENU_PDF_FILES);
-            scan_directory(MEDIA_PATH_PDF);
-        }
-
-        #ifdef DEBUG
-        if (nk_button_label(ctx, "Easter Egg")) {
-            app_state_set(STATE_MENU_EASTER_EGG);
-            easter_egg_init();
-
-        }
-        #endif
-        if (nk_button_label(ctx, "Settings")) {
-            app_state_set(STATE_MENU_SETTINGS);
-        }
-
-        nk_group_end(ctx);
-    }
-}
-
 void ui_render_settings() {
     if (nk_begin(ctx, VERSION_STRING, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
         nk_layout_row_begin(ctx, NK_STATIC, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
-        ui_render_sidebar();
+        widget_sidebar_render(ctx);
 
         nk_layout_row_push(ctx, SCREEN_WIDTH - (200 * UI_SCALE));
         if (nk_group_begin(ctx, "Content", NK_WINDOW_BORDER)) {
@@ -372,86 +317,14 @@ void ui_render_settings() {
         nk_end(ctx);
     }
 
-    ui_render_tooltip();
-}
-
-void ui_render_tooltip() {
-    if (nk_begin(ctx, "tooltip_bar", nk_rect(0, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE, SCREEN_WIDTH, TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER | NK_WINDOW_BACKGROUND)) {
-        switch(app_state_get()) {
-        case STATE_MENU: 
-            nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
-            nk_label(ctx, "(Left Stick) Select | (A) Open", NK_TEXT_LEFT);
-            nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
-            break;
-        case STATE_MENU_FILES:
-        case STATE_MENU_NETWORK_FILES:
-        case STATE_MENU_VIDEO_FILES:
-        case STATE_MENU_AUDIO_FILES:
-        case STATE_MENU_IMAGE_FILES: 
-        case STATE_MENU_PDF_FILES:
-            nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
-            nk_label(ctx, "(Left Stick) Select | (A) Open | (-) Scan", NK_TEXT_LEFT);
-            nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
-            break;
-        case STATE_MENU_SETTINGS: 
-            nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 1);
-            nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
-            break;
-        case STATE_MENU_EASTER_EGG: break;
-        case STATE_PLAYING_VIDEO: break;
-        case STATE_PLAYING_AUDIO: break;
-        case STATE_VIEWING_PHOTO:
-            nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 1);
-            nk_label(ctx, "(Left Stick) Change Photo | [ZL] Zoom + | [ZR] Zoom - | (Touch) Pan", NK_TEXT_LEFT);
-            break;
-        case STATE_VIEWING_PDF:
-            nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 1);
-            nk_label(ctx, "(Left Stick) Change Page | [ZL] Zoom + | [ZR] Zoom - | (Touch) Pan", NK_TEXT_LEFT);
-            break;
-        }
-
-        nk_end(ctx);
-    }
-}
-
-void ui_render_main_menu() {
-    if (nk_begin(ctx, VERSION_STRING, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
-        nk_layout_row_begin(ctx, NK_STATIC, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
-        ui_render_sidebar();
-
-        nk_layout_row_push(ctx, SCREEN_WIDTH - (200 * UI_SCALE));
-        if (nk_group_begin(ctx, "Content", NK_WINDOW_BORDER)) {
-            nk_layout_row_dynamic(ctx, 25, 1);
-            nk_label(ctx, "Welcome to " VERSION_STRING "!", NK_TEXT_LEFT);
-            nk_layout_row_dynamic(ctx, 25, 1);
-            nk_label(ctx, "What's new:", NK_TEXT_LEFT);
-            nk_layout_row_dynamic(ctx, 25, 1);
-            nk_label(ctx, "- Hardware video decoding for h264 baseline 720p@30 (NO 1080p!)", NK_TEXT_LEFT);
-            nk_layout_row_dynamic(ctx, 25, 1);
-            nk_label(ctx, "- General stability improvements", NK_TEXT_LEFT);
-            nk_layout_row_dynamic(ctx, 25, 1);
-            nk_label(ctx, "- Library for reading pdf and epub files", NK_TEXT_LEFT);
-            /*
-            nk_layout_row_dynamic(ctx, 25, 1);
-            nk_label(ctx, "- Video / Audio player hud updates", NK_TEXT_LEFT);
-            nk_layout_row_dynamic(ctx, 25, 1);
-            nk_label(ctx, "- Changing between multiple audio tracks in a video", NK_TEXT_LEFT);
-            */
-            nk_group_end(ctx);
-        }
-
-        nk_layout_row_end(ctx);
-        nk_end(ctx);
-    }
-
-    ui_render_tooltip();
+    widget_tooltip_render(ctx);
 }
 
 void ui_render_file_browser() {
     if (nk_begin(ctx, VERSION_STRING, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
         nk_layout_row_begin(ctx, NK_STATIC, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
+        widget_sidebar_render(ctx);
 
-        ui_render_sidebar();
         nk_layout_row_push(ctx, SCREEN_WIDTH - (200 * UI_SCALE)); // Content area
 
         if (nk_group_begin(ctx, "FileList", NK_WINDOW_BORDER)) {
@@ -483,96 +356,7 @@ void ui_render_file_browser() {
         nk_end(ctx);
     }
 
-    ui_render_tooltip();
-}
-
-void ui_render_player_hud(media_info* info) {
-    const int hud_height = 80 * UI_SCALE;
-    struct nk_rect hud_rect = nk_rect(0, SCREEN_HEIGHT - hud_height, SCREEN_WIDTH, hud_height);
-
-    if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
-        nk_layout_row_dynamic(ctx, (hud_height / 2) - 5, 1);
-
-        double progress_seconds = 0.0;
-        double total_seconds = 0.0;
-
-        switch(info->type) {
-            case 'V': // Video
-                progress_seconds = std::min(info->current_video_playback_time, info->total_video_playback_time);
-                total_seconds = info->total_video_playback_time;
-                break;
-            case 'A': // Audio
-                progress_seconds = std::min(info->current_audio_playback_time, info->total_audio_playback_time);
-                total_seconds = info->total_audio_playback_time;
-                break;
-            default:
-                progress_seconds = 0.0;
-                total_seconds = 1.0;
-                break;
-        }
-
-        nk_size progress = static_cast<nk_size>(progress_seconds);
-        nk_size total = static_cast<nk_size>(total_seconds > 0 ? total_seconds : 1);
-
-        nk_progress(ctx, &progress, total, NK_FIXED);
-
-        nk_layout_row_begin(ctx, NK_DYNAMIC, hud_height / 2, 2);
-        nk_layout_row_push(ctx, 0.8f); // 80% left for playback info text
-        {
-            std::string hud_str = (info->playback_status ? "> " : "|| ");
-            hud_str += format_time(progress_seconds);
-            hud_str += " / ";
-            hud_str += format_time(total_seconds);
-            hud_str += " [";
-            hud_str += info->filename;
-            hud_str += "]";
-
-            nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
-        }
-
-        if(app_state_get() == STATE_PLAYING_VIDEO) {
-            nk_layout_row_push(ctx, 0.2f); // 20% right for audio/caption track info
-            {
-                std::string hud_str = "A:";
-                hud_str += std::to_string(info->current_audio_track_id);
-                hud_str += "/";
-                hud_str += std::to_string(info->total_audio_track_count);
-                hud_str += " S:";
-                hud_str += std::to_string(info->current_caption_id);
-                hud_str += "/";
-                hud_str += std::to_string(info->total_caption_count);
-                nk_label(ctx, hud_str.c_str(), NK_TEXT_RIGHT);
-            }
-        }
-        nk_end(ctx);
-    }
-}
-
-void ui_render_captions() {}
-
-void ui_render_photo_viewer() {
-    photo_viewer_render();
-    if(input_is_vpad_touched()) ui_render_tooltip();
-}
-
-void ui_render_pdf_viewer() {
-    pdf_viewer_render();
-    if(input_is_vpad_touched()) ui_render_tooltip();
-}
-
-void ui_render_video_player() {
-    video_player_update();
-
-    if (!media_info_get()->playback_status || input_is_vpad_touched()) {
-        ui_render_player_hud(media_info_get());
-    }
-}
-
-void ui_render_audio_player() {
-    if (media_info_get()->total_audio_playback_time == 0) media_info_get()->total_audio_playback_time = audio_player_get_total_play_time();
-    media_info_get()->current_audio_playback_time = audio_player_get_current_play_time();
-
-    ui_render_player_hud(media_info_get());
+    widget_tooltip_render(ctx);
 }
 
 void ui_shutdown() {

@@ -12,6 +12,6 @@ bool input_is_vpad_touched();
 void input_settings(VPADStatus* vpad_status, WPADStatusProController* wpad_status);
 void input_video_player(VPADStatus* vpad_status, WPADStatusProController* wpad_status);
 void input_audio_player(VPADStatus* vpad_status, WPADStatusProController* wpad_status);
-void input_update(int& current_page_file_browser, int& selected_index, nk_context *ctx);
+void input_update(int& current_page_file_browser, int& selected_index, struct nk_context *ctx);
 
 #endif

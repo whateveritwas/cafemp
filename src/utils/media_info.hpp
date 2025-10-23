@@ -3,8 +3,9 @@
 #ifndef MADIA_INFO_H
 #define MADIA_INFO_H
 
-#include <string>
+#include <cstdint>
 #include <memory>
+#include <string>
 
 struct media_info {
     std::string path = "";

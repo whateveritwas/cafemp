@@ -7,6 +7,7 @@
 #include <chrono>
 #include <new>
 #include <cstring>
+#include <vector>
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -29,55 +30,80 @@ extern "C" {
 #define MAX_FRAME_QUEUE_SIZE 12
 #define PIX_FMT_TARGET AV_PIX_FMT_YUV420P
 
-// ----------- Lock-Free Frame Queue -----------
-template <size_t N_PLUS_ONE>
-class LFQueue {
+class FrameQueue {
 public:
-    LFQueue() : head(0), tail(0) {}
+    explicit FrameQueue(size_t capacity) : cap(capacity) {
+        buffer.resize(cap, nullptr);
+        head = 0;
+        tail = 0;
+    }
 
-    bool push(AVFrame* frame) {
-        size_t next_head = (head + 1) % N;
-        if (next_head == tail.load(std::memory_order_acquire)) {
+    bool push(AVFrame* f) {
+        std::lock_guard<std::mutex> lk(mtx);
+        size_t next = (head + 1) % cap;
+        if (next == tail) {
             return false; // full
         }
-        buffer[head] = frame;
-        head = next_head;
+        buffer[head] = f;
+        head = next;
         return true;
     }
 
     AVFrame* pop() {
-        size_t t = tail.load(std::memory_order_acquire);
-        if (t == head) return nullptr; // empty
-        AVFrame* f = buffer[t];
-        tail.store((t + 1) % N, std::memory_order_release);
+        std::lock_guard<std::mutex> lk(mtx);
+        if (tail == head) return nullptr; // empty
+        AVFrame* f = buffer[tail];
+        buffer[tail] = nullptr;
+        tail = (tail + 1) % cap;
         return f;
     }
 
-    void clear_and_unref_all() {
-        for (;;) {
-            AVFrame* f = pop();
-            if (!f) break;
-            av_frame_unref(f);
+    void clear_and_free_all() {
+        std::lock_guard<std::mutex> lk(mtx);
+        while (tail != head) {
+            AVFrame* f = buffer[tail];
+            buffer[tail] = nullptr;
+            tail = (tail + 1) % cap;
+            if (f) av_frame_free(&f);
         }
     }
 
+    AVFrame* pop_one_for_replace() {
+        std::lock_guard<std::mutex> lk(mtx);
+        if (tail == head) return nullptr;
+        AVFrame* f = buffer[tail];
+        buffer[tail] = nullptr;
+        tail = (tail + 1) % cap;
+        return f;
+    }
+
+    bool empty() {
+        std::lock_guard<std::mutex> lk(mtx);
+        return tail == head;
+    }
+
+    bool full() {
+        std::lock_guard<std::mutex> lk(mtx);
+        size_t next = (head + 1) % cap;
+        return next == tail;
+    }
+
 private:
-    static constexpr size_t N = N_PLUS_ONE;
-    AVFrame* buffer[N];
+    size_t cap;
+    std::vector<AVFrame*> buffer;
     size_t head;
-    std::atomic<size_t> tail;
+    size_t tail;
+    std::mutex mtx;
 };
 
-static LFQueue<MAX_FRAME_QUEUE_SIZE + 1> frame_queue;
+static FrameQueue frame_queue(MAX_FRAME_QUEUE_SIZE + 1);
 
-// ----------- Globals -----------
 static AVFormatContext* fmt_ctx = nullptr;
 static AVCodecContext* video_codec_ctx = nullptr;
 static SwsContext* sws_ctx = nullptr;
 static int video_stream_index = -1;
 static std::thread decode_thread;
 
-static AVFrame frame_pool[FRAME_POOL_SIZE];
 static std::atomic<bool> thread_running{false};
 static std::atomic<bool> playback_running{false};
 
@@ -99,7 +125,7 @@ inline int64_t get_time_us() {
 }
 
 static void clear_frame_queue() {
-    frame_queue.clear_and_unref_all();
+    frame_queue.clear_and_free_all();
 }
 
 static void free_current_frame_info() {
@@ -132,6 +158,8 @@ double video_player_get_current_playback_time() {
 }
 
 static AVFrame* convert_frame_to_yuv420p(AVFrame* src) {
+    if (!src) return nullptr;
+
     AVFrame* dst = av_frame_alloc();
     if (!dst) return nullptr;
 
@@ -176,29 +204,82 @@ static void decode_loop() {
 
         int ret = av_read_frame(fmt_ctx, pkt);
         if (ret < 0) {
+            av_packet_unref(pkt);
+
+            int send_ret = avcodec_send_packet(video_codec_ctx, nullptr);
+            if (send_ret < 0) {
+                char errbuf[128];
+                av_strerror(send_ret, errbuf, sizeof(errbuf));
+                log_message(LOG_ERROR, "Video Player", "avcodec_send_packet(nullptr) failed: %s", errbuf);
+            } else {
+                // Drain frames
+                while (thread_running.load()) {
+                    AVFrame* out_frame = av_frame_alloc();
+                    if (!out_frame) break;
+                    int r = avcodec_receive_frame(video_codec_ctx, out_frame);
+                    if (r == AVERROR(EAGAIN) || r == AVERROR_EOF) {
+                        av_frame_free(&out_frame);
+                        break;
+                    } else if (r < 0) {
+                        char errbuf[128];
+                        av_strerror(r, errbuf, sizeof(errbuf));
+                        log_message(LOG_ERROR, "Video Player", "avcodec_receive_frame flush failed: %s", errbuf);
+                        av_frame_free(&out_frame);
+                        break;
+                    }
+
+                    AVFrame* frame_to_queue = nullptr;
+                    if (out_frame->format == PIX_FMT_TARGET) {
+                        frame_to_queue = out_frame;
+                    } else if (out_frame->format == AV_PIX_FMT_NV12) {
+                        frame_to_queue = convert_frame_to_yuv420p(out_frame);
+                        av_frame_free(&out_frame);
+                        if (!frame_to_queue) continue;
+                    } else {
+                        static std::atomic<bool> warned{false};
+                        if (!warned.exchange(true))
+                            log_message(LOG_WARNING, "Video Player", "Unsupported pixel format: %d", out_frame->format);
+                        av_frame_free(&out_frame);
+                        continue;
+                    }
+
+                    if (!frame_queue.push(frame_to_queue)) {
+                        AVFrame* old = frame_queue.pop_one_for_replace();
+                        if (old) av_frame_free(&old);
+                        if (!frame_queue.push(frame_to_queue)) {
+                            av_frame_free(&frame_to_queue);
+                        }
+                    }
+                }
+            }
+
             thread_running = false;
             break;
         }
 
         if (pkt->stream_index == video_stream_index) {
-            ret = avcodec_send_packet(video_codec_ctx, pkt);
-            if (ret < 0) {
+            int send_ret = avcodec_send_packet(video_codec_ctx, pkt);
+            if (send_ret < 0) {
                 char errbuf[128];
-                av_strerror(ret, errbuf, sizeof(errbuf));
+                av_strerror(send_ret, errbuf, sizeof(errbuf));
                 log_message(LOG_ERROR, "Video Player", "avcodec_send_packet failed: %s", errbuf);
                 av_packet_unref(pkt);
                 continue;
             }
 
-            while (ret >= 0) {
+            while (send_ret >= 0) {
                 AVFrame* out_frame = av_frame_alloc();
-                ret = avcodec_receive_frame(video_codec_ctx, out_frame);
-                if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+                if (!out_frame) {
+                    log_message(LOG_ERROR, "Video Player", "av_frame_alloc failed");
+                    break;
+                }
+                int r = avcodec_receive_frame(video_codec_ctx, out_frame);
+                if (r == AVERROR(EAGAIN) || r == AVERROR_EOF) {
                     av_frame_free(&out_frame);
                     break;
-                } else if (ret < 0) {
+                } else if (r < 0) {
                     char errbuf[128];
-                    av_strerror(ret, errbuf, sizeof(errbuf));
+                    av_strerror(r, errbuf, sizeof(errbuf));
                     log_message(LOG_ERROR, "Video Player", "avcodec_receive_frame failed: %s", errbuf);
                     av_frame_free(&out_frame);
                     break;
@@ -220,13 +301,15 @@ static void decode_loop() {
                 }
 
                 if (!frame_queue.push(frame_to_queue)) {
-                    AVFrame* old = frame_queue.pop();
-                    if (old) av_frame_unref(old);
-                    if (!frame_queue.push(frame_to_queue))
-                        av_frame_unref(frame_to_queue);
+                    AVFrame* old = frame_queue.pop_one_for_replace();
+                    if (old) av_frame_free(&old);
+                    if (!frame_queue.push(frame_to_queue)) {
+                        av_frame_free(&frame_to_queue);
+                    }
                 }
             }
         }
+
         av_packet_unref(pkt);
     }
 
@@ -265,13 +348,13 @@ int video_player_init(const char* filepath) {
 
     const AVCodec* codec = nullptr;
     if (stream->codecpar->codec_id == AV_CODEC_ID_H264) {
-    	if(stream->codecpar->height == 720) {
-    		codec = avcodec_find_decoder_by_name("h264_wiiu");
-    		log_message(LOG_OK, "Video Player", "Using hardware decoding");
-    	} else {
-    		codec = avcodec_find_decoder_by_name("h264");
-    		log_message(LOG_OK, "Video Player", "Using software decoding");
-    	}
+        if (stream->codecpar->height == 720) {
+            codec = avcodec_find_decoder_by_name("h264_wiiu");
+            log_message(LOG_OK, "Video Player", "Using hardware decoding");
+        } else {
+            codec = avcodec_find_decoder_by_name("h264");
+            log_message(LOG_OK, "Video Player", "Using software decoding");
+        }
     }
     if (!codec) codec = avcodec_find_decoder(stream->codecpar->codec_id);
     if (!codec) {
@@ -327,9 +410,12 @@ int video_player_init(const char* filepath) {
     }
 
     clear_frame_queue();
-    sws_ctx = nullptr;
+    if (sws_ctx) { sws_freeContext(sws_ctx); sws_ctx = nullptr; }
+    sws_width = sws_height = 0;
+
     start_time_us = get_time_us();
-    pause_start_us = 0;
+    pause_start_us = start_time_us;
+
     thread_running = true;
     playback_running = false;
 
@@ -386,17 +472,37 @@ void video_player_update() {
         dest_rect_initialised = true;
     }
 
+    if (current_frame_info && current_frame_info->texture) {
+        int tex_w = 0, tex_h = 0;
+        SDL_QueryTexture(current_frame_info->texture, nullptr, nullptr, &tex_w, &tex_h);
+        if (tex_w != frame->width || tex_h != frame->height) {
+            SDL_DestroyTexture(current_frame_info->texture);
+            current_frame_info->texture = SDL_CreateTexture(
+                sdl_get()->sdl_renderer,
+                SDL_PIXELFORMAT_IYUV,
+                SDL_TEXTUREACCESS_STREAMING,
+                frame->width, frame->height
+            );
+            if (!current_frame_info->texture) {
+                log_message(LOG_ERROR, "Video Player", "SDL_CreateTexture (recreate) failed");
+                av_frame_free(&frame);
+                return;
+            }
+        }
+    }
+
     SDL_UpdateYUVTexture(current_frame_info->texture, nullptr,
                          frame->data[0], frame->linesize[0],
                          frame->data[1], frame->linesize[1],
                          frame->data[2], frame->linesize[2]);
     SDL_RenderCopy(sdl_get()->sdl_renderer, current_frame_info->texture, nullptr, &dest_rect);
 
-    av_frame_unref(frame);
+    av_frame_free(&frame);
 }
 
 void video_player_cleanup() {
     audio_player_cleanup();
+
     thread_running = false;
     playback_running = false;
     dest_rect_initialised = false;
@@ -406,15 +512,13 @@ void video_player_cleanup() {
 
     clear_frame_queue();
 
-    for (int i = 0; i < FRAME_POOL_SIZE; ++i) {
-        av_frame_unref(&frame_pool[i]);
-        if (frame_pool[i].data[0]) av_freep(&frame_pool[i].data[0]);
-    }
-
     if (video_codec_ctx) { avcodec_free_context(&video_codec_ctx); video_codec_ctx = nullptr; }
     if (fmt_ctx) { avformat_close_input(&fmt_ctx); fmt_ctx = nullptr; }
+
     free_current_frame_info();
+
     if (sws_ctx) { sws_freeContext(sws_ctx); sws_ctx = nullptr; }
+
     avformat_network_deinit();
 
     log_message(LOG_OK, "Video Player", "Cleaned up");

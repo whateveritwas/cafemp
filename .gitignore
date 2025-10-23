@@ -13,3 +13,5 @@ shaders/easter_egg.*
 .project
 .cproject
 .map
+.clang-format
+.clangd
