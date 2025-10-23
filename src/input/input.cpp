@@ -1,4 +1,3 @@
-
 #include <vpad/input.h>
 #include <padscore/wpad.h>
 
@@ -241,7 +240,7 @@ void input_pdf_viewer(VPADStatus* vpad_status, WPADStatusProController* wpad_sta
     }
 }
 
-void input_update(int& current_page_file_browser, int& selected_index, nk_context *ctx) {
+void input_update(int& current_page_file_browser, int& selected_index, struct nk_context *ctx) {
     WPADStatus wpad_status = { 0 };
     WPADStatusProController wpad_status_pro = { 0 };
     VPADStatus vpad_status = { 0 };
