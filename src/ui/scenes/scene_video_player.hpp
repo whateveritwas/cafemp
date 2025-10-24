@@ -3,8 +3,8 @@
 
 #include <string>
 
-void widget_video_player_init(std::string full_path);
-void widget_video_player_render(struct nk_context *ctx);
-void widget_video_player_shutdown();
+void scene_video_player_init(std::string full_path);
+void scene_video_player_render(struct nk_context *ctx);
+void scene_video_player_shutdown();
 
 #endif

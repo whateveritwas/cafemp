@@ -13,5 +13,5 @@ void scene_pdf_viewer_init(std::string full_path) {
 
 void scene_pdf_viewer_render(struct nk_context *ctx) {
     pdf_viewer_render();
-    if(input_is_vpad_touched()) widget_tooltip_render(ctx);
+//    if(input_is_vpad_touched()) widget_tooltip_render(ctx);
 }

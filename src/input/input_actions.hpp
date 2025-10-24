@@ -1,6 +1,8 @@
 #ifndef INPUT_ACTIONS_H
 #define INPUT_ACTIONS_H
 
+#include <cstdint>
+
 enum InputButton {
     BTN_A,
     BTN_B,
@@ -12,7 +14,9 @@ enum InputButton {
     BTN_DOWN,
     BTN_LEFT,
     BTN_RIGHT,
+	BTN_L,
     BTN_ZL,
+	BTN_R,
     BTN_ZR,
     BTN_LSTICK_LEFT,
     BTN_LSTICK_RIGHT,
@@ -36,6 +40,8 @@ struct TouchState {
     float y = 0.0f;
     float old_x = 0.0f;
     float old_y = 0.0f;
+	float move_x = 0.0f;
+	float move_y = 0.0f;
 };
 
 struct InputState {
@@ -46,5 +52,27 @@ struct InputState {
     TouchState touch;
     bool using_pro_controller = false;
 };
+
+void input_poll(InputState& state);
+
+static inline void set_button(InputState& s, InputButton btn) {
+    s.pressed |= (1ull << btn);
+}
+
+static inline void set_hold(InputState& s, InputButton btn) {
+    s.held |= (1ull << btn);
+}
+
+inline bool input_pressed(const InputState& s, InputButton btn) {
+    return s.pressed & (1ull << btn);
+}
+
+inline bool input_held(const InputState& s, InputButton btn) {
+    return s.held & (1ull << btn);
+}
+
+inline bool input_touched(const InputState& s) {
+    return s.touch.touched;
+}
 
 #endif

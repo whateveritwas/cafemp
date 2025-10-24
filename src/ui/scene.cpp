@@ -1,4 +1,6 @@
 #include <unordered_map>
+
+#include "input/input_actions.hpp"
 #include "vendor/ui/nuklear.h"
 
 #include "ui/scene.hpp"
@@ -24,9 +26,9 @@ void ui_scene_set(int state) {
     }
 }
 
-void ui_scene_input(struct nk_context* ctx) {
+void ui_scene_input(InputState& input) {
     if (g_current_scene && g_current_scene->input)
-        g_current_scene->input(ctx);
+        g_current_scene->input(input);
 }
 
 void ui_scene_render(struct nk_context* ctx) {
