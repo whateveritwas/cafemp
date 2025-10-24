@@ -14,8 +14,6 @@ void scan_directory(const char* path);
 void ui_init();
 void ui_render();
 void ui_render_settings();
-void ui_render_file_browser();
-void ui_render_video_player();
 void ui_shutdown();
 
 #endif

@@ -1,11 +1,11 @@
-#include "ui/widgets/widget_main_menu.hpp"
+#include "ui/scenes/scene_main_menu.hpp"
 
 #include "main.hpp"
 #include "vendor/ui/nuklear.h"
 #include "ui/widgets/widget_sidebar.hpp"
 #include "ui/widgets/widget_tooltip.hpp"
 
-void widget_main_menu_render(struct nk_context *ctx) {
+void scene_main_menu_render(struct nk_context *ctx) {
     if (nk_begin(ctx, VERSION_STRING, nk_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
         nk_layout_row_begin(ctx, NK_STATIC, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
         widget_sidebar_render(ctx);
