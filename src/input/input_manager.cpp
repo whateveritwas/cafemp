@@ -16,7 +16,7 @@
 #ifdef DEBUG
 #include "shader/easter_egg.hpp"
 #endif
-#include "input/input.hpp"
+#include "input/input_manager.hpp"
 
 bool use_wpad_pro = false;
 float touch_x = 0.0f;

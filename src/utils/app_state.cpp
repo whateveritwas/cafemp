@@ -1,4 +1,7 @@
 #include <mutex>
+
+#include "ui/scene.hpp"
+
 #include "utils/app_state.hpp"
 
 static AppState app_state = STATE_MENU;
@@ -12,4 +15,5 @@ AppState app_state_get() {
 void app_state_set(AppState new_app_state) {
     std::lock_guard<std::mutex> lock(app_state_mutex);
     app_state = new_app_state;
+	ui_scene_set(app_state);
 }
