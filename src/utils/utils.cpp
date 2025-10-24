@@ -48,7 +48,6 @@ bool valid_file_ending(const std::string& file_ending) {
     return result;
 }
 
-
 void scan_directory(const char* path) {
     clear_media_files();
     printf("[Menu] Opening folder %s\n", path);

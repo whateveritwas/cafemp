@@ -1,3 +1,4 @@
+#include "scene.hpp"
 #include <vector>
 #include <string>
 #include <SDL2/SDL.h>
@@ -21,12 +22,12 @@
 
 #include "ui/scene.hpp"
 
-//#include "ui/scenes/scene_audio_player.hpp"
+#include "ui/scenes/scene_audio_player.hpp"
 #include "ui/scenes/scene_file_browser.hpp"
 #include "ui/scenes/scene_main_menu.hpp"
-//#include "ui/scenes/scene_pdf_viewer.hpp"
-//#include "ui/scenes/scene_photo_viewer.hpp"
-//#include "ui/scenes/scene_video_player.hpp"
+#include "ui/scenes/scene_pdf_viewer.hpp"
+#include "ui/scenes/scene_photo_viewer.hpp"
+#include "ui/scenes/scene_video_player.hpp"
 
 #include "utils/sdl.hpp"
 #include "utils/media_info.hpp"
@@ -40,12 +41,13 @@
 #ifdef DEBUG
 #include "shader/easter_egg.hpp"
 #endif
-#include "input/input_manager.hpp"
+#include "input/input_actions.hpp"
 #include "player/subtitle.hpp"
 #include "logger/logger.hpp"
 #include "ui/menu.hpp"
 
 struct nk_context *ctx;
+InputState input {};
 
 #ifndef DEBUG
 #define NO_CURRENT_FRAME_INFO_THRESHOLD 10
@@ -71,156 +73,152 @@ void ui_init() {
 
     ui_scene_register(STATE_MENU, {
         [](){},
-        [](nk_context* ctx){},
+        [](InputState& input){},
         [](nk_context* ctx){ scene_main_menu_render(ctx); },
         [](){}
     });
 
     ui_scene_register(STATE_MENU_VIDEO_FILES, {
         [](){},
-        [](nk_context* ctx){},
+        [](InputState& input){},
         [](nk_context* ctx){ scene_file_browser_render(ctx); },
         [](){}
     });
 
     ui_scene_register(STATE_MENU_AUDIO_FILES, {
         [](){},
-        [](nk_context* ctx){},
+        [](InputState& input){},
         [](nk_context* ctx){ scene_file_browser_render(ctx); },
         [](){}
     });
 
     ui_scene_register(STATE_MENU_IMAGE_FILES, {
         [](){},
-        [](nk_context* ctx){},
+        [](InputState& input){},
         [](nk_context* ctx){ scene_file_browser_render(ctx); },
         [](){}
     });
 
     ui_scene_register(STATE_MENU_PDF_FILES, {
         [](){},
-        [](nk_context* ctx){},
+        [](InputState& input){},
         [](nk_context* ctx){ scene_file_browser_render(ctx); },
         [](){}
     });
-
+#ifdef DEBUG
     ui_scene_register(STATE_MENU_EASTER_EGG, {
         [](){ easter_egg_init(); },
-        [](nk_context* ctx){},
+        [](InputState& input){},
         [](nk_context* ctx){ easter_egg_render(); },
         [](){ easter_egg_shutdown(); }
     });
+#endif
+    ui_scene_register(STATE_MENU_SETTINGS, {
+        [](){ app_state_set(STATE_MENU); },
+        [](InputState& input){},
+        [](nk_context* ctx){},
+        [](){}
+    });
 
+    ui_scene_register(STATE_PLAYING_VIDEO, {
+        [](){ scene_video_player_init(media_info_get()->path); },
+        [](InputState& input){},
+        [](nk_context* ctx){ scene_video_player_render(ctx); },
+        [](){ scene_video_player_shutdown(); }
+    });
+
+    ui_scene_register(STATE_PLAYING_AUDIO, {
+        [](){ scene_audio_player_init(media_info_get()->path); },
+        [](InputState& input){},
+        [](nk_context* ctx){ scene_audio_player_render(ctx); },
+        [](){ scene_audio_player_shutdown(); }
+    });
+
+    ui_scene_register(STATE_VIEWING_PHOTO, {
+        [](){ scene_photo_viewer_init(media_info_get()->path); },
+        [](InputState& input){ scene_photo_viewer_input(input); },
+        [](nk_context* ctx){ scene_photo_viewer_render(ctx); },
+        [](){}
+    });
+
+    ui_scene_register(STATE_VIEWING_PDF, {
+        [](){ scene_pdf_viewer_init(media_info_get()->path); },
+        [](InputState& input){},
+        [](nk_context* ctx){ scene_pdf_viewer_render(ctx); },
+        [](){}
+    });
+	
 	ui_scene_set(app_state_get());
 }
 
 void start_file(int index) {
-//    std::string full_path = std::string(BASE_PATH) + get_media_files()[index];
-//    std::string extension = full_path.substr(full_path.find_last_of('.') + 1);
-//
-//    for (auto& c : extension) c = std::tolower(c);
-//
-//    auto new_info = std::make_unique<media_info>();
-//    media_info_set(std::move(new_info));
-//
-//    media_info_get()->type = '\0';
-//    media_info_get()->path = "";
-//    media_info_get()->filename = "";
-//    media_info_get()->current_video_playback_time = 0;
-//    media_info_get()->current_audio_playback_time = 0;
-//
-//    media_info_get()->current_audio_track_id = 1;
-//    media_info_get()->total_audio_track_count = 1;
-//
-//    media_info_get()->current_caption_id = 1;
-//    media_info_get()->total_caption_count = 1;
-//
-//    int state = app_state_get();
-//
-//    std::string media_folder;
-//    char media_type = '\0';
-//
-//    switch (state) {
-//        case STATE_MENU_AUDIO_FILES:
-//            media_folder = "Audio/";
-//            media_type = 'A';
-//            break;
-//        case STATE_MENU_IMAGE_FILES:
-//            media_folder = "Photo/";
-//            media_type = 'P';
-//            break;
-//        case STATE_MENU_PDF_FILES:
-//            media_folder = "Library/";
-//            media_type = 'L';
-//            break;
-//        case STATE_MENU_VIDEO_FILES:
-//            media_folder = "Video/";
-//            media_type = 'V';
-//            // subtitle_start("/vol/external01/wiiu/apps/cafemp/Test/test.srt");
-//            break;
-//        default:
-//        	log_message(LOG_ERROR, "Menu", "Unsupported file type: %s", extension.c_str());
-//            return;
-//    }
-//
-//    full_path = std::string(BASE_PATH) + media_folder + get_media_files()[index];
-//
-//    media_info_get()->type = media_type;
-//    media_info_get()->path = full_path;
-//    media_info_get()->filename = get_media_files()[index];
-//    media_info_get()->current_video_playback_time = 0;
-//    media_info_get()->current_audio_playback_time = 0;
-//
-//    if (media_type == 'A') {
-//        media_info_get()->current_audio_track_id = 1;
-//        media_info_get()->total_audio_track_count = 1;
-//
-//        media_info_get()->current_caption_id = 1;
-//        media_info_get()->total_caption_count = 1;
-//
-//        // full_path = "http://192.168.178.113:8096/Items/c8808f6fb3a1133926b35887ce286cfe/Download?api_key=e847650b901e4c1ea7b72b8404b40fdb&TranscodingMaxVideoBitrate=1500000&TranscodingMaxHeight=720";
-//
-//        widget_audio_player_init(full_path);
-//        app_state_set(STATE_PLAYING_AUDIO);
-//    } else if (media_type == 'V') {
-//        media_info_get()->current_audio_track_id = 1;
-//        media_info_get()->total_audio_track_count = 1;
-//
-//        media_info_get()->current_caption_id = 1;
-//        media_info_get()->total_caption_count = 1;
-//
-//        // full_path = "http://192.168.178.113:8096/Items/81b3564968b66075f27f5c83f4a98367/Download?api_key=e847650b901e4c1ea7b72b8404b40fdb&TranscodingMaxVideoBitrate=1500000&TranscodingMaxHeight=720";
-//
-//        video_player_init(full_path.c_str());
-//        audio_player_play(true);
-//        video_player_play(true);
-//        app_state_set(STATE_PLAYING_VIDEO);
-//    } else if (media_type == 'P') {
-//        media_info_get()->current_audio_track_id = 0;
-//        media_info_get()->total_audio_track_count = 0;
-//
-//        media_info_get()->current_caption_id = index;
-//        media_info_get()->total_caption_count = get_media_files().size();
-//
-//		app_state_set(STATE_VIEWING_PHOTO);
-//		widget_photo_viewer_init(full_path);
-//    } else if (media_type == 'L') {
-//        media_info_get()->current_audio_track_id = 0;
-//        media_info_get()->total_audio_track_count = 0;
-//
-//        media_info_get()->current_caption_id = index;
-//        media_info_get()->total_caption_count = get_media_files().size();
-//
-//        app_state_set(STATE_VIEWING_PDF);
-//        widget_pdf_viewer_init(full_path);
-//    }
+    const std::string filename = get_media_files()[index];
+    std::string full_path = std::string(BASE_PATH) + filename;
+
+    std::string extension = full_path.substr(full_path.find_last_of('.') + 1);
+    for (auto& c : extension) c = std::tolower(c);
+
+    auto new_info = std::make_unique<media_info>();
+    media_info_set(std::move(new_info));
+
+    media_info* info = media_info_get();
+    info->type = '\0';
+    info->path = "";
+    info->filename = filename;
+    info->current_video_playback_time = 0;
+    info->current_audio_playback_time = 0;
+    info->current_audio_track_id = 1;
+    info->total_audio_track_count = 1;
+    info->current_caption_id = 1;
+    info->total_caption_count = 1;
+
+    struct MediaMapping {
+        const char* folder;
+        char type;
+    };
+
+    static const std::unordered_map<int, MediaMapping> state_map = {
+        {STATE_MENU_AUDIO_FILES, {"Audio/", 'A'}},
+        {STATE_MENU_VIDEO_FILES, {"Video/", 'V'}},
+        {STATE_MENU_IMAGE_FILES, {"Photo/", 'P'}},
+        {STATE_MENU_PDF_FILES, {"Library/", 'L'}}
+    };
+
+    int state = app_state_get();
+    auto it = state_map.find(state);
+    if (it == state_map.end()) {
+        log_message(LOG_ERROR, "Menu", "Unsupported file type: %s", extension.c_str());
+        return;
+    }
+
+    const MediaMapping& mapping = it->second;
+    full_path = std::string(BASE_PATH) + mapping.folder + filename;
+
+    info->type = mapping.type;
+    info->path = full_path;
+
+    if (mapping.type == 'P' || mapping.type == 'L') {
+        info->current_audio_track_id = 0;
+        info->total_audio_track_count = 0;
+        info->current_caption_id = index;
+        info->total_caption_count = get_media_files().size();
+    }
+
+    switch (mapping.type) {
+        case 'A': app_state_set(STATE_PLAYING_AUDIO); break;
+        case 'V': app_state_set(STATE_PLAYING_VIDEO); break;
+        case 'P': app_state_set(STATE_VIEWING_PHOTO); break;
+        case 'L': app_state_set(STATE_VIEWING_PDF); break;
+    }
 }
 
 void ui_render() {
     nk_input_begin(ctx);
 
-	int temp = 0;
-	input_update(temp, temp, ctx);
+    input_poll(input);
+
+    nk_input_motion(ctx, (int)input.touch.x, (int)input.touch.y);
+    nk_input_button(ctx, NK_BUTTON_LEFT, (int)input.touch.x, (int)input.touch.y, input.touch.touched);
 
     nk_input_end(ctx);
 
@@ -229,7 +227,7 @@ void ui_render() {
         SDL_RenderClear(sdl_get()->sdl_renderer);
     }
 
-    ui_scene_input(ctx);
+    ui_scene_input(input);
     ui_scene_render(ctx);
 
     nk_sdl_render(NK_ANTI_ALIASING_ON);
