@@ -60,10 +60,11 @@ void input_poll(InputState& state) {
         if (wpad.buttons & WPAD_PRO_BUTTON_R) set_button(state, BTN_R);
         if (wpad.buttons & WPAD_PRO_BUTTON_ZR) set_button(state, BTN_ZR);
 
-        state.left_stick.x  = wpad.leftStick.x ;
-        state.left_stick.y  = wpad.leftStick.y ;
+        state.left_stick.x  = wpad.leftStick.x;
+        state.left_stick.y  = wpad.leftStick.y;
         state.right_stick.x = wpad.rightStick.x;
         state.right_stick.y = wpad.rightStick.y;
+
     } else if (s_use_wpad) {
         s_use_wpad = false;
         log_message(LOG_OK, "Input", "Pro Controller disconnected");
@@ -85,8 +86,8 @@ void input_poll(InputState& state) {
         if (vpad.hold & VPAD_BUTTON_R) set_button(state, BTN_R);
         if (vpad.hold & VPAD_BUTTON_ZR) set_button(state, BTN_ZR);
 
-        state.left_stick.x  = vpad.leftStick.x ;
-        state.left_stick.y  = vpad.leftStick.y ;
+        state.left_stick.x  = vpad.leftStick.x;
+        state.left_stick.y  = vpad.leftStick.y;
         state.right_stick.x = vpad.rightStick.x;
         state.right_stick.y = vpad.rightStick.y;
 

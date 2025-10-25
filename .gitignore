@@ -15,3 +15,4 @@ shaders/easter_egg.*
 .map
 .clang-format
 .clangd
+.settings

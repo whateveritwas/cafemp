@@ -122,14 +122,14 @@ void ui_init() {
 
     ui_scene_register(STATE_PLAYING_VIDEO, {
         [](){ scene_video_player_init(media_info_get()->path); },
-        [](InputState& input){},
+        [](InputState& input){ scene_video_player_input(input); },
         [](nk_context* ctx){ scene_video_player_render(ctx); },
         [](){ scene_video_player_shutdown(); }
     });
 
     ui_scene_register(STATE_PLAYING_AUDIO, {
         [](){ scene_audio_player_init(media_info_get()->path); },
-        [](InputState& input){},
+        [](InputState& input){ scene_audio_player_input(input); },
         [](nk_context* ctx){ scene_audio_player_render(ctx); },
         [](){ scene_audio_player_shutdown(); }
     });
