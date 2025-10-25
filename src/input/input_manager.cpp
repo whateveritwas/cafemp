@@ -51,49 +51,11 @@ void input_easter_egg(InputState& input) {
 }
 
 void input_video_player(InputState& input) {
-    if (input_pressed(input, BTN_A)) {
-        video_player_play(!media_info_get()->playback_status);
-    } else if (input_pressed(input, BTN_B)) {
-        video_player_cleanup();
-        app_state_set(STATE_MENU_VIDEO_FILES);
-        scan_directory(MEDIA_PATH_VIDEO);
-    } else if (input_pressed(input, BTN_LEFT)) {
-#ifdef DEBUG
-        video_player_seek(-5.0f);
-#endif
-    } else if (input_pressed(input, BTN_RIGHT)) {
-#ifdef DEBUG
-        video_player_seek(5.0f);
-#endif
-    } else if (input_pressed(input, BTN_X)) {
-        if (media_info_get()->total_audio_track_count == 1) return;
 
-        video_player_play(false);
-        audio_player_play(false);
-
-        media_info_get()->current_audio_track_id++;
-        if (media_info_get()->current_audio_track_id > media_info_get()->total_audio_track_count)
-            media_info_get()->current_audio_track_id = 1;
-
-        audio_player_switch_audio_stream(media_info_get()->current_audio_track_id);
-
-        video_player_play(true);
-        audio_player_play(true);
-    }
 }
 
 void input_audio_player(InputState& input) {
-    if (input_pressed(input, BTN_A)) {
-        audio_player_play(!audio_player_get_audio_play_state());
-    } else if (input_pressed(input, BTN_B)) {
-        audio_player_cleanup();
-        app_state_set(STATE_MENU_AUDIO_FILES);
-        scan_directory(MEDIA_PATH_AUDIO);
-    } else if (input_pressed(input, BTN_LEFT)) {
-        audio_player_seek(-5.0f);
-    } else if (input_pressed(input, BTN_RIGHT)) {
-        audio_player_seek(5.0f);
-    }
+
 }
 
 void input_photo_viewer(InputState& input) {

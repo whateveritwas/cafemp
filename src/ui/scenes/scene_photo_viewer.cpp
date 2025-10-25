@@ -1,6 +1,7 @@
 #include <string>
 #include <vector>
 
+#include "input/input_actions.hpp"
 #include "main.hpp"
 #include "player/photo_viewer.hpp"
 #include "utils/app_state.hpp"
@@ -9,7 +10,6 @@
 #include "ui/widgets/widget_tooltip.hpp"
 
 #include "ui/scenes/scene_photo_viewer.hpp"
-#include "input/input_actions.hpp"
 
 bool show_tooltip = false;
 
