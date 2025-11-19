@@ -143,7 +143,7 @@ void ui_init() {
 
     ui_scene_register(STATE_VIEWING_PDF, {
         [](){ scene_pdf_viewer_init(media_info_get()->path); },
-        [](InputState& input){},
+        [](InputState& input){ scene_pdf_viewer_input(input); },
         [](nk_context* ctx){ scene_pdf_viewer_render(ctx); },
         [](){}
     });

@@ -50,3 +50,7 @@ void scene_file_browser_render(struct nk_context *ctx) {
 
     widget_tooltip_render(ctx);
 }
+
+void scene_file_browser_input(InputState& input) {
+	
+}

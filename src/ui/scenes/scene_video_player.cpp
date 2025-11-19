@@ -9,7 +9,6 @@
 #include "ui/widgets/widget_player_hud.hpp"
 
 #include "ui/scenes/scene_video_player.hpp"
-#include "input/input_manager.hpp"
 
 bool show_hud = false;
 
