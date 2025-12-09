@@ -42,7 +42,6 @@
 #include "shader/easter_egg.hpp"
 #endif
 #include "input/input_actions.hpp"
-#include "player/subtitle.hpp"
 #include "logger/logger.hpp"
 #include "ui/menu.hpp"
 
