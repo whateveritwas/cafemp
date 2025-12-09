@@ -6,6 +6,7 @@
 #include "main.hpp"
 #include "ui/menu.hpp"
 #include "utils/sdl.hpp"
+#include "utils/power_manager.hpp"
 #include "logger/logger.hpp"
 
 uint32_t ip = 0;
@@ -41,11 +42,14 @@ int main(int argc, char **argv) {
 
 //    WHBGfxInit();
 
+	power_manager_sleep_enable(false);
+
     while (WHBProcIsRunning()) {
         ui_render();
         sdl_render();
     }
 
+	power_manager_sleep_enable(true);
 
     ui_shutdown();
 
