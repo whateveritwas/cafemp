@@ -34,6 +34,11 @@ struct StickState {
     float y = 0.0f;
 };
 
+struct CursorPosition {
+    float x = 0.0f;
+    float y = 0.0f;
+};
+
 struct TouchState {
     bool touched = false;
     float x = 0.0f;
@@ -51,6 +56,9 @@ struct InputState {
     StickState right_stick;
     TouchState touch;
     bool using_pro_controller = false;
+
+	bool valid_cursor = false;
+	CursorPosition cursor_position;
 };
 
 void input_poll(InputState& state);

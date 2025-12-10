@@ -3,13 +3,17 @@
 
 #include <vpad/input.h>
 #include <padscore/wpad.h>
+#include <padscore/kpad.h>
 
 #include "logger/logger.hpp"
+#include "main.hpp"
 
 #include "input/input_actions.hpp"
 
 static bool s_use_wpad = false;
+static bool s_use_kpad = false;
 static bool wpad_init = false;
+static bool kpad_init = false;
 
 void input_poll(InputState& state) {
     static uint64_t last_buttons = 0;
@@ -22,8 +26,14 @@ void input_poll(InputState& state) {
         wpad_init = true;
     }
 
+    if (!kpad_init) {
+        KPADInit();
+        kpad_init = true;
+    }
+
     VPADStatus vpad {};
     WPADStatusProController wpad {};
+    KPADStatus kpad {};
     VPADTouchData touch_calibrated {};
 
     state.pressed = 0;
@@ -33,12 +43,16 @@ void input_poll(InputState& state) {
     state.touch.move_x = 0.0f;
     state.touch.move_y = 0.0f;
     state.using_pro_controller = false;
+    state.cursor_position.x = 0.0f;
+    state.cursor_position.y = 0.0f;
+    state.valid_cursor = false;
 
     WPADExtensionType extType;
     if (WPADProbe(WPAD_CHAN_0, &extType) == 0 && extType == WPAD_EXT_PRO_CONTROLLER) {
         if (!s_use_wpad) {
             WPADSetDataFormat(WPAD_CHAN_0, WPAD_FMT_PRO_CONTROLLER);
             s_use_wpad = true;
+            s_use_kpad = false;
             log_message(LOG_OK, "Input", "Pro Controller connected");
         }
 
@@ -68,6 +82,69 @@ void input_poll(InputState& state) {
     } else if (s_use_wpad) {
         s_use_wpad = false;
         log_message(LOG_OK, "Input", "Pro Controller disconnected");
+    }
+
+    if (!s_use_wpad && KPADReadEx(WPAD_CHAN_0, &kpad, 1, nullptr) > 0) {
+        if (!s_use_kpad) {
+            s_use_kpad = true;
+            const char* ext_name = "None";
+            switch (kpad.extensionType) {
+                case WPAD_EXT_CLASSIC: ext_name = "Classic Controller"; break;
+                case WPAD_EXT_PRO_CONTROLLER: ext_name = "Pro Controller"; break;
+                default: break;
+            }
+            log_message(LOG_OK, "Input", "Wii Remote connected (Extension: %s)", ext_name);
+        }
+
+        state.valid_cursor = (kpad.posValid == 1 || kpad.posValid == 2) &&
+                             (kpad.pos.x >= -1.0f && kpad.pos.x <= 1.0f) &&
+                             (kpad.pos.y >= -1.0f && kpad.pos.y <= 1.0f);
+        
+        if (state.valid_cursor) {           
+            state.cursor_position.x = SCREEN_WIDTH * kpad.pos.x;
+            state.cursor_position.y = SCREEN_HEIGHT * kpad.pos.y;
+        }
+
+        if (kpad.hold & WPAD_BUTTON_A) set_button(state, BTN_A);
+        if (kpad.hold & WPAD_BUTTON_B) set_button(state, BTN_B);
+        if (kpad.hold & WPAD_BUTTON_1) set_button(state, BTN_Y); // Map 1 to Y
+        if (kpad.hold & WPAD_BUTTON_2) set_button(state, BTN_X); // Map 2 to X
+        if (kpad.hold & WPAD_BUTTON_PLUS) set_button(state, BTN_PLUS);
+        if (kpad.hold & WPAD_BUTTON_MINUS) set_button(state, BTN_MINUS);
+        if (kpad.hold & WPAD_BUTTON_LEFT) set_button(state, BTN_LEFT);
+        if (kpad.hold & WPAD_BUTTON_RIGHT) set_button(state, BTN_RIGHT);
+        if (kpad.hold & WPAD_BUTTON_UP) set_button(state, BTN_UP);
+        if (kpad.hold & WPAD_BUTTON_DOWN) set_button(state, BTN_DOWN);
+
+        switch (kpad.extensionType) {
+            case WPAD_EXT_CLASSIC:
+                if (kpad.classic.hold & WPAD_CLASSIC_BUTTON_A) set_button(state, BTN_A);
+                if (kpad.classic.hold & WPAD_CLASSIC_BUTTON_B) set_button(state, BTN_B);
+                if (kpad.classic.hold & WPAD_CLASSIC_BUTTON_X) set_button(state, BTN_X);
+                if (kpad.classic.hold & WPAD_CLASSIC_BUTTON_Y) set_button(state, BTN_Y);
+                if (kpad.classic.hold & WPAD_CLASSIC_BUTTON_PLUS) set_button(state, BTN_PLUS);
+                if (kpad.classic.hold & WPAD_CLASSIC_BUTTON_MINUS) set_button(state, BTN_MINUS);
+                if (kpad.classic.hold & WPAD_CLASSIC_BUTTON_LEFT) set_button(state, BTN_LEFT);
+                if (kpad.classic.hold & WPAD_CLASSIC_BUTTON_RIGHT) set_button(state, BTN_RIGHT);
+                if (kpad.classic.hold & WPAD_CLASSIC_BUTTON_UP) set_button(state, BTN_UP);
+                if (kpad.classic.hold & WPAD_CLASSIC_BUTTON_DOWN) set_button(state, BTN_DOWN);
+                if (kpad.classic.hold & WPAD_CLASSIC_BUTTON_L) set_button(state, BTN_L);
+                if (kpad.classic.hold & WPAD_CLASSIC_BUTTON_ZL) set_button(state, BTN_ZL);
+                if (kpad.classic.hold & WPAD_CLASSIC_BUTTON_R) set_button(state, BTN_R);
+                if (kpad.classic.hold & WPAD_CLASSIC_BUTTON_ZR) set_button(state, BTN_ZR);
+
+                state.left_stick.x = kpad.classic.leftStick.x;
+                state.left_stick.y = kpad.classic.leftStick.y;
+                state.right_stick.x = kpad.classic.rightStick.x;
+                state.right_stick.y = kpad.classic.rightStick.y;
+                break;
+
+            default:
+                break;
+        }
+    } else if (s_use_kpad && KPADReadEx(WPAD_CHAN_0, &kpad, 1, nullptr) <= 0) {
+        s_use_kpad = false;
+        log_message(LOG_OK, "Input", "Wii Remote disconnected");
     }
 
     if (VPADRead(VPAD_CHAN_0, &vpad, 1, nullptr)) {
@@ -150,5 +227,9 @@ void input_poll(InputState& state) {
     last_touch = state.touch.touched;
     last_touch_x = state.touch.x;
     last_touch_y = state.touch.y;
+
+    if (state.valid_cursor) {
+        log_message(LOG_DEBUG, "Input", "Cursor: (%.1f, %.1f)", state.cursor_position.x, state.cursor_position.y);
+    }
 #endif
 }
