@@ -29,6 +29,8 @@
 #include "ui/scenes/scene_photo_viewer.hpp"
 #include "ui/scenes/scene_video_player.hpp"
 
+#include "ui/widgets/widget_cursor.hpp"
+
 #include "utils/sdl.hpp"
 #include "utils/media_info.hpp"
 #include "utils/media_files.hpp"
@@ -219,6 +221,11 @@ void ui_render() {
     nk_input_motion(ctx, (int)input.touch.x, (int)input.touch.y);
     nk_input_button(ctx, NK_BUTTON_LEFT, (int)input.touch.x, (int)input.touch.y, input.touch.touched);
 
+	if (input.valid_cursor) {
+	    nk_input_motion(ctx, (int)input.cursor_position.x, (int)input.cursor_position.y);
+    	nk_input_button(ctx, NK_BUTTON_LEFT, (int)input.cursor_position.x, (int)input.cursor_position.y, input_pressed(input, BTN_A));
+	}
+
     nk_input_end(ctx);
 
     if (!sdl_get()->use_native_renderer) {
@@ -230,6 +237,8 @@ void ui_render() {
     ui_scene_render(ctx);
 
     nk_sdl_render(NK_ANTI_ALIASING_ON);
+
+	if (input.valid_cursor) widget_cursor_render(input.cursor_position.x, input.cursor_position.y, 10);
 }
 
 void ui_shutdown() {
