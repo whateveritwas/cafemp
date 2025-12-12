@@ -22,12 +22,10 @@ void scene_main_menu_render(struct nk_context *ctx) {
             nk_label(ctx, "- General stability improvements", NK_TEXT_LEFT);
             nk_layout_row_dynamic(ctx, 25, 1);
             nk_label(ctx, "- Library for reading pdf and epub files", NK_TEXT_LEFT);
-            /*
             nk_layout_row_dynamic(ctx, 25, 1);
-            nk_label(ctx, "- Video / Audio player hud updates", NK_TEXT_LEFT);
+            nk_label(ctx, "- Wiimote support", NK_TEXT_LEFT);
             nk_layout_row_dynamic(ctx, 25, 1);
             nk_label(ctx, "- Changing between multiple audio tracks in a video", NK_TEXT_LEFT);
-            */
             nk_group_end(ctx);
         }
 

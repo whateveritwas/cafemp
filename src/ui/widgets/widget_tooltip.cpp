@@ -11,7 +11,6 @@ void widget_tooltip_render(struct nk_context *ctx) {
         case STATE_MENU: 
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
             nk_label(ctx, "(Left Stick) Select | (A) Open", NK_TEXT_LEFT);
-            nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
             break;
         case STATE_MENU_FILES:
         case STATE_MENU_NETWORK_FILES:
@@ -21,11 +20,9 @@ void widget_tooltip_render(struct nk_context *ctx) {
         case STATE_MENU_PDF_FILES:
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 2);
             nk_label(ctx, "(Left Stick) Select | (A) Open | (-) Scan", NK_TEXT_LEFT);
-            nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
             break;
         case STATE_MENU_SETTINGS: 
             nk_layout_row_dynamic(ctx, TOOLTIP_BAR_HEIGHT * UI_SCALE, 1);
-            nk_label(ctx, "[Touch only!]", NK_TEXT_LEFT);
             break;
         case STATE_MENU_EASTER_EGG: break;
         case STATE_PLAYING_VIDEO: break;
