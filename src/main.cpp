@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
 
     WHBProcInit();
 
-    log_message(LOG_OK, "Main", "Application Start");
+    log_message(LOG_OK, "Main", "\x1b[2J\x1b[HApplication Start");
 
     if (!nn::ac::GetAssignedAddress(&ip)) {
     	log_message(LOG_WARNING, "Main", "Failed to get an IP address assigned");

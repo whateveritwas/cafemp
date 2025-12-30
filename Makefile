@@ -41,9 +41,10 @@ DATA        :=
 
 # Include all source subdirectories for headers as well
 INCLUDES    := $(SOURCES)
+WUMS_ROOT := $(DEVKITPRO)/wums
 
 CONTENT     := content/
-ICON        := branding/icon.png
+ICON        := branding/icon-dev.png
 TV_SPLASH   := branding/splash_tv.png
 DRC_SPLASH  := branding/splash_drc.png
 BOOT_SOUND  := branding/bootSound.btsnd
@@ -62,13 +63,13 @@ LDFLAGS 	:= -g $(ARCH) $(RPXSPECS) -Wl,-Map,$(notdir $*.map)
 
 LIBS 		:= `/opt/devkitpro/portlibs/wiiu/bin/sdl2-config --libs` \
         		-lSDL2_ttf -lSDL2 -lmupdf -lmupdf-third -lharfbuzz -lfreetype -lSDL2_image -ljansson \
-        		-lswresample -lavformat -lavcodec -lavutil -lswscale -lgif -lwut
+        		-lswresample -lavformat -lavcodec -lavutil -lswscale -lgif -lwut -lnotifications
         
 #-------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level
 # containing include and lib
 #-------------------------------------------------------------------------------
-LIBDIRS 	:= $(PORTLIBS) $(WUT_ROOT)
+LIBDIRS 	:= $(PORTLIBS) $(WUT_ROOT) $(WUMS_ROOT)
 
 #-------------------------------------------------------------------------------
 # no real need to edit anything past this point unless you need to add additional
