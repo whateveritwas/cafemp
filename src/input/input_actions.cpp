@@ -16,9 +16,11 @@ static bool wpad_init = false;
 static bool kpad_init = false;
 
 void input_poll(InputState& state) {
+#ifdef DEBUG
     static uint64_t last_buttons = 0;
     static bool last_touch = false;
     static float last_touch_x = 0.0f, last_touch_y = 0.0f;
+#endif
 
     if (!wpad_init) {
         WPADInit();
