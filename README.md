@@ -115,7 +115,7 @@ ffmpeg -i <input> \
 
 ## Credits
 
-* **Ambiance Music**: [LightMister on Freesound](https://freesound.org/people/LightMister/sounds/769925/)
+* **Ambiance Music** / **Icons – Splashscreen and store assets**: [@fennelflowers](https://youtube.com/@fennelflowers)
 * **devkitPro**: [GitHub](https://github.com/devkitPro)
 * **stdout implementation by dkosmari**: [Github](https://github.com/dkosmari/devkitpro-autoconf/blob/main/examples/wiiu/sdl2-swkbd/src/stdout.cpp)
 * **srtparser.h**: [Github](https://github.com/saurabhshri/simple-yet-powerful-srt-subtitle-parser-cpp)
