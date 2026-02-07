@@ -4,11 +4,10 @@
 #include <unordered_set>
 #include <SDL2/SDL_image.h>
 
-#include "utils.hpp"
+#include "utils/utils.hpp"
+#include "main.hpp"
 #include "utils/app_state.hpp"
 #include "media_files.hpp"
-#include "player/audio_player.hpp"
-#include "player/video_player.hpp"
 
 std::string format_time(int seconds) {
     int mins = seconds / 60;

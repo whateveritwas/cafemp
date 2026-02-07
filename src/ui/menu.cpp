@@ -22,13 +22,11 @@
 
 #include "ui/scene.hpp"
 
-#include "ui/scenes/scene_audio_player.hpp"
 #include "ui/scenes/scene_file_browser.hpp"
 #include "ui/scenes/scene_main_menu.hpp"
+#include "ui/scenes/scene_media_player.hpp"
 #include "ui/scenes/scene_pdf_viewer.hpp"
 #include "ui/scenes/scene_photo_viewer.hpp"
-#include "ui/scenes/scene_video_player.hpp"
-
 #include "ui/widgets/widget_cursor.hpp"
 
 #include "utils/sdl.hpp"
@@ -38,8 +36,7 @@
 #include "utils/app_state.hpp"
 #include "utils/utils.hpp"
 #include "main.hpp"
-#include "player/video_player.hpp"
-#include "player/audio_player.hpp"
+#include "player/media_player.hpp"
 #ifdef DEBUG
 #include "shader/easter_egg.hpp"
 #endif
@@ -50,11 +47,51 @@
 struct nk_context *ctx;
 InputState input {};
 
+static bool ambiance_playing = false;
+static bool background_music_enabled = true;
+
 #ifndef DEBUG
 #define NO_CURRENT_FRAME_INFO_THRESHOLD 10
 #else
 #define NO_CURRENT_FRAME_INFO_THRESHOLD 30
 #endif
+
+static void start_ambiance() {
+    if (ambiance_playing || !background_music_enabled)
+        return;
+
+    media_player_init(AMBIANCE_PATH);
+    media_player_play(true);
+    ambiance_playing = true;
+}
+
+static void stop_ambiance() {
+    if (!ambiance_playing)
+        return;
+
+    media_player_play(false);
+    media_player_cleanup();
+    ambiance_playing = false;
+}
+
+static void update_ambiance() {
+    if (!background_music_enabled) {
+        stop_ambiance();
+        return;
+    }
+
+    if (!ambiance_playing) {
+        start_ambiance();
+        return;
+    }
+
+    double cur = media_player_get_current_time();
+    double total = media_player_get_total_time();
+
+    if (total > 0.0 && cur >= total - 0.1) {
+        media_player_seek(0.0);
+    }
+}
 
 void ui_init() {
     ctx = nk_sdl_init(sdl_get()->sdl_window, sdl_get()->sdl_renderer);
@@ -73,91 +110,93 @@ void ui_init() {
     }
 
     ui_scene_register(STATE_MENU, {
-        [](){},
-        [](InputState& input){},
-        [](nk_context* ctx){ scene_main_menu_render(ctx); },
-        [](){}
-    });
+	    [](){},
+		[](InputState& input){},
+		[](nk_context* ctx){ scene_main_menu_render(ctx); },
+		[](){}
+		});
 
     ui_scene_register(STATE_MENU_VIDEO_FILES, {
-        [](){},
-        [](InputState& input){},
-        [](nk_context* ctx){ scene_file_browser_render(ctx); },
-        [](){}
-    });
+	    [](){},
+		[](InputState& input){},
+		[](nk_context* ctx){ scene_file_browser_render(ctx); },
+		[](){}
+		});
 
     ui_scene_register(STATE_MENU_AUDIO_FILES, {
-        [](){},
-        [](InputState& input){},
-        [](nk_context* ctx){ scene_file_browser_render(ctx); },
-        [](){}
-    });
+	    [](){},
+		[](InputState& input){},
+		[](nk_context* ctx){ scene_file_browser_render(ctx); },
+		[](){}
+		});
 
     ui_scene_register(STATE_MENU_IMAGE_FILES, {
-        [](){},
-        [](InputState& input){},
-        [](nk_context* ctx){ scene_file_browser_render(ctx); },
-        [](){}
-    });
+	    [](){},
+		[](InputState& input){},
+		[](nk_context* ctx){ scene_file_browser_render(ctx); },
+		[](){}
+		});
 
     ui_scene_register(STATE_MENU_PDF_FILES, {
-        [](){},
-        [](InputState& input){},
-        [](nk_context* ctx){ scene_file_browser_render(ctx); },
-        [](){}
-    });
+	    [](){},
+		[](InputState& input){},
+		[](nk_context* ctx){ scene_file_browser_render(ctx); },
+		[](){}
+		});
+
 #ifdef DEBUG
     ui_scene_register(STATE_MENU_EASTER_EGG, {
-        [](){ easter_egg_init(); },
-        [](InputState& input){},
-        [](nk_context* ctx){ easter_egg_render(); },
-        [](){ easter_egg_shutdown(); }
-    });
+	    [](){ easter_egg_init(); },
+		[](InputState& input){},
+		[](nk_context* ctx){ easter_egg_render(); },
+		[](){ easter_egg_shutdown(); }
+		});
 #endif
+
     ui_scene_register(STATE_MENU_SETTINGS, {
-        [](){ app_state_set(STATE_MENU); },
-        [](InputState& input){},
-        [](nk_context* ctx){},
-        [](){}
-    });
+	    [](){ app_state_set(STATE_MENU); },
+		[](InputState& input){},
+		[](nk_context* ctx){},
+		[](){}
+		});
 
     ui_scene_register(STATE_PLAYING_VIDEO, {
-        [](){ scene_video_player_init(media_info_get()->path); },
-        [](InputState& input){ scene_video_player_input(input); },
-        [](nk_context* ctx){ scene_video_player_render(ctx); },
-        [](){ scene_video_player_shutdown(); }
-    });
+	    [](){ scene_media_player_init(media_info_get()->path); },
+		[](InputState& input){ scene_media_player_input(input); },
+		[](nk_context* ctx){ scene_media_player_render(ctx); },
+		[](){ scene_media_player_shutdown(); }
+		});
 
     ui_scene_register(STATE_PLAYING_AUDIO, {
-        [](){ scene_audio_player_init(media_info_get()->path); },
-        [](InputState& input){ scene_audio_player_input(input); },
-        [](nk_context* ctx){ scene_audio_player_render(ctx); },
-        [](){ scene_audio_player_shutdown(); }
-    });
+	    [](){ scene_media_player_init(media_info_get()->path); },
+		[](InputState& input){ scene_media_player_input(input); },
+		[](nk_context* ctx){ scene_media_player_render(ctx); },
+		[](){ scene_media_player_shutdown(); }
+		});
 
     ui_scene_register(STATE_VIEWING_PHOTO, {
-        [](){ scene_photo_viewer_init(media_info_get()->path); },
-        [](InputState& input){ scene_photo_viewer_input(input); },
-        [](nk_context* ctx){ scene_photo_viewer_render(ctx); },
-        [](){}
-    });
+	    [](){ scene_photo_viewer_init(media_info_get()->path); },
+		[](InputState& input){ scene_photo_viewer_input(input); },
+		[](nk_context* ctx){ scene_photo_viewer_render(ctx); },
+		[](){}
+		});
 
     ui_scene_register(STATE_VIEWING_PDF, {
-        [](){ scene_pdf_viewer_init(media_info_get()->path); },
-        [](InputState& input){ scene_pdf_viewer_input(input); },
-        [](nk_context* ctx){ scene_pdf_viewer_render(ctx); },
-        [](){}
-    });
-	
-	ui_scene_set(app_state_get());
+	    [](){ scene_pdf_viewer_init(media_info_get()->path); },
+		[](InputState& input){ scene_pdf_viewer_input(input); },
+		[](nk_context* ctx){ scene_pdf_viewer_render(ctx); },
+		[](){}
+		});
+
+    update_ambiance();
+    ui_scene_set(app_state_get());
 }
 
 void start_file(int index) {
-    const std::string filename = get_media_files()[index];
-    std::string full_path = std::string(BASE_PATH) + filename;
+    stop_ambiance();
 
-    std::string extension = full_path.substr(full_path.find_last_of('.') + 1);
-    for (auto& c : extension) c = std::tolower(c);
+    const std::string filename = get_media_files()[index];
+    std::string full_path;
 
     auto new_info = std::make_unique<media_info>();
     media_info_set(std::move(new_info));
@@ -188,7 +227,7 @@ void start_file(int index) {
     int state = app_state_get();
     auto it = state_map.find(state);
     if (it == state_map.end()) {
-        log_message(LOG_ERROR, "Menu", "Unsupported file type: %s", extension.c_str());
+        log_message(LOG_ERROR, "Menu", "Unsupported file type");
         return;
     }
 
@@ -206,10 +245,10 @@ void start_file(int index) {
     }
 
     switch (mapping.type) {
-        case 'A': app_state_set(STATE_PLAYING_AUDIO); break;
-        case 'V': app_state_set(STATE_PLAYING_VIDEO); break;
-        case 'P': app_state_set(STATE_VIEWING_PHOTO); break;
-        case 'L': app_state_set(STATE_VIEWING_PDF); break;
+    case 'A': app_state_set(STATE_PLAYING_AUDIO); break;
+    case 'V': app_state_set(STATE_PLAYING_VIDEO); break;
+    case 'P': app_state_set(STATE_VIEWING_PHOTO); break;
+    case 'L': app_state_set(STATE_VIEWING_PDF); break;
     }
 }
 
@@ -219,12 +258,19 @@ void ui_render() {
     input_poll(input);
 
     nk_input_motion(ctx, (int)input.touch.x, (int)input.touch.y);
-    nk_input_button(ctx, NK_BUTTON_LEFT, (int)input.touch.x, (int)input.touch.y, input.touch.touched);
+    nk_input_button(ctx, NK_BUTTON_LEFT,
+                    (int)input.touch.x, (int)input.touch.y,
+                    input.touch.touched);
 
-	if (input.valid_cursor) {
-	    nk_input_motion(ctx, (int)input.cursor_position.x, (int)input.cursor_position.y);
-    	nk_input_button(ctx, NK_BUTTON_LEFT, (int)input.cursor_position.x, (int)input.cursor_position.y, input_pressed(input, BTN_A));
-	}
+    if (input.valid_cursor) {
+        nk_input_motion(ctx,
+                        (int)input.cursor_position.x,
+                        (int)input.cursor_position.y);
+        nk_input_button(ctx, NK_BUTTON_LEFT,
+                        (int)input.cursor_position.x,
+                        (int)input.cursor_position.y,
+                        input_pressed(input, BTN_A));
+    }
 
     nk_input_end(ctx);
 
@@ -238,10 +284,15 @@ void ui_render() {
 
     nk_sdl_render(NK_ANTI_ALIASING_ON);
 
-	if (input.valid_cursor) widget_cursor_render(input.cursor_position.x, input.cursor_position.y, 10);
+    if (input.valid_cursor)
+        widget_cursor_render(input.cursor_position.x,
+			     input.cursor_position.y, 10);
+
+    update_ambiance();
 }
 
 void ui_shutdown() {
+    stop_ambiance();
     ui_scene_shutdown();
     nk_sdl_shutdown();
 }
