@@ -61,10 +61,14 @@ CXXFLAGS 	:= $(CFLAGS)
 ASFLAGS 	:= -g $(ARCH)
 LDFLAGS 	:= -g $(ARCH) $(RPXSPECS) -Wl,-Map,$(notdir $*.map)
 
-LIBS 		:= `/opt/devkitpro/portlibs/wiiu/bin/sdl2-config --libs` \
-        		-lSDL2_ttf -lSDL2 -lmupdf -lmupdf-third -lharfbuzz -lfreetype -lSDL2_image -ljansson \
-        		-lswresample -lavformat -lavcodec -lavutil -lswscale -lgif -lwut -lnotifications
-        
+LIBS := `/opt/devkitpro/portlibs/wiiu/bin/sdl2-config --libs` \
+        -lSDL2_ttf -lSDL2_image -lSDL2 \
+        -lmupdf -lmupdf-third \
+        -lharfbuzz -lfreetype \
+        -lpng -lwebp -lbz2 -lz \
+        -ljansson \
+        -lswresample -lavformat -lavcodec -lavutil -lswscale \
+        -lgif -lwut -lnotifications
 #-------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level
 # containing include and lib
