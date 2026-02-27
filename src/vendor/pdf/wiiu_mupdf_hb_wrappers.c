@@ -81,8 +81,11 @@ void fzhb_ft_font_changed(hb_font_t* font) {
 }
 
 // For fzhb_ft_font_get_face
-FT_Face fzhb_ft_font_get_face(hb_font_t* font) {
+FT_Face fzhb_ft_font_get_face(hb_font_t *font) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     return hb_ft_font_get_face(font);
+#pragma GCC diagnostic pop  
 }
 
 // For hb_shape
