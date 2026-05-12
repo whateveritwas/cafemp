@@ -1,7 +1,9 @@
+#ifdef __WIIU__
 #include <whb/proc.h>
 #include <whb/gfx.h>
 #include <nn/ac.h>
 #include <sys/socket.h>
+#endif
 
 #include "main.hpp"
 #include "ui/menu.hpp"
@@ -11,10 +13,24 @@
 
 uint32_t ip = 0;
 
+#ifndef __WIIU__
+#include <SDL2/SDL.h>
+
+bool WHBProcIsRunning() {
+    SDL_Event e;
+    SDL_PollEvent(&e);
+
+    if (e.type == SDL_QUIT)
+        return false;
+    return true;
+}
+#endif
+
 int main(int argc, char **argv) {
     static const int out_channels = 2;
     static const int out_sample_rate = 48000;
-  
+
+#ifdef __WIIU__    
     nn::ac::ConfigIdNum configId;
 
     nn::ac::Initialize();
@@ -22,9 +38,11 @@ int main(int argc, char **argv) {
     nn::ac::Connect(configId);
 
     WHBProcInit();
+#endif
 
     log_message(LOG_OK, "Main", "\x1b[2J\x1b[HApplication Start");
-
+    
+#ifdef __WIIU__
     if (!nn::ac::GetAssignedAddress(&ip)) {
     	log_message(LOG_WARNING, "Main", "Failed to get an IP address assigned");
     } else {
@@ -33,8 +51,9 @@ int main(int argc, char **argv) {
 		    (ip >> 16) & 0xFF,
 		    (ip >> 8) & 0xFF,
 		    (ip >> 0) & 0xFF);
-    }
-
+    }    
+#endif
+    
     if (sdl_init() != 0) {
         log_message(LOG_ERROR, "Main", "Failed to initialize SDL window or renderer.");
         SDL_Quit();
@@ -42,11 +61,13 @@ int main(int argc, char **argv) {
     }
 
     ui_init();
-
+    
+#ifdef __WIIU__
 //    WHBGfxInit();
 
     power_manager_sleep_enable(false);
-
+#endif
+    
     SDL_AudioSpec wanted_spec;
     SDL_AudioSpec audio_spec;
     SDL_zero(wanted_spec);
@@ -64,8 +85,10 @@ int main(int argc, char **argv) {
         sdl_render();
     }
 
+#ifdef __WIIU__    
     power_manager_sleep_enable(true);
-
+#endif
+    
     ui_shutdown();
 
     if (sdl_cleanup() != 0) {
@@ -82,7 +105,9 @@ int main(int argc, char **argv) {
         audio_device = 0;
     }
 
+#ifdef __WIIU__    
     WHBProcShutdown();
     nn::ac::Finalize();
+#endif    
     return 0;
 }

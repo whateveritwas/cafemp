@@ -52,10 +52,10 @@ BOOT_SOUND  := branding/bootSound.btsnd
 #-------------------------------------------------------------------------------
 # options for code generation
 #-------------------------------------------------------------------------------
-CFLAGS 		:= -DDEBUG -Wall -Werror -O0 -g \
+CFLAGS 		:= -DDEBUG -Wall -O0 -g \
 			   -I/opt/devkitpro/portlibs/wiiu/include/freetype2 \
 			   $(INCLUDE) -D__WIIU__ -D__WUT__
-			
+
 CXXFLAGS 	:= $(CFLAGS)
 
 ASFLAGS 	:= -g $(ARCH)

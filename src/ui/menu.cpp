@@ -5,7 +5,9 @@
 #include <unordered_set>
 #include <SDL2/SDL_ttf.h>
 
+#ifdef __WIIU__
 #include <coreinit/time.h>
+#endif
 
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO
@@ -37,7 +39,7 @@
 #include "utils/utils.hpp"
 #include "main.hpp"
 #include "player/media_player.hpp"
-#ifdef DEBUG
+#if defined(DEBUG) && defined(__WIIU__)
 #include "shader/easter_egg.hpp"
 #endif
 #include "input/input_actions.hpp"
@@ -144,7 +146,7 @@ void ui_init() {
 		[](){}
 		});
 
-#ifdef DEBUG
+#if defined(DEBUG) && defined(__WIIU__)
     ui_scene_register(STATE_MENU_EASTER_EGG, {
 	    [](){ easter_egg_init(); },
 		[](InputState& input){},
@@ -188,12 +190,12 @@ void ui_init() {
 		[](){}
 		});
 
-    update_ambiance();
+//    update_ambiance();
     ui_scene_set(app_state_get());
 }
 
 void start_file(int index) {
-    stop_ambiance();
+//    stop_ambiance();
 
     const std::string filename = get_media_files()[index];
     std::string full_path;
@@ -257,20 +259,36 @@ void ui_render() {
 
     input_poll(input);
 
+    // ----------------------------
+    // WiiU touch input
+    // ----------------------------
     nk_input_motion(ctx, (int)input.touch.x, (int)input.touch.y);
-    nk_input_button(ctx, NK_BUTTON_LEFT,
-                    (int)input.touch.x, (int)input.touch.y,
-                    input.touch.touched);
+    nk_input_button(ctx, NK_BUTTON_LEFT, (int)input.touch.x, (int)input.touch.y, input.touch.touched);
 
+    // ----------------------------
+    // WiiU / IR cursor input
+    // ----------------------------
     if (input.valid_cursor) {
-        nk_input_motion(ctx,
-                        (int)input.cursor_position.x,
-                        (int)input.cursor_position.y);
-        nk_input_button(ctx, NK_BUTTON_LEFT,
-                        (int)input.cursor_position.x,
-                        (int)input.cursor_position.y,
-                        input_pressed(input, BTN_A));
+        nk_input_motion(ctx, (int)input.cursor_position.x, (int)input.cursor_position.y);
+
+        nk_input_button(ctx, NK_BUTTON_LEFT, (int)input.cursor_position.x, (int)input.cursor_position.y, input_pressed(input, BTN_A));
     }
+
+    // ----------------------------
+    // Desktop mouse input (SDL)
+    // ----------------------------
+#ifndef __WIIU__
+    int mx = 0, my = 0;
+    Uint32 mouse_state = SDL_GetMouseState(&mx, &my);
+
+    nk_input_motion(ctx, mx, my);
+
+    nk_input_button(ctx, NK_BUTTON_LEFT, mx, my, mouse_state & SDL_BUTTON(SDL_BUTTON_LEFT)
+    );
+
+    nk_input_button(ctx, NK_BUTTON_RIGHT, mx, my, mouse_state & SDL_BUTTON(SDL_BUTTON_RIGHT)
+    );
+#endif
 
     nk_input_end(ctx);
 
@@ -285,14 +303,13 @@ void ui_render() {
     nk_sdl_render(NK_ANTI_ALIASING_ON);
 
     if (input.valid_cursor)
-        widget_cursor_render(input.cursor_position.x,
-			     input.cursor_position.y, 10);
+        widget_cursor_render(input.cursor_position.x, input.cursor_position.y, 10);
 
-    update_ambiance();
+    // update_ambiance();
 }
 
 void ui_shutdown() {
-    stop_ambiance();
+    //stop_ambiance();
     ui_scene_shutdown();
     nk_sdl_shutdown();
 }

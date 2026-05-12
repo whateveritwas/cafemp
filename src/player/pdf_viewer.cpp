@@ -22,17 +22,7 @@ struct PdfViewer {
 
 static PdfViewer g_pdf_viewer;
 
-static SDL_Texture* render_pdf_page_to_texture(
-    fz_context* ctx,
-    fz_document* doc,
-    int page_num,
-    float zoom,
-    int pan_x,
-    int pan_y,
-    SDL_Renderer* renderer,
-    int* out_w,
-    int* out_h
-) {
+static SDL_Texture* render_pdf_page_to_texture(fz_context* ctx, fz_document* doc, int page_num, float zoom, int pan_x, int pan_y, SDL_Renderer* renderer, int* out_w, int* out_h) {
     if (!doc) return nullptr;
 
     fz_page* page = fz_load_page(ctx, doc, page_num);
@@ -53,13 +43,7 @@ static SDL_Texture* render_pdf_page_to_texture(
     fz_drop_device(ctx, dev);
     fz_drop_page(ctx, page);
 
-    SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(
-        fz_pixmap_samples(ctx, pix),
-        w, h,
-        24,
-        w * 3,
-        SDL_PIXELFORMAT_RGB24
-    );
+    SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(fz_pixmap_samples(ctx, pix), w, h, 24, w * 3, SDL_PIXELFORMAT_RGB24);
 
     SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
 
@@ -127,7 +111,7 @@ void pdf_texture_zoom(float delta_zoom) {
         sdl_get()->sdl_renderer,
         &g_pdf_viewer.tex_width,
         &g_pdf_viewer.tex_height
-    );
+	);
 }
 
 void pdf_viewer_pan(int delta_x, int delta_y) {
@@ -152,17 +136,7 @@ void pdf_viewer_fit_to_screen() {
         g_pdf_viewer.texture = nullptr;
     }
 
-    g_pdf_viewer.texture = render_pdf_page_to_texture(
-        g_pdf_viewer.ctx,
-        g_pdf_viewer.doc,
-        g_pdf_viewer.current_page,
-        zoom,
-        g_pdf_viewer.pan_x,
-        g_pdf_viewer.pan_y,
-        sdl_get()->sdl_renderer,
-        &g_pdf_viewer.tex_width,
-        &g_pdf_viewer.tex_height
-    );
+    g_pdf_viewer.texture = render_pdf_page_to_texture(g_pdf_viewer.ctx, g_pdf_viewer.doc, g_pdf_viewer.current_page, zoom, g_pdf_viewer.pan_x, g_pdf_viewer.pan_y, sdl_get()->sdl_renderer, &g_pdf_viewer.tex_width, &g_pdf_viewer.tex_height);
 
     g_pdf_viewer.pan_x = (SCREEN_WIDTH - g_pdf_viewer.tex_width) / 2;
     g_pdf_viewer.pan_y = (SCREEN_HEIGHT - g_pdf_viewer.tex_height) / 2;
