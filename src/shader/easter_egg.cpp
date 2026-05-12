@@ -1,4 +1,4 @@
-#ifdef DEBUG
+#if defined(DEBUG) && defined(__WIIU__)
 #include <gx2/draw.h>
 #include <gx2/mem.h>
 #include <gx2/display.h>

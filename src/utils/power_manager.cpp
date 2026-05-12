@@ -1,3 +1,4 @@
+#ifdef __WIIU__
 #include <coreinit/energysaver.h>
 
 #include "logger/logger.hpp"
@@ -49,3 +50,4 @@ error:
     log_message(LOG_WARNING, "Power Manager", "Failed power management with code %i", error);
     return error;
 }
+#endif

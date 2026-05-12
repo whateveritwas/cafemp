@@ -1,3 +1,4 @@
+#if defined(DEBUG) && defined(__WIIU__)
 #include <whb/gfx.h>
 #include <gx2/draw.h>
 #include <gx2/mem.h>
@@ -63,6 +64,5 @@ void red_quad_render() {
     WHBGfxFinishRender();
 }
 
-void red_quad_shutdown() {
-    WHBGfxFreeShaderGroup(&shaderGroup);
-}
+void red_quad_shutdown() { WHBGfxFreeShaderGroup(&shaderGroup); }
+#endif

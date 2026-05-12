@@ -20,18 +20,18 @@ void widget_player_hud_render(struct nk_context *ctx, media_info* info) {
         double total_seconds = 0.0;
 
         switch(info->type) {
-            case 'V': // Video
-                progress_seconds = std::min(info->current_video_playback_time, info->total_video_playback_time);
-                total_seconds = info->total_video_playback_time;
-                break;
-            case 'A': // Audio
-                progress_seconds = std::min(info->current_audio_playback_time, info->total_audio_playback_time);
-                total_seconds = info->total_audio_playback_time;
-                break;
-            default:
-                progress_seconds = 0.0;
-                total_seconds = 1.0;
-                break;
+	case 'V': // Video
+	    progress_seconds = std::min(info->current_video_playback_time, info->total_video_playback_time);
+	    total_seconds = info->total_video_playback_time;
+	    break;
+	case 'A': // Audio
+	    progress_seconds = std::min(info->current_audio_playback_time, info->total_audio_playback_time);
+	    total_seconds = info->total_audio_playback_time;
+	    break;
+	default:
+	    progress_seconds = 0.0;
+	    total_seconds = 1.0;
+	    break;
         }
 
         nk_size progress = static_cast<nk_size>(progress_seconds);

@@ -1,4 +1,4 @@
-#ifdef DEBUG
+#if defined(DEBUG) && defined(__WIIU__)
 #ifndef EASTEREGG_H
 #define EASTEREGG_H
 

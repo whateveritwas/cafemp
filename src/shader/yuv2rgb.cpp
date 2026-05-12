@@ -1,3 +1,4 @@
+#if defined(DEBUG) && defined(__WIIU__)
 #include <whb/gfx.h>
 #include <gx2/draw.h>
 #include <gx2/mem.h>
@@ -168,3 +169,4 @@ void yuv2rgb_shutdown() {
 
     log_message(LOG_OK, "yuv2rgb", "Shader unloaded");
 }
+#endif
