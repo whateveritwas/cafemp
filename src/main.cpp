@@ -78,7 +78,16 @@ int main(int argc, char **argv) {
     wanted_spec.callback = nullptr;
 
     SDL_AudioDeviceID audio_device = SDL_OpenAudioDevice(nullptr, 0, &wanted_spec, &audio_spec, 0);
-    if (!audio_device) return -1;    
+    if (!audio_device)
+        return -1;
+
+    if (audio_device != 0) {
+        SDL_PauseAudioDevice(audio_device, 1);
+        SDL_ClearQueuedAudio(audio_device);
+        SDL_CloseAudioDevice(audio_device);
+        audio_device = 0;
+    }    
+    
 
     while (WHBProcIsRunning()) {
         ui_render();
@@ -97,13 +106,6 @@ int main(int argc, char **argv) {
     }
 
     log_message(LOG_OK, "Main", "Application End");
-
-    if (audio_device != 0) {
-        SDL_PauseAudioDevice(audio_device, 1);
-        SDL_ClearQueuedAudio(audio_device);
-        SDL_CloseAudioDevice(audio_device);
-        audio_device = 0;
-    }
 
 #ifdef __WIIU__    
     WHBProcShutdown();
