@@ -1,42 +1,41 @@
 #include <unordered_map>
 
 #include "input/input_actions.hpp"
-#include "vendor/ui/nuklear.h"
 
 #include "ui/scene.hpp"
 
-static std::unordered_map<int, UIScene> g_scenes;
-static UIScene* g_current_scene = nullptr;
+static std::unordered_map<int, UIScene> scenes;
+static UIScene* current_scene = nullptr;
 
 void ui_scene_register(int state, const UIScene& scene) {
-    g_scenes[state] = scene;
+    scenes[state] = scene;
 }
 
 void ui_scene_set(int state) {
-    if (g_current_scene && g_current_scene->shutdown)
-        g_current_scene->shutdown();
+    if (current_scene && current_scene->shutdown)
+        current_scene->shutdown();
 
-    auto it = g_scenes.find(state);
-    if (it != g_scenes.end()) {
-        g_current_scene = &it->second;
-        if (g_current_scene->init)
-            g_current_scene->init();
+    auto it = scenes.find(state);
+    if (it != scenes.end()) {
+        current_scene = &it->second;
+        if (current_scene->init)
+            current_scene->init();
     } else {
-        g_current_scene = nullptr;
+        current_scene = nullptr;
     }
 }
 
 void ui_scene_input(InputState& input) {
-    if (g_current_scene && g_current_scene->input)
-        g_current_scene->input(input);
+    if (current_scene && current_scene->input)
+        current_scene->input(input);
 }
 
-void ui_scene_render(struct nk_context* ctx) {
-    if (g_current_scene && g_current_scene->render)
-        g_current_scene->render(ctx);
+void ui_scene_render() {
+    if (current_scene && current_scene->render)
+        current_scene->render();
 }
 
 void ui_scene_shutdown() {
-    if (g_current_scene && g_current_scene->shutdown)
-        g_current_scene->shutdown();
+    if (current_scene && current_scene->shutdown)
+        current_scene->shutdown();
 }

@@ -15,5 +15,5 @@ AppState app_state_get() {
 void app_state_set(AppState new_app_state) {
     std::lock_guard<std::mutex> lock(app_state_mutex);
     app_state = new_app_state;
-	ui_scene_set(app_state);
+    ui_scene_set(app_state);
 }
