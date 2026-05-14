@@ -116,11 +116,11 @@ ffmpeg -i <input> \
 ## Credits
 
 * **Ambiance Music** / **Icons – Splashscreen and store assets**: [@fennelflowers](https://youtube.com/@fennelflowers)
+* **Dear ImGui Fork by dkosmari**: [GitHub](https://github.com/dkosmari/imgui)
 * **devkitPro**: [GitHub](https://github.com/devkitPro)
 * **srtparser.h**: [Github](https://github.com/saurabhshri/simple-yet-powerful-srt-subtitle-parser-cpp)
 * **FFmpeg**: [GitHub](https://github.com/FFmpeg/FFmpeg/)
 * **FFmpeg Wii U Configure Script by GaryOderNichts**: [Github](https://github.com/GaryOderNichts/FFmpeg-wiiu/blob/master/configure-wiiu)
-* **Nuklear GUI Library**: [GitHub](https://github.com/Immediate-Mode-UI/Nuklear)
 * **Wii U Toolchain (WUT)**: [GitHub](https://github.com/devkitPro/wut)
 * **mupdf port by hito16**: [GitHub](https://github.com/hito16/mupdf-devkitppc)
 * **Helper files from hito16** [Github](https://github.com/hito16/SDLReader/blob/main/ports/wiiu/wiiu_mupdf_hb_wrappers.c) [Github](https://github.com/hito16/SDLReader/blob/main/ports/wiiu/wiiu_time_utils.c)

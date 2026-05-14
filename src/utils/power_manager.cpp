@@ -18,27 +18,22 @@ int power_manager_sleep_enable(bool state) {
         goto error;
 
 #ifdef DEBUG
-    log_message(LOG_DEBUG, "Power Manager", "Restore state is apd: %s, dim: %s",
-							power_manager_is_auto_power_down_enabled ? "on" : "off", power_manager_is_auto_dim_enabled ? "on" : "off");
+    log_message(LOG_DEBUG, "Power Manager", "Restore state is apd: %s, dim: %s", power_manager_is_auto_power_down_enabled ? "on" : "off", power_manager_is_auto_dim_enabled ? "on" : "off");
 #endif
 
     if (state) {
-        if (power_manager_is_auto_power_down_enabled &&
-            (error = IMEnableAPD()) != 0)
+        if (power_manager_is_auto_power_down_enabled && (error = IMEnableAPD()) != 0)
             goto error;
 
-        if (power_manager_is_auto_dim_enabled &&
-            (error = IMEnableDim()) != 0)
+        if (power_manager_is_auto_dim_enabled && (error = IMEnableDim()) != 0)
             goto error;
 
         log_message(LOG_OK, "Power Manager", "Enabled power management");
     } else {
-        if (power_manager_is_auto_power_down_enabled &&
-            (error = IMDisableAPD()) != 0)
+        if (power_manager_is_auto_power_down_enabled && (error = IMDisableAPD()) != 0)
             goto error;
 
-        if (power_manager_is_auto_dim_enabled &&
-            (error = IMDisableDim()) != 0)
+        if (power_manager_is_auto_dim_enabled && (error = IMDisableDim()) != 0)
             goto error;
 
         log_message(LOG_OK, "Power Manager", "Disabled power management");

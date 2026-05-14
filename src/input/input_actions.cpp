@@ -5,10 +5,7 @@
 #include <vpad/input.h>
 #include <padscore/wpad.h>
 #include <padscore/kpad.h>
-#endif
-
-#ifndef __WIIU__
-#include <SDL2/SDL.h>
+#include <imgui_impl_wiiu.h>
 #endif
 
 #include "logger/logger.hpp"
@@ -68,12 +65,14 @@ void input_poll(InputState &state) {
 
 #ifdef __WIIU__
 
-    VPADStatus vpad {};
-    WPADStatusProController wpad {};
-    KPADStatus kpad {};
-    VPADTouchData touch_calibrated {};
+    static VPADStatus vpad {};
+    static WPADStatusProController wpad {};
+    static KPADStatus kpad {};
+    static VPADTouchData touch_calibrated{};
 
-    WPADExtensionType extType;
+    static WPADExtensionType extType;
+
+    static ImGui_ImplWiiU_ControllerInput wiiu_input;
 
     if (!wpad_init) {
         WPADInit();
@@ -133,6 +132,7 @@ void input_poll(InputState &state) {
     // Wiimote / KPAD
     // ----------------------------
     if (!s_use_wpad && KPADReadEx(WPAD_CHAN_0, &kpad, 1, nullptr) > 0) {
+	wiiu_input.kpad[WPAD_CHAN_0] = &kpad;
         if (!s_use_kpad) {
             s_use_kpad = true;
 
@@ -190,6 +190,8 @@ void input_poll(InputState &state) {
     // Gamepad (VPAD)
     // ----------------------------
     if (VPADRead(VPAD_CHAN_0, &vpad, 1, nullptr)) {
+	wiiu_input.vpad = &vpad;
+        
         if (vpad.hold & VPAD_BUTTON_A) set_hold(state, BTN_A);
         if (vpad.hold & VPAD_BUTTON_B) set_hold(state, BTN_B);
         if (vpad.hold & VPAD_BUTTON_X) set_hold(state, BTN_X);
@@ -290,9 +292,10 @@ void input_poll(InputState &state) {
     state.pressed = state.held & ~previous_held;
 
     for (int i = 0; i < INPUT_BUTTON_COUNT; ++i) {
-        update_button_repeat(state, static_cast<InputButton>(i),
-			     input_held(state, static_cast<InputButton>(i)));
+        update_button_repeat(state, static_cast<InputButton>(i), input_held(state, static_cast<InputButton>(i)));
     }
+
+    ImGui_ImplWiiU_ProcessInput(&wiiu_input);
 
 #ifdef DEBUG
     static uint64_t last_buttons = 0;

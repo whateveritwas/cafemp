@@ -54,7 +54,7 @@ BOOT_SOUND  := branding/bootSound.btsnd
 #-------------------------------------------------------------------------------
 CFLAGS 		:= -DDEBUG -Wall -O0 -g \
 			   -I/opt/devkitpro/portlibs/wiiu/include/freetype2 \
-			   $(INCLUDE) -D__WIIU__ -D__WUT__
+			   $(INCLUDE) -DIMGUI_DISABLE_DEFAULT_SHELL_FUNCTIONS -D__WIIU__ -D__WUT__
 
 CXXFLAGS 	:= $(CFLAGS)
 

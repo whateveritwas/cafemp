@@ -1,65 +1,43 @@
-#if defined(DEBUG) && defined(__WIIU__)
-#include "shader/easter_egg.hpp"
-#endif
+#include <imgui.h>
+
 #include "main.hpp"
 #include "utils/app_state.hpp"
 #include "utils/utils.hpp"
-#include "vendor/ui/nuklear.h"
 
 #include "widget_sidebar.hpp"
 
-void widget_sidebar_render(struct nk_context *ctx) {
-    nk_layout_row_push(ctx, 200 * UI_SCALE);
-    if (nk_group_begin(ctx, "Sidebar", NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
-        nk_layout_row_dynamic(ctx, 64 * UI_SCALE, 1);
+void widget_sidebar_render() {
+    ImGui::BeginChild("Sidebar", ImVec2(200.0f * UI_SCALE, 0), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar);
 
-        if (nk_button_label(ctx, "Home")) {
-            app_state_set(STATE_MENU);
-        }
-        /*
-	  if (nk_button_label(ctx, "Local Media")) {
-	  app_state_set(STATE_MENU_VIDEO_FILES);
-	  }
-        */
-        if (nk_button_label(ctx, "Video")) {
-            app_state_set(STATE_MENU_VIDEO_FILES);
-            scan_directory(MEDIA_PATH_VIDEO);
-        }
-        /*
-	  if (nk_button_label(ctx, "YouTube")) {
-	  app_state_set(STATE_MENU_VIDEO_FILES);
-	  }
-        */
-        if (nk_button_label(ctx, "Audio")) {
-            app_state_set(STATE_MENU_AUDIO_FILES);
-            scan_directory(MEDIA_PATH_AUDIO);
-        }
-        /*
-	  if (nk_button_label(ctx, "Internet Radio")) {
-	  app_state_set(STATE_MENU_AUDIO_FILES);
-	  }
-        */
-        if (nk_button_label(ctx, "Photo")) {
-            app_state_set(STATE_MENU_IMAGE_FILES);
-            scan_directory(MEDIA_PATH_PHOTO);
-        }
-        
-        if (nk_button_label(ctx, "Library")) {
-            app_state_set(STATE_MENU_PDF_FILES);
-            scan_directory(MEDIA_PATH_PDF);
-        }
+    const ImVec2 button_size(-1.0f, 64.0f * UI_SCALE);
 
-#if defined(DEBUG) && defined(__WIIU__)
-        if (nk_button_label(ctx, "Easter Egg")) {
-            app_state_set(STATE_MENU_EASTER_EGG);
-            easter_egg_init();
-
-        }
-#endif
-        if (nk_button_label(ctx, "Settings")) {
-            app_state_set(STATE_MENU_SETTINGS);
-        }
-
-        nk_group_end(ctx);
+    if (ImGui::Button("Home", button_size)) {
+        app_state_set(STATE_MENU);
     }
+
+    if (ImGui::Button("Video", button_size)) {
+        app_state_set(STATE_MENU_VIDEO_FILES);
+        scan_directory(MEDIA_PATH_VIDEO);
+    }
+
+    if (ImGui::Button("Audio", button_size)) {
+        app_state_set(STATE_MENU_AUDIO_FILES);
+        scan_directory(MEDIA_PATH_AUDIO);
+    }
+
+    if (ImGui::Button("Photo", button_size)) {
+        app_state_set(STATE_MENU_IMAGE_FILES);
+        scan_directory(MEDIA_PATH_PHOTO);
+    }
+
+    if (ImGui::Button("Library", button_size)) {
+        app_state_set(STATE_MENU_PDF_FILES);
+        scan_directory(MEDIA_PATH_PDF);
+    }
+
+    if (ImGui::Button("Settings", button_size)) {
+        app_state_set(STATE_MENU_SETTINGS);
+    }
+
+    ImGui::EndChild();
 }
