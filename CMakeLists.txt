@@ -49,6 +49,7 @@ set(SRC_FILES
   src/ui/scene.cpp
 
   src/ui/scenes/scene_main_menu.cpp
+  src/ui/scenes/scene_file_browser.cpp
 
   src/ui/widgets/widget_sidebar.cpp
   src/ui/widgets/widget_tooltip.cpp

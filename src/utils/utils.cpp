@@ -24,49 +24,6 @@ std::string truncate_filename(const std::string& name, size_t max_length) {
     return name.substr(0, max_length - 3) + "...";
 }
 
-bool valid_file_ending(const std::string& file_ending) {
-    AppState state = app_state_get();
-    bool result = false;
-
-    switch (state) {
-        case STATE_MENU_VIDEO_FILES:
-            result = valid_video_endings.count(file_ending) > 0;
-            break;
-        case STATE_MENU_AUDIO_FILES:
-            result = valid_audio_endings.count(file_ending) > 0;
-            break;
-        case STATE_MENU_IMAGE_FILES:
-            result = valid_image_endings.count(file_ending) > 0;
-            break;
-        case STATE_MENU_PDF_FILES:
-            result = valid_pdf_ending.count(file_ending) > 0;
-            break;
-        default:
-            break;
-    }
-    return result;
-}
-
-void scan_directory(const char* path) {
-    clear_media_files();
-    printf("[Menu] Opening folder %s\n", path);
-    DIR* dir = opendir(path);
-    if (!dir) return;
-
-    struct dirent* ent;
-    while ((ent = readdir(dir)) != NULL) {
-        std::string name(ent->d_name);
-        if (name.length() > 4) {
-            std::string ext = name.substr(name.find_last_of(".") + 1);
-            for (auto& c : ext) c = std::tolower(c);
-            if (valid_file_ending(ext)) {
-                add_media_file(name);
-            }
-        }
-    }    
-    closedir(dir);
-}
-
 SDL_Rect calculate_aspect_fit_rect(int media_w, int media_h) {
     int new_w = SCREEN_WIDTH;
     int new_h = (media_h * new_w) / media_w;
