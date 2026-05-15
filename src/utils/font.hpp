@@ -52,6 +52,13 @@ static const float default_font_size = 32;
 
 #define SYMBOLS_FONT "/vol/content/NerdFontsSymbolsOnly/SymbolsNerdFont-Regular.ttf"
 
+#define ICON_HOME "\uf015"
+#define ICON_VIDEO "\uf03d"
+#define ICON_AUDIO "\uf001"
+#define ICON_PHOTO "\uf03e"
+#define ICON_LIBRARY "\uf02d"
+#define ICON_SETTINGS "\uf013"
+
 static const ImWchar nerd_font_ranges[] = {
     0xE0A0, 0xE0A3, // Powerline
     0xE0B0, 0xE0C8, // Powerline Extra
