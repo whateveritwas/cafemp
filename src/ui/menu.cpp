@@ -1,8 +1,8 @@
 #include <gx2/registers.h>
 #include <gx2/swap.h>
-#include <imgui.h>
-#include <imgui_impl_wiiu.h>
-#include <imgui_impl_gx2.h>
+#include "vendor/ui/imgui.h"
+#include "vendor/ui/backends/imgui_impl_gx2.h"
+#include "vendor/ui/backends/imgui_impl_wiiu.h"
 #include <whb/gfx.h>
 
 #include "input/input_actions.hpp"
@@ -13,9 +13,9 @@
 
 #include "ui/menu.hpp"
 
-static ImGuiIO *io {};
+static ImGuiIO *io{};
 const ImVec4 clear_color = ImVec4(0.0f, 0.0f, 0.00f, 1.00f);
-static InputState input {};
+static InputState input{};
 
 void ui_init() {
     IMGUI_CHECKVERSION();

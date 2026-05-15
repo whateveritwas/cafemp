@@ -1,7 +1,5 @@
 #include <coreinit/memory.h>
-#include <imgui.h>
-#include <imgui_impl_wiiu.h>
-#include <imgui_impl_gx2.h>
+#include "vendor/ui/backends/imgui_impl_wiiu.h"
 
 #include "logger/logger.hpp"
 
