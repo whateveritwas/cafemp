@@ -24,24 +24,6 @@ std::string truncate_filename(const std::string& name, size_t max_length) {
     return name.substr(0, max_length - 3) + "...";
 }
 
-SDL_Rect calculate_aspect_fit_rect(int media_w, int media_h) {
-    int new_w = SCREEN_WIDTH;
-    int new_h = (media_h * new_w) / media_w;
-
-    if (new_h > SCREEN_HEIGHT) {
-        new_h = SCREEN_HEIGHT;
-        new_w = (media_w * new_h) / media_h;
-    }
-
-    SDL_Rect rect;
-    rect.w = new_w;
-    rect.h = new_h;
-    rect.x = (SCREEN_WIDTH - new_w) / 2;
-    rect.y = (SCREEN_HEIGHT - new_h) / 2;
-
-    return rect;
-}
-
 void draw_checkerboard_pattern(SDL_Renderer* renderer, int width, int height, int cell_size) {
     SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
     SDL_RenderClear(renderer);

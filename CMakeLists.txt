@@ -45,11 +45,14 @@ set(SRC_FILES
 
   src/settings/settings.cpp
 
+  src/player/photo_viewer.cpp
+
   src/ui/menu.cpp
   src/ui/scene.cpp
 
   src/ui/scenes/scene_main_menu.cpp
   src/ui/scenes/scene_file_browser.cpp
+  src/ui/scenes/scene_photo_viewer.cpp
 
   src/ui/widgets/widget_sidebar.cpp
   src/ui/widgets/widget_tooltip.cpp
@@ -87,9 +90,10 @@ target_compile_definitions(CafeMP PRIVATE
 )
 
 target_link_libraries(CafeMP
+  jansson
+  gif
   m
   wut
-  jansson
 )
 
 function(wut_create_wuhb_custom target)
