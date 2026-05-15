@@ -5,7 +5,7 @@
 #include <vpad/input.h>
 #include <padscore/wpad.h>
 #include <padscore/kpad.h>
-#include <imgui_impl_wiiu.h>
+#include "vendor/ui/backends/imgui_impl_wiiu.h"
 #endif
 
 #include "logger/logger.hpp"
