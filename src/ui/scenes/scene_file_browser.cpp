@@ -3,6 +3,7 @@
 #include "utils/app_state.hpp"
 #include "vendor/ui/imgui.h"
 #include "main.hpp"
+#include "ui/menu.hpp"
 #include "ui/widgets/widget_button_icon.hpp"
 #include "ui/widgets/widget_tooltip.hpp"
 #include "ui/widgets/widget_sidebar.hpp"
@@ -72,7 +73,8 @@ void scene_file_browser_render() {
 	for (int i = 0; i < total_file_count; ++i) {
 	    std::string display_str = truncate_filename(get_media_files()[i], 100);
 
-	    if (widget_button_icon(display_str.c_str(), "\uf15b", false, ImVec2(-1, 64 * UI_SCALE))) {
+            if (widget_button_icon(display_str.c_str(), "\uf15b", false,ImVec2(-1, 64 * UI_SCALE))) {
+		start_file(i);
             }
 	}
 

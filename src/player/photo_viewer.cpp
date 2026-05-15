@@ -1,149 +1,220 @@
-#include <SDL2/SDL_image.h>
-#include <gif_lib.h>
 #include <vector>
 #include <string.h>
+#include <stdint.h>
+#include <algorithm>
 
-#include "utils/sdl.hpp"
+#include <gif_lib.h>
+#include <coreinit/time.h>
+
+#include "vendor/ui/imgui.h"
+#include "vendor/ui/backends/imgui_impl_gx2.h"
+
+#define STBI_NO_THREAD_LOCALS
+#define STB_IMAGE_IMPLEMENTATION
+#include "vendor/stb_image.h"
+
 #include "main.hpp"
-#include "utils.hpp"
+#include "utils/utils.hpp"
 #include "logger/logger.hpp"
 #include "player/photo_viewer.hpp"
 
+#define MIN_ZOOM_SCALE 0.5f
+#define MAX_ZOOM_SCALE 5.0f
+
+struct GX2Image {
+    ImTextureData* texture = nullptr;
+    ImTextureID tex_id = 0;
+    int width = 0;
+    int height = 0;
+};
+
 struct GIFFrame {
-    SDL_Texture* texture;
+    GX2Image image;
     int delay_ms;
 };
 
 static std::vector<GIFFrame> gif_frames;
-static int current_gif_frame;
-static Uint32 last_frame_time;
+static GX2Image static_image;
 
-float scale;
-#define MIN_ZOOM_SCALE 0.5f
-#define MAX_ZOOM_SCALE 5.0f
+static int current_gif_frame = 0;
+static uint64_t last_frame_time = 0;
 
-SDL_Rect dst;
-bool dst_set;
+static float scale = 1.0f;
+static Rect dst = {0, 0, 0, 0};
+static bool dst_set = false;
 
-void photo_viewer_init() {
-	current_gif_frame = 0;
-	last_frame_time = 0;
-	scale = 1.0f;
-
-	dst = { 0, 0, 0, 0 };
-	dst_set = false;
+static uint64_t current_time_ms() {
+    return OSTicksToMilliseconds(OSGetTime());
 }
 
-void clamp_dst() {
+static GX2Image create_texture_rgba(const uint8_t* rgba, int width, int height, bool is_gif) {
+    GX2Image result;
+
+    ImTextureData* tex = IM_NEW(ImTextureData);
+    tex->Create(ImTextureFormat_RGBA32, width, height);
+
+    uint32_t* dst = reinterpret_cast<uint32_t*>(tex->GetPixels());
+
+    if (is_gif) {
+	memcpy(dst, rgba, width * height * 4);
+    } else {
+	for (int i = 0; i < width * height; ++i) {
+            uint8_t r = rgba[i * 4 + 0];
+            uint8_t g = rgba[i * 4 + 1];
+            uint8_t b = rgba[i * 4 + 2];
+            uint8_t a = rgba[i * 4 + 3];
+
+            dst[i] = (a << 24) | (b << 16) | (g << 8) | (r);
+        }
+    }
+
+    tex->SetStatus(ImTextureStatus_WantCreate);
+    ImGui_ImplGX2_HandleTexture(tex);
+
+    result.texture = tex;
+    result.tex_id = tex->TexID;
+    result.width = width;
+    result.height = height;
+
+    return result;
+}
+
+static void destroy_texture(GX2Image& image) {
+    if (!image.texture) return;
+
+    image.texture->SetStatus(ImTextureStatus_WantDestroy);
+    ImGui_ImplGX2_HandleTexture(image.texture);
+
+    IM_DELETE(image.texture);
+
+    image.texture = nullptr;
+    image.tex_id = 0;
+    image.width = 0;
+    image.height = 0;
+}
+
+void photo_viewer_init() {
+    current_gif_frame = 0;
+    last_frame_time = 0;
+    scale = 1.0f;
+    dst = {0, 0, 0, 0};
+    dst_set = false;
+}
+
+static void clamp_dst() {
+    float max_x = (float)SCREEN_WIDTH - dst.w;
+    float max_y = (float)SCREEN_HEIGHT - dst.h;
+
     if (dst.w > SCREEN_WIDTH) {
         if (dst.x > 0) dst.x = 0;
-        if (dst.x < SCREEN_WIDTH - dst.w) dst.x = SCREEN_WIDTH - dst.w;
+        if (dst.x < max_x) dst.x = max_x;
     } else {
         if (dst.x < 0) dst.x = 0;
-        if (dst.x > SCREEN_WIDTH - dst.w) dst.x = SCREEN_WIDTH - dst.w;
+        if (dst.x > max_x) dst.x = max_x;
     }
 
     if (dst.h > SCREEN_HEIGHT) {
         if (dst.y > 0) dst.y = 0;
-        if (dst.y < SCREEN_HEIGHT - dst.h) dst.y = SCREEN_HEIGHT - dst.h;
+        if (dst.y < max_y) dst.y = max_y;
     } else {
         if (dst.y < 0) dst.y = 0;
-        if (dst.y > SCREEN_HEIGHT - dst.h) dst.y = SCREEN_HEIGHT - dst.h;
+        if (dst.y > max_y) dst.y = max_y;
     }
 }
 
-bool load_gif(const char* filepath, SDL_Renderer* renderer) {
+static bool load_gif(const char* filepath) {
     int err = 0;
     GifFileType* gif = DGifOpenFileName(filepath, &err);
-    if (!gif) {
-    	log_message(LOG_ERROR, "Photo Viewer", "Failed to open: %s (error code: %d)", filepath, err);
-        return false;
-    }
 
+    if (!gif) return false;
     if (DGifSlurp(gif) != GIF_OK) {
-    	log_message(LOG_ERROR, "Photo Viewer", "Failed to read data: %s", filepath);
         DGifCloseFile(gif, &err);
         return false;
     }
 
     gif_frames.clear();
 
-    SDL_Surface* canvas = SDL_CreateRGBSurface(0, gif->SWidth, gif->SHeight, 32,
-                                               0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
-    if (!canvas) {
-        DGifCloseFile(gif, &err);
-        return false;
-    }
-    SDL_FillRect(canvas, nullptr, SDL_MapRGBA(canvas->format, 0, 0, 0, 0));
+    std::vector<uint32_t> canvas(gif->SWidth * gif->SHeight, 0);
+    std::vector<uint32_t> backup = canvas;
 
-    SDL_Surface* backup = SDL_CreateRGBSurface(0, gif->SWidth, gif->SHeight, 32,
-                                               0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
-
-    GifColorType* globalColors = gif->SColorMap ? gif->SColorMap->Colors : nullptr;
+    GifColorType* global_colors = gif->SColorMap ? gif->SColorMap->Colors : nullptr;
 
     for (int i = 0; i < gif->ImageCount; ++i) {
         SavedImage& frame = gif->SavedImages[i];
         GifImageDesc& desc = frame.ImageDesc;
 
-        GifColorType* colors = desc.ColorMap ? desc.ColorMap->Colors : globalColors;
+        GifColorType* colors = desc.ColorMap ? desc.ColorMap->Colors : global_colors;
+
         if (!colors) continue;
 
         int delay = 100;
-        int transparentIndex = -1;
+        int transparent_index = -1;
         int disposal = 0;
+
         for (int j = 0; j < frame.ExtensionBlockCount; ++j) {
             ExtensionBlock& ext = frame.ExtensionBlocks[j];
+
             if (ext.Function == GRAPHICS_EXT_FUNC_CODE && ext.ByteCount >= 4) {
                 delay = ((ext.Bytes[2] << 8) | ext.Bytes[1]) * 10;
-                delay = delay < 20 ? 20 : delay; // enforce min delay
-                transparentIndex = (ext.Bytes[0] & 0x01) ? (unsigned char)ext.Bytes[3] : -1;
+                if (delay < 20) delay = 20;
+
+                transparent_index = (ext.Bytes[0] & 0x01) ? (unsigned char)ext.Bytes[3] : -1;
+
                 disposal = (ext.Bytes[0] >> 2) & 0x07;
             }
         }
 
         if (i > 0) {
             if (disposal == 2) {
-                SDL_Rect r = { desc.Left, desc.Top, desc.Width, desc.Height };
-                SDL_FillRect(canvas, &r, SDL_MapRGBA(canvas->format, 0, 0, 0, 0));
-            } else if (disposal == 3 && backup) {
-                SDL_BlitSurface(backup, nullptr, canvas, nullptr);
+                for (int y = 0; y < desc.Height; ++y)
+		    for (int x = 0; x < desc.Width; ++x) {
+			int px = desc.Left + x;
+			int py = desc.Top + y;
+			if (px < gif->SWidth && py < gif->SHeight)
+			    canvas[py * gif->SWidth + px] = 0;
+		    }
+            } else if (disposal == 3) {
+                canvas = backup;
             }
         }
 
-        if (disposal == 3 && backup) {
-            SDL_BlitSurface(canvas, nullptr, backup, nullptr);
-        }
+        if (disposal == 3) backup = canvas;
 
-        Uint32* pixels = (Uint32*)canvas->pixels;
-        for (int y = 0; y < desc.Height; ++y) {
-            for (int x = 0; x < desc.Width; ++x) {
-                int idx = y * desc.Width + x;
-                int color_idx = frame.RasterBits[idx];
-                if (color_idx == transparentIndex) continue;
+        for (int y = 0; y < desc.Height; ++y)
+	    for (int x = 0; x < desc.Width; ++x) {
+		int idx = y * desc.Width + x;
+		int ci = frame.RasterBits[idx];
 
-                GifColorType c = colors[color_idx];
-                int px = desc.Left + x;
-                int py = desc.Top + y;
+		if (ci == transparent_index)
+		    continue;
 
-                if (px < gif->SWidth && py < gif->SHeight) {
-                    Uint32 color = SDL_MapRGBA(canvas->format, c.Red, c.Green, c.Blue, 255);
-                    pixels[py * gif->SWidth + px] = color;
-                }
-            }
-        }
+		GifColorType c = colors[ci];
 
-        SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, canvas);
-        if (!tex) continue;
+		int px = desc.Left + x;
+		int py = desc.Top + y;
 
-        gif_frames.push_back({ tex, delay });
+		if (px < gif->SWidth && py < gif->SHeight) {
+		    canvas[py * gif->SWidth + px] =
+			(255u << 24) |
+			(c.Blue << 16) |
+			(c.Green << 8) |
+			(c.Red);
+		}
+	    }
+
+        GIFFrame out;
+        out.image = create_texture_rgba(reinterpret_cast<uint8_t*>(canvas.data()), gif->SWidth, gif->SHeight, true);
+
+        out.delay_ms = delay;
+
+        gif_frames.push_back(out);
     }
 
-    SDL_FreeSurface(canvas);
-    SDL_FreeSurface(backup);
     DGifCloseFile(gif, &err);
 
     current_gif_frame = 0;
-    last_frame_time = SDL_GetTicks();
+    last_frame_time = current_time_ms();
+
     return !gif_frames.empty();
 }
 
@@ -151,104 +222,100 @@ void photo_viewer_open_picture(const char* filepath) {
     photo_viewer_cleanup();
 
     const char* ext = strrchr(filepath, '.');
+
     if (ext && strcasecmp(ext, ".gif") == 0) {
-        if (load_gif(filepath, sdl_get()->sdl_renderer)) {
-            int tex_w, tex_h;
-            SDL_QueryTexture(gif_frames[0].texture, nullptr, nullptr, &tex_w, &tex_h);
-            dst = calculate_aspect_fit_rect(tex_w, tex_h);
-            scale = (float)dst.w / tex_w;
-            dst_set = true;
-            return;
-        } else {
-        	log_message(LOG_ERROR, "Photo Viewer", "Failed to load animated GIF: %s", filepath);
-            return;
-        }
-    }
+        load_gif(filepath);
+        if (gif_frames.empty()) return;
 
-    SDL_Surface* surface = IMG_Load(filepath);
-    if (!surface) {
-    	log_message(LOG_ERROR, "Photo Viewer", "Failed to load image: %s", IMG_GetError());
+        Rect r = calculate_aspect_fit_rect(
+            gif_frames[0].image.width,
+            gif_frames[0].image.height);
+
+        dst = r;
+        scale = dst.w / gif_frames[0].image.width;
+        dst_set = true;
         return;
     }
 
-    sdl_get()->sdl_texture = SDL_CreateTextureFromSurface(sdl_get()->sdl_renderer, surface);
-    SDL_FreeSurface(surface);
+    int w, h, comp;
 
-    if (!sdl_get()->sdl_texture) {
-    	log_message(LOG_ERROR, "Photo Viewer", "Failed to create texture: %s", SDL_GetError());
-        return;
-    }
+    uint8_t* pixels = stbi_load(filepath, &w, &h, &comp, 4);
 
-    int tex_w, tex_h;
-    SDL_QueryTexture(sdl_get()->sdl_texture, nullptr, nullptr, &tex_w, &tex_h);
-    dst = calculate_aspect_fit_rect(tex_w, tex_h);
-    scale = (float)dst.w / tex_w;
+    if (!pixels) return;
+
+    static_image = create_texture_rgba(pixels, w, h, false);
+
+    stbi_image_free(pixels);
+
+    Rect r = calculate_aspect_fit_rect(w, h);
+
+    dst = r;
+    scale = dst.w / w;
     dst_set = true;
 }
 
 void photo_texture_zoom(float delta_zoom) {
-    scale += delta_zoom;
-    if (scale > MAX_ZOOM_SCALE) scale = MAX_ZOOM_SCALE;
-    if (scale < MIN_ZOOM_SCALE) scale = MIN_ZOOM_SCALE;
+    scale = std::clamp(scale + delta_zoom, MIN_ZOOM_SCALE, MAX_ZOOM_SCALE);
 
-    int tex_w, tex_h;
-    if (!gif_frames.empty()) {
-        SDL_QueryTexture(gif_frames[current_gif_frame].texture, nullptr, nullptr, &tex_w, &tex_h);
-    } else if (sdl_get()->sdl_texture) {
-        SDL_QueryTexture(sdl_get()->sdl_texture, nullptr, nullptr, &tex_w, &tex_h);
-    } else {
-        return;
-    }
+    int w = gif_frames.empty() ? static_image.width : gif_frames[current_gif_frame].image.width;
 
-    dst.w = (int)(tex_w * scale);
-    dst.h = (int)(tex_h * scale);
+    int h = gif_frames.empty() ? static_image.height : gif_frames[current_gif_frame].image.height;
+
+    dst.w = w * scale;
+    dst.h = h * scale;
 
     clamp_dst();
     dst_set = true;
 }
 
-void photo_viewer_pan(int delta_x, int delta_y) {
-    dst.x += delta_x;
-    dst.y += delta_y;
+void photo_viewer_pan(int dx, int dy) {
+    dst.x += dx;
+    dst.y += dy;
     clamp_dst();
 }
 
 void photo_viewer_render() {
-    draw_checkerboard_pattern(sdl_get()->sdl_renderer, SCREEN_WIDTH, SCREEN_HEIGHT, 40);
+    ImDrawList* draw = ImGui::GetBackgroundDrawList();
 
-    SDL_Texture* tex = nullptr;
+    ImTextureID tex = 0;
+    int w = 0, h = 0;
+
     if (!gif_frames.empty()) {
-        Uint32 now = SDL_GetTicks();
-        if (now - last_frame_time >= (Uint32)gif_frames[current_gif_frame].delay_ms) {
+        uint64_t now = current_time_ms();
+
+        if (now - last_frame_time >= (uint64_t)gif_frames[current_gif_frame].delay_ms) {
             current_gif_frame = (current_gif_frame + 1) % gif_frames.size();
             last_frame_time = now;
         }
-        tex = gif_frames[current_gif_frame].texture;
+
+        tex = gif_frames[current_gif_frame].image.tex_id;
+        w = gif_frames[current_gif_frame].image.width;
+        h = gif_frames[current_gif_frame].image.height;
     } else {
-        tex = sdl_get()->sdl_texture;
+        tex = static_image.tex_id;
+        w = static_image.width;
+        h = static_image.height;
     }
 
     if (!tex) return;
 
     if (!dst_set) {
-        int tex_w, tex_h;
-        SDL_QueryTexture(tex, nullptr, nullptr, &tex_w, &tex_h);
-        dst = calculate_aspect_fit_rect(tex_w, tex_h);
-        scale = (float)dst.w / tex_w;
+        Rect r = calculate_aspect_fit_rect(w, h);
+        dst = r;
+        scale = dst.w / w;
         dst_set = true;
     }
 
-    SDL_RenderCopy(sdl_get()->sdl_renderer, tex, nullptr, &dst);
+    draw->AddImage(tex, ImVec2(dst.x, dst.y), ImVec2(dst.x + dst.w, dst.y + dst.h));
 }
 
 void photo_viewer_cleanup() {
-    for (auto& frame : gif_frames) {
-        if (frame.texture) SDL_DestroyTexture(frame.texture);
-    }
+    for (auto& f : gif_frames) destroy_texture(f.image);
+
     gif_frames.clear();
 
-    if (sdl_get()->sdl_texture) {
-        SDL_DestroyTexture(sdl_get()->sdl_texture);
-        sdl_get()->sdl_texture = nullptr;
-    }
+    destroy_texture(static_image);
+
+    current_gif_frame = 0;
+    dst_set = false;
 }
