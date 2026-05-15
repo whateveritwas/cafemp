@@ -8,6 +8,7 @@
 #include "input/input_actions.hpp"
 #include "utils/app_state.hpp"
 #include "ui/scene.hpp"
+#include "ui/scenes/scene_file_browser.hpp"
 #include "ui/scenes/scene_main_menu.hpp"
 #include "utils/font.hpp"
 
@@ -40,7 +41,11 @@ void ui_init() {
     ImGui_ImplGX2_Init();
 
     ui_scene_register(STATE_MENU, {[]() {}, [](InputState &input) {}, []() { scene_main_menu_render(); }, []() {}});
-
+    ui_scene_register(STATE_MENU_VIDEO_FILES, {[]() {}, [](InputState &input) {}, []() { scene_file_browser_render(); }, []() {}});
+    ui_scene_register(STATE_MENU_AUDIO_FILES, {[]() {}, [](InputState &input) {}, []() { scene_file_browser_render(); }, []() {}});
+    ui_scene_register(STATE_MENU_IMAGE_FILES, {[]() {}, [](InputState &input) {}, []() { scene_file_browser_render(); }, []() {}});
+    ui_scene_register(STATE_MENU_PDF_FILES, {[]() {}, [](InputState &input) {}, []() { scene_file_browser_render(); }, []() {}});
+    
     ui_scene_set(app_state_get());
 }
 

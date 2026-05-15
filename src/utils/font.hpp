@@ -1,11 +1,9 @@
 #include <coreinit/memory.h>
 #include "vendor/ui/backends/imgui_impl_wiiu.h"
-
 #include "logger/logger.hpp"
 
 static const float default_font_size = 32;
 
-// Wii U / Switch Style Icons
 #define FONT_GLYPH_A_BUTTON "\uE000"
 #define FONT_GLYPH_B_BUTTON "\uE001"
 #define FONT_GLYPH_X_BUTTON "\uE002"
@@ -52,6 +50,24 @@ static const float default_font_size = 32;
 #define FONT_GLYPH_CLOSE_BUTTON "\uE071"
 #define FONT_GLYPH_UNUSED_CLOSE_BUTTON "\uE070"
 
+#define SYMBOLS_FONT "/vol/content/NerdFontsSymbolsOnly/SymbolsNerdFont-Regular.ttf"
+
+static const ImWchar nerd_font_ranges[] = {
+    0xE0A0, 0xE0A3, // Powerline
+    0xE0B0, 0xE0C8, // Powerline Extra
+    0xE0CC, 0xE0D4,
+    0xE200, 0xE2A9, // Font Awesome Extension
+    0xE300, 0xE3E3, // Weather Icons
+    0xE700, 0xE7C5, // Seti-UI / File icons
+    0xEA60, 0xEC1E, // Codicons
+    0xED00, 0xEFC1,
+    0xF000, 0xF2E0, // Font Awesome
+    0xF300, 0xF372, // Font Logos
+    0xF400, 0xF533, // Octicons
+    0xF500, 0xFD46, // Material Design Icons
+    0,
+};
+
 static void font_load(OSSharedDataType font, bool merge) {
     static const char* names[OS_SHAREDDATATYPE_FONT_MAX] = {
         [OS_SHAREDDATATYPE_FONT_CHINESE] = "CafeCn.ttf",
@@ -59,7 +75,6 @@ static void font_load(OSSharedDataType font, bool merge) {
         [OS_SHAREDDATATYPE_FONT_STANDARD] = "CafeStd.ttf",
         [OS_SHAREDDATATYPE_FONT_TAIWANESE] = "CafeCn.ttf",
     };
-
     assert(font < OS_SHAREDDATATYPE_FONT_MAX);
 
     auto& io = ImGui::GetIO();
@@ -72,7 +87,7 @@ static void font_load(OSSharedDataType font, bool merge) {
     uint32_t font_size = 0;
 
     if (OSGetSharedData(font, 0, &font_data, &font_size)) {
-        log_message(LOG_DEBUG, "Font", "Loading font \"%s\" with size %d", names[font], sizeof config.Name);
+        log_message(LOG_DEBUG, "Font", "Loading font \"%s\" with data size %u", names[font], font_size);
         io.Fonts->AddFontFromMemoryTTF(font_data, font_size, default_font_size, &config);
     }
 }
@@ -82,4 +97,12 @@ static void font_load_all() {
     font_load(OS_SHAREDDATATYPE_FONT_CHINESE, true);
     font_load(OS_SHAREDDATATYPE_FONT_KOREAN, true);
     font_load(OS_SHAREDDATATYPE_FONT_TAIWANESE, true);
+
+    auto& io = ImGui::GetIO();
+    ImFontConfig cfg;
+    cfg.MergeMode = true;
+    cfg.PixelSnapH = true;
+    cfg.GlyphMinAdvanceX = default_font_size;
+
+    io.Fonts->AddFontFromFileTTF(SYMBOLS_FONT, default_font_size, &cfg, nerd_font_ranges);
 }
