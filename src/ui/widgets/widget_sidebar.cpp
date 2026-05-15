@@ -9,13 +9,6 @@
 #include "ui/widgets/widget_button_icon.hpp"
 #include "ui/widgets/widget_sidebar.hpp"
 
-#define ICON_HOME "\uf015"
-#define ICON_VIDEO "\uf03d"
-#define ICON_AUDIO "\uf001"
-#define ICON_PHOTO "\uf03e"
-#define ICON_LIBRARY "\uf02d"
-#define ICON_SETTINGS "\uf013"
-
 void widget_sidebar_render() {
     ImVec2 size(200.0f * UI_SCALE, 64.0f * UI_SCALE);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));

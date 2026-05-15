@@ -1,35 +1,81 @@
-#include <SDL2/SDL.h>
 extern "C" {
 #include <mupdf/fitz.h>
 }
 
+#include <vector>
+#include <cstring>
+
+#include "vendor/ui/imgui.h"
+#include "vendor/ui/backends/imgui_impl_gx2.h"
+
 #include "main.hpp"
-#include "utils/sdl.hpp"
 #include "utils/utils.hpp"
 #include "logger/logger.hpp"
 #include "player/pdf_viewer.hpp"
+
+struct GX2Image {
+    ImTextureData* texture = nullptr;
+    ImTextureID tex_id = 0;
+    int width = 0;
+    int height = 0;
+};
+
+static void destroy_texture(GX2Image& image) {
+    if (!image.texture) return;
+
+    image.texture->SetStatus(ImTextureStatus_WantDestroy);
+    ImGui_ImplGX2_HandleTexture(image.texture);
+    IM_DELETE(image.texture);
+
+    image.texture = nullptr;
+    image.tex_id = 0;
+    image.width = 0;
+    image.height = 0;
+}
+
+static GX2Image create_texture_rgba(const uint8_t* rgba, int width, int height) {
+    GX2Image result;
+
+    ImTextureData* tex = IM_NEW(ImTextureData);
+    tex->Create(ImTextureFormat_RGBA32, width, height);
+
+    uint32_t* dst_pixels = reinterpret_cast<uint32_t*>(tex->GetPixels());
+    for (int i = 0; i < width * height; ++i) {
+        uint8_t r = rgba[i * 4 + 0];
+        uint8_t g = rgba[i * 4 + 1];
+        uint8_t b = rgba[i * 4 + 2];
+        uint8_t a = rgba[i * 4 + 3];
+        dst_pixels[i] = (static_cast<uint32_t>(a) << 24) | (static_cast<uint32_t>(b) << 16) | (static_cast<uint32_t>(g) <<  8) |  static_cast<uint32_t>(r);
+    }
+
+    tex->SetStatus(ImTextureStatus_WantCreate);
+    ImGui_ImplGX2_HandleTexture(tex);
+
+    result.texture = tex;
+    result.tex_id = tex->TexID;
+    result.width = width;
+    result.height = height;
+
+    return result;
+}
 
 struct PdfViewer {
     fz_context* ctx = nullptr;
     fz_document* doc = nullptr;
     int current_page = 0;
     float zoom = 1.0f;
-    int pan_x = 0, pan_y = 0;
+    int pan_x = 0;
+    int pan_y = 0;
 
-    SDL_Texture* texture = nullptr;
-    int tex_width = 0, tex_height = 0;
-
+    GX2Image image;
     bool texture_dirty = true;
 };
 
 static PdfViewer g_pdf_viewer;
 
-static SDL_Texture* render_page_to_texture(
-        fz_context* ctx, fz_document* doc,
-        int page_num, float zoom,
-        SDL_Renderer* renderer, int* out_w, int* out_h)
-{
-    if (!doc) return nullptr;
+static GX2Image render_page_to_gx2(fz_context* ctx, fz_document* doc, int page_num, float zoom) {
+    GX2Image result;
+    if (!doc) return result;
 
     fz_page* page = fz_load_page(ctx, doc, page_num);
     fz_rect bounds = fz_bound_page(ctx, page);
@@ -47,37 +93,37 @@ static SDL_Texture* render_page_to_texture(
     fz_drop_device(ctx, dev);
     fz_drop_page(ctx, page);
 
+    // Expand RGB24 → RGBA32
+    const uint8_t* rgb = fz_pixmap_samples(ctx, pix);
+    std::vector<uint8_t> rgba(w * h * 4);
+    for (int i = 0; i < w * h; ++i) {
+        rgba[i * 4 + 0] = rgb[i * 3 + 0]; // R
+        rgba[i * 4 + 1] = rgb[i * 3 + 1]; // G
+        rgba[i * 4 + 2] = rgb[i * 3 + 2]; // B
+        rgba[i * 4 + 3] = 0xFF; // A
+    }
 
-    SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(fz_pixmap_samples(ctx, pix), w, h, 24, w * 3, SDL_PIXELFORMAT_RGB24);
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_FreeSurface(surface);
     fz_drop_pixmap(ctx, pix);
 
-    if (out_w) *out_w = w;
-    if (out_h) *out_h = h;
-    return texture;
+    result = create_texture_rgba(rgba.data(), w, h);
+    return result;
 }
 
 static void flush_texture_if_dirty() {
     if (!g_pdf_viewer.texture_dirty) return;
     if (!g_pdf_viewer.doc) return;
 
-    if (g_pdf_viewer.texture) {
-        SDL_DestroyTexture(g_pdf_viewer.texture);
-        g_pdf_viewer.texture = nullptr;
-    }
+    destroy_texture(g_pdf_viewer.image);
 
-    g_pdf_viewer.texture = render_page_to_texture(
-        g_pdf_viewer.ctx,
-        g_pdf_viewer.doc,
-        g_pdf_viewer.current_page,
-        g_pdf_viewer.zoom,
-        sdl_get()->sdl_renderer,
-        &g_pdf_viewer.tex_width,
-        &g_pdf_viewer.tex_height
-    );
+    g_pdf_viewer.image = render_page_to_gx2(g_pdf_viewer.ctx, g_pdf_viewer.doc, g_pdf_viewer.current_page, g_pdf_viewer.zoom);
 
     g_pdf_viewer.texture_dirty = false;
+}
+
+static ImVec2 rotate90cw(ImVec2 p, ImVec2 center) {
+    float dx = p.x - center.x;
+    float dy = p.y - center.y;
+    return ImVec2(center.x - dy, center.y + dx);
 }
 
 void pdf_viewer_init() {
@@ -87,10 +133,8 @@ void pdf_viewer_init() {
 void pdf_viewer_open_file(const char* filepath) {
     if (!filepath) return;
 
-    if (g_pdf_viewer.texture) {
-        SDL_DestroyTexture(g_pdf_viewer.texture);
-        g_pdf_viewer.texture = nullptr;
-    }
+    destroy_texture(g_pdf_viewer.image);
+
     if (g_pdf_viewer.doc) {
         fz_drop_document(g_pdf_viewer.ctx, g_pdf_viewer.doc);
         g_pdf_viewer.doc = nullptr;
@@ -104,7 +148,8 @@ void pdf_viewer_open_file(const char* filepath) {
         g_pdf_viewer.doc = fz_open_document(g_pdf_viewer.ctx, filepath);
         g_pdf_viewer.current_page = 0;
         g_pdf_viewer.zoom = 1.0f;
-        g_pdf_viewer.pan_x = g_pdf_viewer.pan_y = 0;
+        g_pdf_viewer.pan_x = 0;
+        g_pdf_viewer.pan_y = 0;
         g_pdf_viewer.texture_dirty = true;
     } fz_catch(g_pdf_viewer.ctx) {
         log_message(LOG_ERROR, "Pdf Viewer", "Failed to open PDF");
@@ -142,37 +187,47 @@ void pdf_viewer_fit_to_screen() {
 
     flush_texture_if_dirty();
 
-    g_pdf_viewer.pan_x = (SCREEN_WIDTH - g_pdf_viewer.tex_width) / 2;
-    g_pdf_viewer.pan_y = (SCREEN_HEIGHT - g_pdf_viewer.tex_height) / 2;
+    g_pdf_viewer.pan_x = (SCREEN_WIDTH - g_pdf_viewer.image.width) / 2;
+    g_pdf_viewer.pan_y = (SCREEN_HEIGHT - g_pdf_viewer.image.height) / 2;
 }
 
 void pdf_viewer_render() {
-    auto* r = sdl_get()->sdl_renderer;
-
-    draw_checkerboard_pattern(r, SCREEN_WIDTH, SCREEN_HEIGHT, 40);
+    ImDrawList* draw = ImGui::GetBackgroundDrawList();
 
     flush_texture_if_dirty();
 
-    if (g_pdf_viewer.texture) {
-        SDL_Rect dst = {
-            g_pdf_viewer.pan_x,
-            g_pdf_viewer.pan_y,
-            g_pdf_viewer.tex_width,
-            g_pdf_viewer.tex_height
-        };
+    if (!g_pdf_viewer.image.tex_id) return;
 
-        SDL_Point center = { dst.w / 2, dst.h / 2 };
-        SDL_RenderCopyEx(r, g_pdf_viewer.texture, nullptr, &dst, 90.0, &center, SDL_FLIP_NONE);
-    }
+    const int tw = g_pdf_viewer.image.width;
+    const int th = g_pdf_viewer.image.height;
+    const float x = static_cast<float>(g_pdf_viewer.pan_x);
+    const float y = static_cast<float>(g_pdf_viewer.pan_y);
+    const float w = static_cast<float>(tw);
+    const float h = static_cast<float>(th);
+
+    ImVec2 center(x + w * 0.5f, y + h * 0.5f);
+
+    ImVec2 tl(x, y );
+    ImVec2 tr(x + w, y );
+    ImVec2 br(x + w, y + h);
+    ImVec2 bl(x, y + h);
+
+    ImVec2 rtl = rotate90cw(tl, center);
+    ImVec2 rtr = rotate90cw(tr, center);
+    ImVec2 rbr = rotate90cw(br, center);
+    ImVec2 rbl = rotate90cw(bl, center);
+
+    draw->AddImageQuad(g_pdf_viewer.image.tex_id, rtl, rtr, rbr, rbl, ImVec2(0, 0), ImVec2(1, 0), ImVec2(1, 1), ImVec2(0, 1));
 }
 
 void pdf_viewer_goto_page(int page_num) {
     if (!g_pdf_viewer.doc) return;
 
     int page_count = fz_count_pages(g_pdf_viewer.ctx, g_pdf_viewer.doc);
-    page_num = SDL_clamp(page_num, 0, page_count - 1);
+    if (page_num < 0) page_num = 0;
+    if (page_num >= page_count) page_num = page_count - 1;
 
-    if (page_num == g_pdf_viewer.current_page) return; // nothing to do
+    if (page_num == g_pdf_viewer.current_page) return;
 
     g_pdf_viewer.current_page = page_num;
     g_pdf_viewer.texture_dirty = true;
@@ -183,7 +238,8 @@ void pdf_viewer_next_page() { pdf_viewer_goto_page(g_pdf_viewer.current_page + 1
 void pdf_viewer_prev_page() { pdf_viewer_goto_page(g_pdf_viewer.current_page - 1); }
 
 void pdf_viewer_cleanup() {
-    if (g_pdf_viewer.texture) SDL_DestroyTexture(g_pdf_viewer.texture);
+    destroy_texture(g_pdf_viewer.image);
+
     if (g_pdf_viewer.doc) fz_drop_document(g_pdf_viewer.ctx, g_pdf_viewer.doc);
     if (g_pdf_viewer.ctx) fz_drop_context(g_pdf_viewer.ctx);
 

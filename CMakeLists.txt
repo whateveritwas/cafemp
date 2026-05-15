@@ -46,6 +46,8 @@ set(SRC_FILES
   src/settings/settings.cpp
 
   src/player/photo_viewer.cpp
+  src/player/pdf_viewer.cpp
+
 
   src/ui/menu.cpp
   src/ui/scene.cpp
@@ -53,6 +55,7 @@ set(SRC_FILES
   src/ui/scenes/scene_main_menu.cpp
   src/ui/scenes/scene_file_browser.cpp
   src/ui/scenes/scene_photo_viewer.cpp
+  src/ui/scenes/scene_pdf_viewer.cpp
 
   src/ui/widgets/widget_sidebar.cpp
   src/ui/widgets/widget_tooltip.cpp
@@ -90,6 +93,14 @@ target_compile_definitions(CafeMP PRIVATE
 )
 
 target_link_libraries(CafeMP
+  mupdf
+  mupdf-third
+  harfbuzz
+  freetype
+  png
+  webp
+  bz2
+  z
   jansson
   gif
   m
