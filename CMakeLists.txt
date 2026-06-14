@@ -17,12 +17,15 @@ include(${CMAKE_TOOLCHAIN_FILE})
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra")
 
 include_directories(
   src
 
   src/vendor/ui
   src/vendor/ui/backends
+
+  src/shaders
 
   $ENV{DEVKITPRO}/wut/include
   $ENV{DEVKITPRO}/portlibs/ppc/include
@@ -45,6 +48,7 @@ set(SRC_FILES
 
   src/settings/settings.cpp
 
+  src/player/media_player.cpp
   src/player/photo_viewer.cpp
   src/player/pdf_viewer.cpp
 
@@ -53,10 +57,12 @@ set(SRC_FILES
   src/ui/scene.cpp
 
   src/ui/scenes/scene_main_menu.cpp
+  src/ui/scenes/scene_media_player.cpp
   src/ui/scenes/scene_file_browser.cpp
   src/ui/scenes/scene_photo_viewer.cpp
   src/ui/scenes/scene_pdf_viewer.cpp
 
+  src/ui/widgets/widget_player_hud.cpp
   src/ui/widgets/widget_sidebar.cpp
   src/ui/widgets/widget_tooltip.cpp
 
@@ -90,6 +96,7 @@ add_executable(CafeMP
 target_compile_definitions(CafeMP PRIVATE
   IMGUI_DISABLE_DEFAULT_SHELL_FUNCTIONS
   DEBUG
+  __WIIU__
 )
 
 target_link_libraries(CafeMP
@@ -103,6 +110,12 @@ target_link_libraries(CafeMP
   z
   jansson
   gif
+  swresample
+  avformat
+  avcodec
+  avutil
+  swscale
+  SDL2
   m
   wut
 )

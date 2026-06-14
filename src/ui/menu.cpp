@@ -12,6 +12,7 @@
 #include "ui/scene.hpp"
 #include "ui/scenes/scene_file_browser.hpp"
 #include "ui/scenes/scene_main_menu.hpp"
+#include "ui/scenes/scene_media_player.hpp"
 #include "ui/scenes/scene_pdf_viewer.hpp"
 #include "ui/scenes/scene_photo_viewer.hpp"
 #include "utils/font.hpp"
@@ -52,9 +53,10 @@ void ui_init() {
     ui_scene_register(STATE_MENU_PDF_FILES, {[]() {}, [](InputState &input) {}, []() { scene_file_browser_render(); }, []() {}});
 
     ui_scene_register(STATE_VIEWING_PHOTO, {[](){ scene_photo_viewer_init(media_info_get()->path); }, [](InputState& input){ scene_photo_viewer_input(input); }, [](){ scene_photo_viewer_render(); }, [](){}});
-
     ui_scene_register(STATE_VIEWING_PDF, {[](){ scene_pdf_viewer_init(media_info_get()->path); }, [](InputState& input){ scene_pdf_viewer_input(input); }, [](){ scene_pdf_viewer_render(); }, [](){}});
-    
+    ui_scene_register(STATE_PLAYING_VIDEO, {[](){ scene_media_player_init(media_info_get()->path); }, [](InputState& input){ scene_media_player_input(input); }, [](){ scene_media_player_render(); }, [](){ scene_media_player_shutdown(); }});
+    ui_scene_register(STATE_PLAYING_AUDIO, { [](){ scene_media_player_init(media_info_get()->path); }, [](InputState& input){ scene_media_player_input(input); }, [](){ scene_media_player_render(); }, [](){ scene_media_player_shutdown(); }});
+
     ui_scene_set(app_state_get());
 }
 
@@ -78,7 +80,7 @@ void ui_render() {
     WHBGfxBeginRender();
 
     WHBGfxBeginRenderTV();
-    GX2SetViewport(0, 0, io->DisplaySize.x, io->DisplaySize.y, 0.0f, 1.0f);
+    GX2SetViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0f, 1.0f);
     WHBGfxClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 
     ImGui_ImplGX2_RenderDrawData(ImGui::GetDrawData());

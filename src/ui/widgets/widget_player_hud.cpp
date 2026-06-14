@@ -1,72 +1,79 @@
 #include "widget_player_hud.hpp"
 
+#include <algorithm>
 #include <string>
 
 #include "main.hpp"
 #include "utils/app_state.hpp"
 #include "utils/media_info.hpp"
 #include "utils/utils.hpp"
-#include "vendor/ui/nuklear.h"
+#include "vendor/ui/imgui.h"
 
+void widget_player_hud_render(media_info* info) {
+    const float hud_height = 80.0f * UI_SCALE;
 
-void widget_player_hud_render(struct nk_context *ctx, media_info* info) {
-    const int hud_height = 80 * UI_SCALE;
-    struct nk_rect hud_rect = nk_rect(0, SCREEN_HEIGHT - hud_height, SCREEN_WIDTH, hud_height);
+    ImGui::SetNextWindowPos(ImVec2(0.0f, SCREEN_HEIGHT - hud_height));
+    ImGui::SetNextWindowSize(ImVec2(SCREEN_WIDTH, hud_height));
 
-    if (nk_begin(ctx, "HUD", hud_rect, NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND | NK_WINDOW_BORDER)) {
-        nk_layout_row_dynamic(ctx, (hud_height / 2) - 5, 1);
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
 
+    if (ImGui::Begin("HUD", nullptr, flags)) {
         double progress_seconds = 0.0;
         double total_seconds = 0.0;
 
-        switch(info->type) {
-	case 'V': // Video
+        switch (info->type) {
+	case 'V':
 	    progress_seconds = std::min(info->current_video_playback_time, info->total_video_playback_time);
 	    total_seconds = info->total_video_playback_time;
 	    break;
-	case 'A': // Audio
+
+	case 'A':
 	    progress_seconds = std::min(info->current_audio_playback_time, info->total_audio_playback_time);
 	    total_seconds = info->total_audio_playback_time;
 	    break;
+
 	default:
 	    progress_seconds = 0.0;
 	    total_seconds = 1.0;
 	    break;
         }
 
-        nk_size progress = static_cast<nk_size>(progress_seconds);
-        nk_size total = static_cast<nk_size>(total_seconds > 0 ? total_seconds : 1);
+        if (total_seconds <= 0.0) total_seconds = 1.0;
 
-        nk_progress(ctx, &progress, total, NK_FIXED);
+        float progress = static_cast<float>(progress_seconds / total_seconds);
 
-        nk_layout_row_begin(ctx, NK_DYNAMIC, hud_height / 2, 2);
-        nk_layout_row_push(ctx, 0.8f); // 80% left for playback info text
-        {
-            std::string hud_str = (info->playback_status ? "> " : "|| ");
-            hud_str += format_time(progress_seconds);
-            hud_str += " / ";
-            hud_str += format_time(total_seconds);
-            hud_str += " [";
-            hud_str += info->filename;
-            hud_str += "]";
+        ImGui::ProgressBar(progress, ImVec2(-1.0f, (hud_height / 2.0f) - 10.0f));
 
-            nk_label(ctx, hud_str.c_str(), NK_TEXT_LEFT);
+        std::string left_text = (info->playback_status ? "> " : "|| ");
+
+        left_text += format_time(progress_seconds);
+        left_text += " / ";
+        left_text += format_time(total_seconds);
+        left_text += " [";
+        left_text += info->filename;
+        left_text += "]";
+
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(left_text.c_str());
+
+        if (app_state_get() == STATE_PLAYING_VIDEO) {
+            std::string right_text = "A:";
+            right_text += std::to_string(info->current_audio_track_id);
+            right_text += "/";
+            right_text += std::to_string(info->total_audio_track_count);
+            right_text += " S:";
+            right_text += std::to_string(info->current_caption_id);
+            right_text += "/";
+            right_text += std::to_string(info->total_caption_count);
+
+            float text_width = ImGui::CalcTextSize(right_text.c_str()).x;
+            float avail_width = ImGui::GetContentRegionAvail().x;
+
+            ImGui::SameLine(ImGui::GetCursorPosX() + std::max(0.0f, avail_width - text_width));
+
+            ImGui::TextUnformatted(right_text.c_str());
         }
-
-        if(app_state_get() == STATE_PLAYING_VIDEO) {
-            nk_layout_row_push(ctx, 0.2f); // 20% right for audio/caption track info
-            {
-                std::string hud_str = "A:";
-                hud_str += std::to_string(info->current_audio_track_id);
-                hud_str += "/";
-                hud_str += std::to_string(info->total_audio_track_count);
-                hud_str += " S:";
-                hud_str += std::to_string(info->current_caption_id);
-                hud_str += "/";
-                hud_str += std::to_string(info->total_caption_count);
-                nk_label(ctx, hud_str.c_str(), NK_TEXT_RIGHT);
-            }
-        }
-        nk_end(ctx);
     }
+
+    ImGui::End();
 }

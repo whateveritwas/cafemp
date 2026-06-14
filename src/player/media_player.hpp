@@ -15,7 +15,6 @@ struct AudioTrackInfo {
 struct frame_info {
     int width;
     int height;
-    SDL_Texture* texture;
 };
 
 int media_player_init(const char* filepath);

@@ -7,8 +7,10 @@
 #include "utils/media_info.hpp"
 #include "player/media_player.hpp"
 #include "ui/widgets/widget_player_hud.hpp"
-#include "ui/scenes/scene_media_player.hpp"
+#include "ui/scenes/scene_file_browser.hpp"
 #include "main.hpp"
+
+#include "ui/scenes/scene_media_player.hpp"
 
 static bool show_hud = false;
 
@@ -17,11 +19,11 @@ void scene_media_player_init(std::string full_path) {
     media_player_play(true);
 }
 
-void scene_media_player_render(struct nk_context *ctx) {
+void scene_media_player_render() {
     media_player_update();
     
     if (!media_info_get()->playback_status || show_hud) {
-        widget_player_hud_render(ctx, media_info_get());
+        widget_player_hud_render(media_info_get());
     }
 }
 
@@ -36,11 +38,11 @@ void scene_media_player_input(InputState& input) {
 	switch (app_state_get()) {
 	case STATE_PLAYING_AUDIO:
 	    app_state_set(STATE_MENU_AUDIO_FILES);
-            scan_directory(MEDIA_PATH_AUDIO);
+            scene_file_browser_scan_directory(MEDIA_PATH_AUDIO);
             break;
 	case STATE_PLAYING_VIDEO:
 	    app_state_set(STATE_MENU_VIDEO_FILES);
-            scan_directory(MEDIA_PATH_VIDEO);
+            scene_file_browser_scan_directory(MEDIA_PATH_VIDEO);
             break;
 	default: break;
 	}        
