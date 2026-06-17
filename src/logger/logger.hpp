@@ -1,8 +1,6 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
-#include <stdio.h>
-
 typedef enum {
     LOG_OK,
     LOG_WARNING,

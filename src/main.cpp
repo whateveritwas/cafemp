@@ -9,7 +9,7 @@
 #include "utils/power_manager.hpp"
 #include "logger/logger.hpp"
 
-int main(int argc, char **argv) {
+int main(void) {
 #ifdef __WIIU__
     WHBProcInit();
     WHBGfxInit();

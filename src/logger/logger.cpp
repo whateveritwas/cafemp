@@ -1,5 +1,7 @@
-#include "logger/logger.hpp"
+#include <stdio.h>
 #include <stdarg.h>
+
+#include "logger/logger.hpp"
 
 #define COLOR_GREEN  "\x1b[32m"
 #define COLOR_YELLOW "\x1b[33m"
@@ -27,7 +29,11 @@ static const char* get_level_label(LogLevel level) {
     }
 }
 
-void log_message(LogLevel level, const char* system, const char* format, ...) {
+void log_message(LogLevel level, const char *system, const char *format, ...) {
+#ifndef DEBUG
+    return;
+#endif
+
     const char* color = get_level_color(level);
     const char* label = get_level_label(level);
 
