@@ -63,34 +63,17 @@ Made with ❤️ in 🇩🇪
 
 ---
 
-## Compatibility Tips
-
-For best results, re-encode your videos using this FFmpeg command:
-
-```bash
-ffmpeg -i <input> \
--map 0 \
--c:v libx264 -profile:v baseline -level 3.1 -pix_fmt yuv420p \
--preset ultrafast -tune fastdecode -crf 23 -vf "scale=-2:480" \
--c:a aac -b:a 256k \
--c:s copy \
-<output>
-````
-
----
-
 ## Features
 
 * Video playback (common formats, up to 720p)
 * Audio playback (common formats)
-* Image viewer (common formats)
+* Image viewer (common formats, animated gifs)
 * PDF / EBook viewer (pdf, epub)
 
 ---
 
 ## Planned Features
 
-* Skip/Rewind support for video
 * DLNA / Jellyfin streaming
 * USB drive support (ext4, exFAT)
 * Audio visualizations
@@ -101,12 +84,6 @@ ffmpeg -i <input> \
 ---
 
 ## Known Issues
-
-* **Audio/Video Desync**
-  Playback may fall out of sync, especially with high-resolution or complex video files. Re-encoding with the recommended FFmpeg settings may help.
-
-* **GamePad Required**
-  Currently, the app cannot be used without the Wii U GamePad. Other input methods like Pro Controller or Wiimote are not supported yet.
 
 * **Limited MKV Support**
   Not all `.mkv` files will work. Only those encoded with **H.264 video** and compatible audio formats are expected to play properly.
@@ -122,6 +99,7 @@ ffmpeg -i <input> \
 * **FFmpeg**: [GitHub](https://github.com/FFmpeg/FFmpeg/)
 * **FFmpeg Wii U Configure Script by GaryOderNichts**: [Github](https://github.com/GaryOderNichts/FFmpeg-wiiu/blob/master/configure-wiiu)
 * **Wii U Toolchain (WUT)**: [GitHub](https://github.com/devkitPro/wut)
+* **Nerd Fonts**: [GitHub](https://github.com/ryanoasis/nerd-fonts/)
 * **mupdf port by hito16**: [GitHub](https://github.com/hito16/mupdf-devkitppc)
 * **Helper files from hito16** [GitHub](https://github.com/hito16/SDLReader/blob/main/ports/wiiu/wiiu_mupdf_hb_wrappers.c) [GitHub](https://github.com/hito16/SDLReader/blob/main/ports/wiiu/wiiu_time_utils.c)
 * **stb** [GitHub](https://github.com/nothings/stb)

@@ -19,39 +19,64 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -ffunction-sections")
 
-include_directories(
-  src
+# -------------------------------------------------
+# Shader system (automatic build + header gen)
+# -------------------------------------------------
 
-  src/vendor/ui
-  src/vendor/ui/backends
+set(GEN_DIR ${CMAKE_BINARY_DIR}/generated)
+set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/shaders)
 
-  src/shaders
+file(MAKE_DIRECTORY ${GEN_DIR})
 
-  $ENV{DEVKITPRO}/wut/include
-  $ENV{DEVKITPRO}/portlibs/ppc/include
-  $ENV{DEVKITPRO}/portlibs/wiiu/include
-  $ENV{DEVKITPRO}/portlibs/wiiu/include/freetype2
-)
+function(add_shader NAME FRAG_FILE)
+    set(GSH_FILE ${GEN_DIR}/${NAME}.gsh)
+    set(HEADER_FILE ${GEN_DIR}/${NAME}_shader.h)
 
-link_directories(
-  $ENV{DEVKITPRO}/wut/lib
-  $ENV{DEVKITPRO}/portlibs/ppc/lib
-  $ENV{DEVKITPRO}/portlibs/wiiu/lib
-)
+    add_custom_command(
+        OUTPUT
+            ${GSH_FILE}
+            ${HEADER_FILE}
+
+        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tools/glslcompiler.elf
+            -vs ${SHADER_DIR}/video.vert.glsl
+            -ps ${SHADER_DIR}/${FRAG_FILE}
+            -o ${GSH_FILE}
+
+        COMMAND ${CMAKE_COMMAND}
+            -DINPUT=${GSH_FILE}
+            -DOUTPUT=${HEADER_FILE}
+            -DSYMBOL=${NAME}_shader
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/bin2h.cmake
+
+        DEPENDS
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/glslcompiler.elf
+            ${SHADER_DIR}/video.vert.glsl
+            ${SHADER_DIR}/${FRAG_FILE}
+    )
+
+    set(${NAME}_GSH ${GSH_FILE} PARENT_SCOPE)
+    set(${NAME}_HDR ${HEADER_FILE} PARENT_SCOPE)
+endfunction()
+
+# -------------------------------------------------
+# Define shaders (ADD NEW ONES HERE ONLY)
+# -------------------------------------------------
+
+add_shader(yuv420p yuv420p.frag.glsl)
+add_shader(nv12 nv12.frag.glsl)
+
+# -------------------------------------------------
+# Source files
+# -------------------------------------------------
 
 set(SRC_FILES
   src/main.cpp
-
   src/input/input_actions.cpp
-
   src/logger/logger.cpp
-
   src/settings/settings.cpp
-
   src/player/media_player.cpp
   src/player/photo_viewer.cpp
   src/player/pdf_viewer.cpp
-
 
   src/ui/menu.cpp
   src/ui/scene.cpp
@@ -89,9 +114,29 @@ set(VENDOR_FILES
   src/vendor/ui/backends/imgui_impl_wiiu.cpp
 )
 
+# -------------------------------------------------
+# Executable
+# -------------------------------------------------
+
 add_executable(CafeMP
   ${SRC_FILES}
   ${VENDOR_FILES}
+
+  ${yuv420p_HDR}
+  ${nv12_HDR}
+)
+
+target_include_directories(CafeMP PRIVATE
+  src
+  src/vendor/ui
+  src/vendor/ui/backends
+
+  ${GEN_DIR}
+
+  $ENV{DEVKITPRO}/wut/include
+  $ENV{DEVKITPRO}/portlibs/ppc/include
+  $ENV{DEVKITPRO}/portlibs/wiiu/include
+  $ENV{DEVKITPRO}/portlibs/wiiu/include/freetype2
 )
 
 target_compile_definitions(CafeMP PRIVATE
