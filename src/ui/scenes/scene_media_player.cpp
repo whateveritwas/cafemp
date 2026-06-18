@@ -82,7 +82,7 @@ void scene_media_player_input(InputState& input) {
             media_info_get()->current_audio_track_id = next_index + 1;
         }
         
-    } else if (input_touched(input)) {
+    } else if (input_touched(input) || input.valid_cursor) {
         show_hud = true;
     } else {
         show_hud = false;

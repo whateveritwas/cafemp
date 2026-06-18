@@ -15,6 +15,7 @@
 #include "ui/scenes/scene_media_player.hpp"
 #include "ui/scenes/scene_pdf_viewer.hpp"
 #include "ui/scenes/scene_photo_viewer.hpp"
+#include "ui/widgets/widget_cursor.hpp"
 #include "utils/font.hpp"
 #include "utils/media_info.hpp"
 
@@ -70,8 +71,9 @@ void ui_render() {
     ImGui::NewFrame();
 
     {
-	ui_scene_input(input);
-	ui_scene_render();
+        ui_scene_render();
+        ui_scene_input(input);
+	widget_cursor_render(input);
     }
 
     ImGui::EndFrame();
@@ -81,8 +83,10 @@ void ui_render() {
 
     WHBGfxBeginRenderTV();
     GX2SetViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0f, 1.0f);
-    WHBGfxClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 
+    if (app_state_get() == STATE_PLAYING_VIDEO) scene_media_player_render();
+    else WHBGfxClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+    
     ImGui_ImplGX2_RenderDrawData(ImGui::GetDrawData());
 
     ImGui_ImplWiiU_DrawKeyboardOverlay(ImGui_KeyboardOverlay_Auto);

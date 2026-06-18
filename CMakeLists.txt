@@ -17,7 +17,7 @@ include(${CMAKE_TOOLCHAIN_FILE})
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra")
+set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -ffunction-sections")
 
 include_directories(
   src
@@ -62,6 +62,7 @@ set(SRC_FILES
   src/ui/scenes/scene_photo_viewer.cpp
   src/ui/scenes/scene_pdf_viewer.cpp
 
+  src/ui/widgets/widget_cursor.cpp
   src/ui/widgets/widget_player_hud.cpp
   src/ui/widgets/widget_sidebar.cpp
   src/ui/widgets/widget_tooltip.cpp

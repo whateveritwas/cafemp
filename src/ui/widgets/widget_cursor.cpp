@@ -1,17 +1,14 @@
-#include "utils/sdl.hpp"
+#include "input/input_actions.hpp"
 
 #include "ui/widgets/widget_cursor.hpp"
+#include "vendor/ui/imgui.h"
 
-void widget_cursor_render(float cx, float cy, float radius) {
-    SDL_SetRenderDrawColor(sdl_get()->sdl_renderer, 255, 172, 28, 255);
+void widget_cursor_render(InputState &state) {    
+    if (!state.valid_cursor) return;    
 
-    for (int dy = -radius; dy <= radius; dy++) {
-        for (int dx = -radius; dx <= radius; dx++) {
-            if (dx*dx + dy*dy <= radius*radius) {
-                SDL_RenderDrawPoint(sdl_get()->sdl_renderer, (int)(cx + dx), (int)(cy + dy));
-            }
-        }
-    }
+    ImDrawList* draw_list = ImGui::GetForegroundDrawList();
 
-    SDL_SetRenderDrawColor(sdl_get()->sdl_renderer, 0, 0, 0, 255);
+    ImU32 color = IM_COL32(255, 0, 0, 255);
+    
+    draw_list->AddText(nullptr, 64.0f, ImVec2(state.cursor_position.x, state.cursor_position.y), color, "\uF245");
 }

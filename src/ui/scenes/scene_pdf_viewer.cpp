@@ -23,7 +23,7 @@ void scene_pdf_viewer_input(InputState& input) {
     if (input_pressed(input, BTN_B)) {
         pdf_viewer_cleanup();
         app_state_set(STATE_MENU_PDF_FILES);
-    } else if (input_touched(input)) {
+    } else if (input_touched(input) || input.valid_cursor) {
         pdf_viewer_pan(input.touch.x - input.touch.old_x, input.touch.y - input.touch.old_y);
 	pdf_viewer_show_tooltip = true;
     } else if (input_held(input, BTN_ZL)) {
