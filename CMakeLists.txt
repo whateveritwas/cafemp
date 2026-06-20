@@ -19,10 +19,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -ffunction-sections")
 
-# -------------------------------------------------
-# Shader system (automatic build + header gen)
-# -------------------------------------------------
-
 set(GEN_DIR ${CMAKE_BINARY_DIR}/generated)
 set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/shaders)
 
@@ -58,16 +54,8 @@ function(add_shader NAME FRAG_FILE)
     set(${NAME}_HDR ${HEADER_FILE} PARENT_SCOPE)
 endfunction()
 
-# -------------------------------------------------
-# Define shaders (ADD NEW ONES HERE ONLY)
-# -------------------------------------------------
-
 add_shader(yuv420p yuv420p.frag.glsl)
 add_shader(nv12 nv12.frag.glsl)
-
-# -------------------------------------------------
-# Source files
-# -------------------------------------------------
 
 set(SRC_FILES
   src/main.cpp
@@ -93,7 +81,6 @@ set(SRC_FILES
   src/ui/widgets/widget_tooltip.cpp
 
   src/utils/app_state.cpp
-  src/utils/media_files.cpp
   src/utils/media_info.cpp
   src/utils/power_manager.cpp
   src/utils/utils.cpp
@@ -113,10 +100,6 @@ set(VENDOR_FILES
   src/vendor/ui/backends/imgui_impl_gx2.cpp
   src/vendor/ui/backends/imgui_impl_wiiu.cpp
 )
-
-# -------------------------------------------------
-# Executable
-# -------------------------------------------------
 
 add_executable(CafeMP
   ${SRC_FILES}
@@ -204,7 +187,6 @@ function(wut_create_wuhb_custom target)
   set(args "${rpl_path}" "${output}")
   set(deps "${intarget}")
 
-  # Content handling
   if(DEFINED WUHBTOOL_CONTENT)
     if(TARGET "${WUHBTOOL_CONTENT}")
       get_target_property(folder "${WUHBTOOL_CONTENT}" DKP_ASSET_FOLDER)
@@ -227,7 +209,6 @@ function(wut_create_wuhb_custom target)
     endif()
   endif()
 
-  # Metadata
   if(WUHBTOOL_NAME)
     list(APPEND args "--name" "${WUHBTOOL_NAME}")
   endif()
@@ -240,7 +221,6 @@ function(wut_create_wuhb_custom target)
     list(APPEND args "--author" "${WUHBTOOL_AUTHOR}")
   endif()
 
-  # Assets
   foreach(opt ICON TVSPLASH DRCSPLASH)
     if(WUHBTOOL_${opt})
       get_filename_component(path "${WUHBTOOL_${opt}}" ABSOLUTE)

@@ -24,7 +24,7 @@ void widget_tooltip_render() {
 	case STATE_MENU_AUDIO_FILES:
 	case STATE_MENU_IMAGE_FILES:
 	case STATE_MENU_PDF_FILES: {
-	    ImGui::Text("%s Select | %s Open", FONT_GLYPH_LEFT_ANALOG_STICK, FONT_GLYPH_A_BUTTON);
+	    ImGui::Text("%s Select | %s Open | %s Back", FONT_GLYPH_LEFT_ANALOG_STICK, FONT_GLYPH_A_BUTTON, FONT_GLYPH_B_BUTTON);
 	    break;
         }
 	case STATE_MENU_SETTINGS: {
@@ -41,7 +41,7 @@ void widget_tooltip_render() {
 	}
         case STATE_VIEWING_PHOTO:            
 	case STATE_VIEWING_PDF: {
-	    ImGui::Text("%s Change Page | %s Zoom + | %s Zoom - | (Touch) Pan", FONT_GLYPH_LEFT_ANALOG_STICK, FONT_GLYPH_ZL_BUTTON, FONT_GLYPH_ZR_BUTTON);
+	    ImGui::Text("%s Change Page | %s Zoom + | %s Zoom - | (Touch) Pan | %s Back", FONT_GLYPH_LEFT_ANALOG_STICK, FONT_GLYPH_ZL_BUTTON, FONT_GLYPH_ZR_BUTTON, FONT_GLYPH_B_BUTTON);
 	    break;
 	}
         }
