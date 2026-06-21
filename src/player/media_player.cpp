@@ -1019,7 +1019,7 @@ static bool init_video_stream() {
 
     const AVCodec *codec = avcodec_find_decoder(st->codecpar->codec_id);
 
-    if (st->codecpar->codec_id == AV_CODEC_ID_H264 && st->codecpar->height == 720 && st->codecpar->width == 1280) {
+    if (st->codecpar->codec_id == AV_CODEC_ID_H264) {
         const AVCodec *hw = avcodec_find_decoder_by_name("h264_wiiu");
         if (hw) {
             codec = hw;

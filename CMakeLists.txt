@@ -134,16 +134,13 @@ target_link_libraries(CafeMP
   harfbuzz
   freetype
   png
-  webp
   bz2
-  z
   jansson
   gif
   swresample
   avformat
   avcodec
   avutil
-  swscale
   SDL2
   m
   wut
