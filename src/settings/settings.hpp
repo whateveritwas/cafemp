@@ -1,5 +1,5 @@
-#ifndef SETTINGS_H
-#define SETTINGS_H
+#ifndef SETTINGS_HPP
+#define SETTINGS_HPP
 
 #include <stdbool.h>
 
@@ -11,7 +11,7 @@ typedef enum {
     SETTINGS_BKG_MUSIC_ENABLED,
     SETTINGS_JELLYFIN_URL,
     SETTINGS_JELLYFIN_API_KEY,
-    SETTINGS_COUNT  // Number of settings
+    SETTINGS_COUNT
 } settings_keys;
 
 typedef struct {
@@ -28,4 +28,4 @@ void settings_get(settings_keys key, void* out_value);
 
 const settings_struct* settings_get_all();
 
-#endif // SETTINGS_H
+#endif

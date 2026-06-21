@@ -34,7 +34,7 @@ extern "C" {
 #include "yuv420p_shader.h"
 #include "nv12_shader.h"
 
-#include "utils/utils.hpp"
+#include "utils/display.hpp"
 #include "utils/media_info.hpp"
 #include "logger/logger.hpp"
 #include "player/media_player.hpp"
@@ -54,9 +54,6 @@ extern "C" {
 #define AUDIO_OUT_RATE 48000
 #define AUDIO_BUF_MAX_BYTES (768 * 1024)
 
-static constexpr int TV_W = 1280;
-static constexpr int TV_H = 720;
-
 static double wall_now() {
     using namespace std::chrono;
     return duration_cast<duration<double>>(steady_clock::now().time_since_epoch()).count();
@@ -70,8 +67,8 @@ struct VideoPlane {
     bool valid = false;
 };
 
-static inline float px_to_ndc_x(int x) { return 2.0f * (float)x / TV_W - 1.0f; }
-static inline float px_to_ndc_y(int y) { return 1.0f - 2.0f * (float)y / TV_H; }
+static inline float px_to_ndc_x(int x) { return 2.0f * (float)x / display_get().width - 1.0f; }
+static inline float px_to_ndc_y(int y) { return 1.0f - 2.0f * (float)y / display_get().height; }
 
 struct VideoVertex {
     float x, y, u, v;
@@ -189,8 +186,10 @@ static void pq_put_private(PacketQueue *q, AVPacket *pkt) {
     n->serial = (pkt->data == g_flush_pkt->data) ? (++q->serial) : q->serial;
     n->next = nullptr;
 
-    if (q->tail) q->tail->next = n;
-    else q->head = n;
+    if (q->tail)
+        q->tail->next = n;
+    else
+        q->head = n;
 
     q->tail = n;
     q->nb_packets++;
@@ -533,7 +532,7 @@ struct PlayerState {
     uint32_t quad_vtx_size = 0;
 
     frame_info *cur_frame_info = nullptr;
-    Rect dest_rect = {0, 0, 0, 0};
+    rect dest_rect = {0, 0, 0, 0};
     bool dest_rect_init = false;
     int out_w = 0;
     int out_h = 0;
@@ -626,7 +625,7 @@ static void free_video_planes() {
     free_plane(S->plane_uv);
 }
 
-static void update_quad(const Rect &r) {
+static void update_quad(const rect &r) {
     constexpr uint32_t needed = 4 * sizeof(VideoVertex);
     if (!S->quad_vtx || S->quad_vtx_size < needed) {
         free(S->quad_vtx);
@@ -669,15 +668,15 @@ static void video_upload_frame(const AVFrame *f) {
     S->plane_write_idx ^= 1;
 }
 
-static void video_render_common(WHBGfxShaderGroup *grp, const Rect &dest) {
+static void video_render_common(WHBGfxShaderGroup *grp, const rect &dest) {
     if (!grp || !S->quad_vtx) return;
 
     GX2SetColorControl(GX2_LOGIC_OP_COPY, 0xFF, FALSE, TRUE);
     GX2SetBlendControl(GX2_RENDER_TARGET_0, GX2_BLEND_MODE_ONE, GX2_BLEND_MODE_ZERO, GX2_BLEND_COMBINE_MODE_ADD, FALSE, GX2_BLEND_MODE_ONE, GX2_BLEND_MODE_ZERO, GX2_BLEND_COMBINE_MODE_ADD);
     GX2SetCullOnlyControl(GX2_FRONT_FACE_CCW, FALSE, FALSE);
     GX2SetDepthOnlyControl(FALSE, FALSE, GX2_COMPARE_FUNC_ALWAYS);
-    GX2SetViewport(0, 0, TV_W, TV_H, 0, 1);
-    GX2SetScissor(0, 0, TV_W, TV_H);
+    GX2SetViewport(0, 0, display_get().width, display_get().height, 0, 1);
+    GX2SetScissor(0, 0, display_get().width, display_get().height);
     GX2Invalidate(GX2_INVALIDATE_MODE_CPU_ATTRIBUTE_BUFFER, S->quad_vtx, S->quad_vtx_size);
     GX2SetFetchShader(&grp->fetchShader);
     GX2SetVertexShader(grp->vertexShader);
@@ -690,7 +689,7 @@ static void video_render_common(WHBGfxShaderGroup *grp, const Rect &dest) {
     GX2DrawEx(GX2_PRIMITIVE_MODE_TRIANGLE_STRIP, 4, 0, 1);
 }
 
-static void video_render_yuv420p(const Rect &dest) {
+static void video_render_yuv420p(const rect &dest) {
     const int ri = S->plane_write_idx ^ 1;
 
     GX2SetPixelTexture(&S->plane_y.tex[ri], 0);
@@ -703,7 +702,7 @@ static void video_render_yuv420p(const Rect &dest) {
     video_render_common(S->shader_yuv420p, dest);
 }
 
-static void video_render_nv12(const Rect &dest) {
+static void video_render_nv12(const rect &dest) {
     const int ri = S->plane_write_idx ^ 1;
 
     GX2SetPixelTexture(&S->plane_y.tex[ri], 0);
@@ -886,7 +885,7 @@ static void video_decode_thread() {
         vp->width = raw->width;
         vp->height = raw->height;
         vp->uploaded = false;
-        
+
         av_frame_move_ref(vp->frame, raw);
         fq_push(&ps->pictq);
         total++;
@@ -1020,7 +1019,7 @@ static bool init_video_stream() {
 
     const AVCodec *codec = avcodec_find_decoder(st->codecpar->codec_id);
 
-    if (st->codecpar->codec_id == AV_CODEC_ID_H264 && st->codecpar->height == 720) {
+    if (st->codecpar->codec_id == AV_CODEC_ID_H264 && st->codecpar->height == 720 && st->codecpar->width == 1280) {
         const AVCodec *hw = avcodec_find_decoder_by_name("h264_wiiu");
         if (hw) {
             codec = hw;
@@ -1069,7 +1068,7 @@ static bool init_video_stream() {
         return false;
     }
 
-    S->dest_rect = calculate_aspect_fit_rect(S->out_w, S->out_h);
+    S->dest_rect = display_calculate_aspect_fit(S->out_w, S->out_h);
     update_quad(S->dest_rect);
     S->dest_rect_init = true;
 
@@ -1162,6 +1161,8 @@ int media_player_init(const char *path) {
         media_player_cleanup();
     }
 
+    display_get() = display_get();
+
     if (!g_flush_pkt) {
         g_flush_pkt = av_packet_alloc();
         if (!g_flush_pkt) {
@@ -1241,12 +1242,12 @@ int media_player_init(const char *path) {
     if (has_v && S->video_idx >= 0) {
         AVStream *vs = S->fmt_ctx->streams[S->video_idx];
         double dur = vs->duration != AV_NOPTS_VALUE ? vs->duration * av_q2d(vs->time_base) : 0.0;
-        media_info_get()->total_video_playback_time = dur;
+        media_info_get()->total_playback_time = dur;
     }
     if (has_a && S->audio_idx >= 0) {
         AVStream *as = S->fmt_ctx->streams[S->audio_idx];
         int64_t dur = as->duration != AV_NOPTS_VALUE ? (int64_t)(as->duration * av_q2d(as->time_base)) : 0;
-        media_info_get()->total_audio_playback_time = dur;
+        media_info_get()->total_playback_time = dur;
     }
     log_message(LOG_OK, MP, "media_player_init complete");
     return 0;
@@ -1294,7 +1295,7 @@ void media_player_seek(double seconds) {
 void media_player_update() {
     if (!S) return;
 
-    media_info_get()->current_video_playback_time = get_master_clock();
+    media_info_get()->current_playback_time = get_master_clock();
     pump_audio();
     if (!S->video_avctx) return;
 
@@ -1363,7 +1364,7 @@ display:
         vp->uploaded = true;
     }
 
-    Rect dest = calculate_aspect_fit_rect(vp->width, vp->height);
+    rect dest = display_calculate_aspect_fit(vp->width, vp->height);
     if (fmt == VideoFmt::YUV420P)
         video_render_yuv420p(dest);
     else

@@ -1,5 +1,5 @@
-#ifndef UI_SCENE_H
-#define UI_SCENE_H
+#ifndef UI_SCENE_HPP
+#define UI_SCENE_HPP
 
 #include <functional>
 #include "input/input_actions.hpp"

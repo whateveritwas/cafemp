@@ -1,5 +1,5 @@
-#ifndef UI_FILEBROWSER_H
-#define UI_FILEBROWSER_H
+#ifndef UI_FILEBROWSER_HPP
+#define UI_FILEBROWSER_HPP
 
 #include "input/input_actions.hpp"
 

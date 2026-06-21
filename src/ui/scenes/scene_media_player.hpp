@@ -1,5 +1,5 @@
-#ifndef UI_VIDEO_PLAYER_H
-#define UI_VIDEO_PLAYER_H
+#ifndef UI_VIDEO_PLAYER_HPP
+#define UI_VIDEO_PLAYER_HPP
 
 #include <string>
 #include "input/input_actions.hpp"

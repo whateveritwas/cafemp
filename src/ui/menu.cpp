@@ -9,6 +9,7 @@
 #include "main.hpp"
 #include "input/input_actions.hpp"
 #include "utils/app_state.hpp"
+#include "utils/display.hpp"
 #include "ui/scene.hpp"
 #include "ui/scenes/scene_file_browser.hpp"
 #include "ui/scenes/scene_main_menu.hpp"
@@ -137,7 +138,7 @@ void ui_render() {
     WHBGfxBeginRender();
 
     WHBGfxBeginRenderTV();
-    GX2SetViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0f, 1.0f);
+    GX2SetViewport(0, 0, display_get().width, display_get().height, 0.0f, 1.0f);
 
     if (app_state_get() == STATE_PLAYING_VIDEO) scene_media_player_render();
     else WHBGfxClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);

@@ -1,5 +1,5 @@
-#ifndef INPUT_ACTIONS_H
-#define INPUT_ACTIONS_H
+#ifndef INPUT_ACTIONS_HPP
+#define INPUT_ACTIONS_HPP
 
 #include <cstdint>
 

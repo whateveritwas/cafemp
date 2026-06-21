@@ -29,4 +29,4 @@ int media_player_get_current_audio_track();
 double media_player_get_current_time();
 double media_player_get_total_time();
 
-#endif // MEDIA_PLAYER_HPP
+#endif

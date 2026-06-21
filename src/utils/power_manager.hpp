@@ -1,5 +1,5 @@
-#ifndef POWER_MANAGER_H
-#define POWER_MANAGER_H
+#ifndef POWER_MANAGER_HPP
+#define POWER_MANAGER_HPP
 
 int power_manager_sleep_enable(bool state);
 

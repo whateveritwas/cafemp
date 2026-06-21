@@ -1,16 +1,14 @@
 #include <cstdio>
 #include <cmath>
 
-#ifdef __WIIU__
 #include <vpad/input.h>
 #include <padscore/wpad.h>
 #include <padscore/kpad.h>
 #include "vendor/ui/backends/imgui_impl_wiiu.h"
-#endif
 
 #include "logger/logger.hpp"
-#include "main.hpp"
 #include "input/input_actions.hpp"
+#include "utils/display.hpp"
 
 static bool s_use_wpad = false;
 static bool s_use_kpad = false;
@@ -61,8 +59,6 @@ void input_poll(InputState &state) {
     state.touch.touched = false;
 
     state.using_pro_controller = false;
-
-#ifdef __WIIU__
 
     static VPADStatus vpad{};
     static WPADStatusProController wpad{};
@@ -152,8 +148,8 @@ void input_poll(InputState &state) {
         state.valid_cursor = (kpad.posValid == 1 || kpad.posValid == 2) && (kpad.pos.x >= -1.0f && kpad.pos.x <= 1.0f) && (kpad.pos.y >= -1.0f && kpad.pos.y <= 1.0f);        
         
         if (state.valid_cursor) {           
-            state.cursor_position.x = SCREEN_WIDTH * kpad.pos.x;
-            state.cursor_position.y = SCREEN_HEIGHT * kpad.pos.y;
+            state.cursor_position.x = display_get().width * kpad.pos.x;
+            state.cursor_position.y = display_get().height * kpad.pos.y;
 
 	    ImGuiIO& io = ImGui::GetIO();
             io.MousePos = ImVec2(state.cursor_position.x, state.cursor_position.y);
@@ -255,7 +251,6 @@ void input_poll(InputState &state) {
         }
     }
 
-#endif
 
     state.pressed = state.held & ~previous_held;
 

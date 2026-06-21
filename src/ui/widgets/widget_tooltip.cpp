@@ -7,8 +7,8 @@
 #include "utils/app_state.hpp"
 
 void widget_tooltip_render() {
-    ImGui::SetNextWindowPos(ImVec2(0, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(SCREEN_WIDTH, TOOLTIP_BAR_HEIGHT * UI_SCALE), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(0, display_get().height - TOOLTIP_BAR_HEIGHT * display_get().scale), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(display_get().width, TOOLTIP_BAR_HEIGHT * display_get().scale), ImGuiCond_Always);
 
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
 

@@ -1,5 +1,5 @@
-#ifndef UI_PHOTO_VIEWER_H
-#define UI_PHOTO_VIEWER_H
+#ifndef UI_PHOTO_VIEWER_HPP
+#define UI_PHOTO_VIEWER_HPP
 
 #include <string>
 #include "input/input_actions.hpp"

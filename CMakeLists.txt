@@ -81,9 +81,9 @@ set(SRC_FILES
   src/ui/widgets/widget_tooltip.cpp
 
   src/utils/app_state.cpp
+  src/utils/display.cpp
   src/utils/media_info.cpp
   src/utils/power_manager.cpp
-  src/utils/utils.cpp
 )
 
 set(VENDOR_FILES

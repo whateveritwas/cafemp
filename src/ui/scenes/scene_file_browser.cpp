@@ -1,5 +1,6 @@
 #include <dirent.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <string>
 #include <vector>
 
@@ -9,8 +10,9 @@
 #include "ui/widgets/widget_button_icon.hpp"
 #include "ui/widgets/widget_tooltip.hpp"
 #include "ui/widgets/widget_sidebar.hpp"
-#include "utils/utils.hpp"
+
 #include "logger/logger.hpp"
+#include "utils/display.hpp"
 #include "utils/media_info.hpp"
 #include "utils/font.hpp"
 #include "input/input_actions.hpp"
@@ -106,8 +108,7 @@ static void start_file(const std::string &filename) {
     info->type = mapping.type;
     info->path = media_root + rel_file;
     info->filename = filename;
-    info->current_video_playback_time = 0;
-    info->current_audio_playback_time = 0;
+    info->current_playback_time = 0;
 
     if (mapping.type == 'P' || mapping.type == 'L') {
         info->current_audio_track_id = 0;
@@ -206,17 +207,17 @@ void scene_file_browser_render() {
 
     if (ImGui::Begin(VERSION_STRING, nullptr, window_flags)) {
         ImGui::SetWindowPos(ImVec2(0, 0));
-        ImGui::SetWindowSize(ImVec2(SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE));
+        ImGui::SetWindowSize(ImVec2(display_get().width, display_get().height - TOOLTIP_BAR_HEIGHT * display_get().scale));
 
         ImGui::Columns(2, nullptr, false);
-        ImGui::SetColumnWidth(0, 200.0f * UI_SCALE);
+        ImGui::SetColumnWidth(0, 200.0f * display_get().scale);
         widget_sidebar_render();
         ImGui::NextColumn();
 
         ImGui::BeginChild("FileList", ImVec2(0, 0), true, ImGuiWindowFlags_None);
 
         for (const file &f : files) {
-            if (widget_button_icon(f.path.c_str(), file_icons.at(f.file_type), false, ImVec2(-1, 64 * UI_SCALE))) {
+            if (widget_button_icon(f.path.c_str(), file_icons.at(f.file_type), false, ImVec2(-1, 64 * display_get().scale))) {
                 if (f.file_type == FILE_FOLDER) {
                     if (f.path == "..") {
                         scene_file_browser_go_up();

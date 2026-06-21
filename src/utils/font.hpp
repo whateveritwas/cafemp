@@ -1,5 +1,7 @@
 #ifndef FONT_HPP
 #define FONT_HPP
+
+#include "display.hpp"
 #include "main.hpp"
 #include <coreinit/memory.h>
 #include "vendor/ui/backends/imgui_impl_wiiu.h"
@@ -99,7 +101,7 @@ static void font_load(OSSharedDataType font, bool merge) {
 
     if (OSGetSharedData(font, 0, &font_data, &font_size)) {
         log_message(LOG_DEBUG, "Font", "Loading font \"%s\" with data size %u", names[font], font_size);
-        io.Fonts->AddFontFromMemoryTTF(font_data, font_size, default_font_size * UI_SCALE, &config);
+        io.Fonts->AddFontFromMemoryTTF(font_data, font_size, default_font_size * display_get().scale, &config);
     }
 }
 
@@ -117,4 +119,5 @@ static void font_load_all() {
 
     io.Fonts->AddFontFromFileTTF(SYMBOLS_FONT, default_font_size, &cfg, nerd_font_ranges);
 }
+
 #endif

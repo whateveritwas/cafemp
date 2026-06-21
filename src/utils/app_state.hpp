@@ -1,5 +1,5 @@
-#ifndef APP_STATE_H
-#define APP_STATE_H
+#ifndef APP_STATE_HPP
+#define APP_STATE_HPP
 
 enum AppState {
     STATE_MENU,

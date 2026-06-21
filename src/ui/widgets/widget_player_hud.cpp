@@ -5,15 +5,23 @@
 
 #include "main.hpp"
 #include "utils/app_state.hpp"
+#include "utils/display.hpp"
 #include "utils/media_info.hpp"
-#include "utils/utils.hpp"
 #include "vendor/ui/imgui.h"
 
-void widget_player_hud_render(media_info* info) {
-    const float hud_height = 80.0f * UI_SCALE;
+std::string format_time(int seconds) {
+    int mins = seconds / 60;
+    int secs = seconds % 60;
+    char buffer[16];
+    snprintf(buffer, sizeof(buffer), "%02d:%02d", mins, secs);
+    return std::string(buffer);
+}
 
-    ImGui::SetNextWindowPos(ImVec2(0.0f, SCREEN_HEIGHT - hud_height));
-    ImGui::SetNextWindowSize(ImVec2(SCREEN_WIDTH, hud_height));
+void widget_player_hud_render(media_info *info) {
+    const float hud_height = 80.0f * display_get().scale;
+
+    ImGui::SetNextWindowPos(ImVec2(0.0f, display_get().height - hud_height));
+    ImGui::SetNextWindowSize(ImVec2(display_get().width, hud_height));
 
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
 
@@ -21,22 +29,8 @@ void widget_player_hud_render(media_info* info) {
         double progress_seconds = 0.0;
         double total_seconds = 0.0;
 
-        switch (info->type) {
-	case 'V':
-	    progress_seconds = std::min(info->current_video_playback_time, info->total_video_playback_time);
-	    total_seconds = info->total_video_playback_time;
-	    break;
-
-	case 'A':
-	    progress_seconds = std::min(info->current_audio_playback_time, info->total_audio_playback_time);
-	    total_seconds = info->total_audio_playback_time;
-	    break;
-
-	default:
-	    progress_seconds = 0.0;
-	    total_seconds = 1.0;
-	    break;
-        }
+        progress_seconds = info->current_playback_time;
+        total_seconds = info->total_playback_time;
 
         if (total_seconds <= 0.0) total_seconds = 1.0;
 

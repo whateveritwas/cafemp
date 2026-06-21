@@ -1,7 +1,5 @@
-#ifndef PHOTO_VIEWER_H
-#define PHOTO_VIEWER_H
-
-#include <SDL2/SDL.h>
+#ifndef PHOTO_VIEWER_HPP
+#define PHOTO_VIEWER_HPP
 
 void photo_viewer_init();
 void photo_viewer_open_picture(const char* filepath);

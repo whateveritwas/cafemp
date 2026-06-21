@@ -1,5 +1,5 @@
-#ifndef LOGGER_H
-#define LOGGER_H
+#ifndef LOGGER_HPP
+#define LOGGER_HPP
 
 typedef enum {
     LOG_OK,
@@ -10,4 +10,4 @@ typedef enum {
 
 void log_message(LogLevel level, const char* system, const char* format, ...);
 
-#endif /* SRC_LOGGER_LOGGER_HPP_ */
+#endif

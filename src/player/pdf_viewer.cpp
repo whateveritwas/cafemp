@@ -9,7 +9,8 @@ extern "C" {
 #include "vendor/ui/backends/imgui_impl_gx2.h"
 
 #include "main.hpp"
-#include "utils/utils.hpp"
+#include "utils/display.hpp"
+
 #include "logger/logger.hpp"
 #include "player/pdf_viewer.hpp"
 
@@ -80,8 +81,8 @@ static GX2Image render_page_to_gx2(fz_context* ctx, fz_document* doc, int page_n
     fz_page* page = fz_load_page(ctx, doc, page_num);
     fz_rect bounds = fz_bound_page(ctx, page);
 
-    int w = static_cast<int>((bounds.x1 - bounds.x0) * zoom);
-    int h = static_cast<int>((bounds.y1 - bounds.y0) * zoom);
+    int w = (int)((bounds.x1 - bounds.x0) * zoom);
+    int h = (int)((bounds.y1 - bounds.y0) * zoom);
 
     fz_pixmap* pix = fz_new_pixmap_with_bbox(ctx, fz_device_rgb(ctx), fz_irect{0, 0, w, h}, nullptr, 0);
     fz_clear_pixmap_with_value(ctx, pix, 0xFF);
@@ -180,15 +181,15 @@ void pdf_viewer_fit_to_screen() {
     fz_rect bounds = fz_bound_page(g_pdf_viewer.ctx, page);
     fz_drop_page(g_pdf_viewer.ctx, page);
 
-    int page_width = static_cast<int>(bounds.x1 - bounds.x0);
+    int page_width = (int)(bounds.x1 - bounds.x0);
 
-    g_pdf_viewer.zoom = static_cast<float>(SCREEN_HEIGHT) / page_width;
+    g_pdf_viewer.zoom = display_get().height / page_width;
     g_pdf_viewer.texture_dirty = true;
 
     flush_texture_if_dirty();
 
-    g_pdf_viewer.pan_x = (SCREEN_WIDTH - g_pdf_viewer.image.width) / 2;
-    g_pdf_viewer.pan_y = (SCREEN_HEIGHT - g_pdf_viewer.image.height) / 2;
+    g_pdf_viewer.pan_x = (display_get().width - g_pdf_viewer.image.width) / 2;
+    g_pdf_viewer.pan_y = (display_get().height - g_pdf_viewer.image.height) / 2;
 }
 
 void pdf_viewer_render() {
@@ -200,10 +201,10 @@ void pdf_viewer_render() {
 
     const int tw = g_pdf_viewer.image.width;
     const int th = g_pdf_viewer.image.height;
-    const float x = static_cast<float>(g_pdf_viewer.pan_x);
-    const float y = static_cast<float>(g_pdf_viewer.pan_y);
-    const float w = static_cast<float>(tw);
-    const float h = static_cast<float>(th);
+    const float x = (float)(g_pdf_viewer.pan_x);
+    const float y = (float)(g_pdf_viewer.pan_y);
+    const float w = (float)(tw);
+    const float h = (float)(th);
 
     ImVec2 center(x + w * 0.5f, y + h * 0.5f);
 

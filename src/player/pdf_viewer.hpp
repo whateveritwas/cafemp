@@ -1,5 +1,5 @@
-#ifndef PDF_VIEWER_H
-#define PDF_VIEWER_H
+#ifndef PDF_VIEWER_HPP
+#define PDF_VIEWER_HPP
 
 void pdf_viewer_init();
 void pdf_viewer_open_file(const char* filepath);

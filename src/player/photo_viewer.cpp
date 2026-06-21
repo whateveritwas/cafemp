@@ -14,7 +14,8 @@
 #include "vendor/stb_image.h"
 
 #include "main.hpp"
-#include "utils/utils.hpp"
+#include "utils/display.hpp"
+
 #include "logger/logger.hpp"
 #include "player/photo_viewer.hpp"
 
@@ -22,7 +23,7 @@
 #define MAX_ZOOM_SCALE 5.0f
 
 struct GX2Image {
-    ImTextureData* texture = nullptr;
+    ImTextureData *texture = nullptr;
     ImTextureID tex_id = 0;
     int width = 0;
     int height = 0;
@@ -40,25 +41,23 @@ static int current_gif_frame = 0;
 static uint64_t last_frame_time = 0;
 
 static float scale = 1.0f;
-static Rect dst = {0, 0, 0, 0};
+static rect dst = {0, 0, 0, 0};
 static bool dst_set = false;
 
-static uint64_t current_time_ms() {
-    return OSTicksToMilliseconds(OSGetTime());
-}
+static uint64_t current_time_ms() { return OSTicksToMilliseconds(OSGetTime()); }
 
-static GX2Image create_texture_rgba(const uint8_t* rgba, int width, int height, bool is_gif) {
+static GX2Image create_texture_rgba(const uint8_t *rgba, int width, int height, bool is_gif) {
     GX2Image result;
 
-    ImTextureData* tex = IM_NEW(ImTextureData);
+    ImTextureData *tex = IM_NEW(ImTextureData);
     tex->Create(ImTextureFormat_RGBA32, width, height);
 
-    uint32_t* dst = reinterpret_cast<uint32_t*>(tex->GetPixels());
+    uint32_t *dst = reinterpret_cast<uint32_t *>(tex->GetPixels());
 
     if (is_gif) {
-	memcpy(dst, rgba, width * height * 4);
+        memcpy(dst, rgba, width * height * 4);
     } else {
-	for (int i = 0; i < width * height; ++i) {
+        for (int i = 0; i < width * height; ++i) {
             uint8_t r = rgba[i * 4 + 0];
             uint8_t g = rgba[i * 4 + 1];
             uint8_t b = rgba[i * 4 + 2];
@@ -79,7 +78,7 @@ static GX2Image create_texture_rgba(const uint8_t* rgba, int width, int height, 
     return result;
 }
 
-static void destroy_texture(GX2Image& image) {
+static void destroy_texture(GX2Image &image) {
     if (!image.texture) return;
 
     image.texture->SetStatus(ImTextureStatus_WantDestroy);
@@ -102,10 +101,10 @@ void photo_viewer_init() {
 }
 
 static void clamp_dst() {
-    float max_x = (float)SCREEN_WIDTH - dst.w;
-    float max_y = (float)SCREEN_HEIGHT - dst.h;
+    float max_x = display_get().width - dst.w;
+    float max_y = display_get().height - dst.h;
 
-    if (dst.w > SCREEN_WIDTH) {
+    if (dst.w > display_get().width) {
         if (dst.x > 0) dst.x = 0;
         if (dst.x < max_x) dst.x = max_x;
     } else {
@@ -113,7 +112,7 @@ static void clamp_dst() {
         if (dst.x > max_x) dst.x = max_x;
     }
 
-    if (dst.h > SCREEN_HEIGHT) {
+    if (dst.h > display_get().height) {
         if (dst.y > 0) dst.y = 0;
         if (dst.y < max_y) dst.y = max_y;
     } else {
@@ -122,9 +121,9 @@ static void clamp_dst() {
     }
 }
 
-static bool load_gif(const char* filepath) {
+static bool load_gif(const char *filepath) {
     int err = 0;
-    GifFileType* gif = DGifOpenFileName(filepath, &err);
+    GifFileType *gif = DGifOpenFileName(filepath, &err);
 
     if (!gif) return false;
     if (DGifSlurp(gif) != GIF_OK) {
@@ -137,13 +136,13 @@ static bool load_gif(const char* filepath) {
     std::vector<uint32_t> canvas(gif->SWidth * gif->SHeight, 0);
     std::vector<uint32_t> backup = canvas;
 
-    GifColorType* global_colors = gif->SColorMap ? gif->SColorMap->Colors : nullptr;
+    GifColorType *global_colors = gif->SColorMap ? gif->SColorMap->Colors : nullptr;
 
     for (int i = 0; i < gif->ImageCount; ++i) {
-        SavedImage& frame = gif->SavedImages[i];
-        GifImageDesc& desc = frame.ImageDesc;
+        SavedImage &frame = gif->SavedImages[i];
+        GifImageDesc &desc = frame.ImageDesc;
 
-        GifColorType* colors = desc.ColorMap ? desc.ColorMap->Colors : global_colors;
+        GifColorType *colors = desc.ColorMap ? desc.ColorMap->Colors : global_colors;
 
         if (!colors) continue;
 
@@ -152,7 +151,7 @@ static bool load_gif(const char* filepath) {
         int disposal = 0;
 
         for (int j = 0; j < frame.ExtensionBlockCount; ++j) {
-            ExtensionBlock& ext = frame.ExtensionBlocks[j];
+            ExtensionBlock &ext = frame.ExtensionBlocks[j];
 
             if (ext.Function == GRAPHICS_EXT_FUNC_CODE && ext.ByteCount >= 4) {
                 delay = ((ext.Bytes[2] << 8) | ext.Bytes[1]) * 10;
@@ -167,12 +166,11 @@ static bool load_gif(const char* filepath) {
         if (i > 0) {
             if (disposal == 2) {
                 for (int y = 0; y < desc.Height; ++y)
-		    for (int x = 0; x < desc.Width; ++x) {
-			int px = desc.Left + x;
-			int py = desc.Top + y;
-			if (px < gif->SWidth && py < gif->SHeight)
-			    canvas[py * gif->SWidth + px] = 0;
-		    }
+                    for (int x = 0; x < desc.Width; ++x) {
+                        int px = desc.Left + x;
+                        int py = desc.Top + y;
+                        if (px < gif->SWidth && py < gif->SHeight) canvas[py * gif->SWidth + px] = 0;
+                    }
             } else if (disposal == 3) {
                 canvas = backup;
             }
@@ -181,29 +179,24 @@ static bool load_gif(const char* filepath) {
         if (disposal == 3) backup = canvas;
 
         for (int y = 0; y < desc.Height; ++y)
-	    for (int x = 0; x < desc.Width; ++x) {
-		int idx = y * desc.Width + x;
-		int ci = frame.RasterBits[idx];
+            for (int x = 0; x < desc.Width; ++x) {
+                int idx = y * desc.Width + x;
+                int ci = frame.RasterBits[idx];
 
-		if (ci == transparent_index)
-		    continue;
+                if (ci == transparent_index) continue;
 
-		GifColorType c = colors[ci];
+                GifColorType c = colors[ci];
 
-		int px = desc.Left + x;
-		int py = desc.Top + y;
+                int px = desc.Left + x;
+                int py = desc.Top + y;
 
-		if (px < gif->SWidth && py < gif->SHeight) {
-		    canvas[py * gif->SWidth + px] =
-			(255u << 24) |
-			(c.Blue << 16) |
-			(c.Green << 8) |
-			(c.Red);
-		}
-	    }
+                if (px < gif->SWidth && py < gif->SHeight) {
+                    canvas[py * gif->SWidth + px] = (255u << 24) | (c.Blue << 16) | (c.Green << 8) | (c.Red);
+                }
+            }
 
         GIFFrame out;
-        out.image = create_texture_rgba(reinterpret_cast<uint8_t*>(canvas.data()), gif->SWidth, gif->SHeight, true);
+        out.image = create_texture_rgba(reinterpret_cast<uint8_t *>(canvas.data()), gif->SWidth, gif->SHeight, true);
 
         out.delay_ms = delay;
 
@@ -218,18 +211,16 @@ static bool load_gif(const char* filepath) {
     return !gif_frames.empty();
 }
 
-void photo_viewer_open_picture(const char* filepath) {
+void photo_viewer_open_picture(const char *filepath) {
     photo_viewer_cleanup();
 
-    const char* ext = strrchr(filepath, '.');
+    const char *ext = strrchr(filepath, '.');
 
     if (ext && strcasecmp(ext, ".gif") == 0) {
         load_gif(filepath);
         if (gif_frames.empty()) return;
 
-        Rect r = calculate_aspect_fit_rect(
-            gif_frames[0].image.width,
-            gif_frames[0].image.height);
+        rect r = display_calculate_aspect_fit(gif_frames[0].image.width, gif_frames[0].image.height);
 
         dst = r;
         scale = dst.w / gif_frames[0].image.width;
@@ -238,17 +229,14 @@ void photo_viewer_open_picture(const char* filepath) {
     }
 
     int w, h, comp;
-
-    uint8_t* pixels = stbi_load(filepath, &w, &h, &comp, 4);
+    uint8_t *pixels = stbi_load(filepath, &w, &h, &comp, 4);
 
     if (!pixels) return;
 
     static_image = create_texture_rgba(pixels, w, h, false);
-
     stbi_image_free(pixels);
 
-    Rect r = calculate_aspect_fit_rect(w, h);
-
+    rect r = display_calculate_aspect_fit(w, h);
     dst = r;
     scale = dst.w / w;
     dst_set = true;
@@ -258,7 +246,6 @@ void photo_texture_zoom(float delta_zoom) {
     scale = std::clamp(scale + delta_zoom, MIN_ZOOM_SCALE, MAX_ZOOM_SCALE);
 
     int w = gif_frames.empty() ? static_image.width : gif_frames[current_gif_frame].image.width;
-
     int h = gif_frames.empty() ? static_image.height : gif_frames[current_gif_frame].image.height;
 
     dst.w = w * scale;
@@ -275,7 +262,7 @@ void photo_viewer_pan(int dx, int dy) {
 }
 
 void photo_viewer_render() {
-    ImDrawList* draw = ImGui::GetBackgroundDrawList();
+    ImDrawList *draw = ImGui::GetBackgroundDrawList();
 
     ImTextureID tex = 0;
     int w = 0, h = 0;
@@ -300,7 +287,7 @@ void photo_viewer_render() {
     if (!tex) return;
 
     if (!dst_set) {
-        Rect r = calculate_aspect_fit_rect(w, h);
+        rect r = display_calculate_aspect_fit(w, h);
         dst = r;
         scale = dst.w / w;
         dst_set = true;
@@ -310,7 +297,8 @@ void photo_viewer_render() {
 }
 
 void photo_viewer_cleanup() {
-    for (auto& f : gif_frames) destroy_texture(f.image);
+    for (auto &f : gif_frames)
+        destroy_texture(f.image);
 
     gif_frames.clear();
 

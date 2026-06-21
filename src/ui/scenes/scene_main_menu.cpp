@@ -1,5 +1,7 @@
 #include "vendor/ui/imgui.h"
 
+#include "utils/display.hpp"
+
 #include "ui/scenes/scene_main_menu.hpp"
 
 #include "main.hpp"
@@ -8,14 +10,14 @@
 
 void scene_main_menu_render() {
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(SCREEN_WIDTH, SCREEN_HEIGHT - TOOLTIP_BAR_HEIGHT * UI_SCALE), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(display_get().width, display_get().height - TOOLTIP_BAR_HEIGHT * display_get().scale), ImGuiCond_Always);
 
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
 
     if (ImGui::Begin(VERSION_STRING, nullptr, window_flags)) {
 	ImGui::Columns(2, nullptr, false);
 
-	ImGui::SetColumnWidth(0, 200.0f * UI_SCALE);
+	ImGui::SetColumnWidth(0, 200.0f * display_get().scale);
 	widget_sidebar_render();
 
 	ImGui::NextColumn();

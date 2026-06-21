@@ -4,7 +4,7 @@
 #include "vendor/ui/imgui.h"
 #include "input/input_actions.hpp"
 #include "utils/app_state.hpp"
-#include "utils/utils.hpp"
+#include "utils/display.hpp"
 #include "utils/media_info.hpp"
 #include "player/photo_viewer.hpp"
 #include "player/media_player.hpp"
