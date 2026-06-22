@@ -3,7 +3,7 @@
 #include <algorithm>
 
 #include "logger/logger.hpp"
-#include "display.hpp"
+#include "utils/display.hpp"
 
 static scan_mode current_scan_mode{};
 static std::mutex current_scan_mode_mutex;

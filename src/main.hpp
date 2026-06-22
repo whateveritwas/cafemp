@@ -9,35 +9,35 @@
 
 #ifdef PLATFORM_WIIU
 
-#define BASE_PATH        "/vol/external01/wiiu/apps/cafemp/"
-#define CONTENT_PATH     "/vol/content/"
+#define BASE_PATH "/vol/external01/wiiu/apps/cafemp/"
+#define CONTENT_PATH "/vol/content/"
 
-#define FONT_PATH        CONTENT_PATH "Roboto-Regular.ttf"
-#define AMBIANCE_PATH    CONTENT_PATH "cafebgdemo.mp3"
+#define FONT_PATH CONTENT_PATH "Roboto-Regular.ttf"
+#define AMBIANCE_PATH CONTENT_PATH "cafebgdemo.mp3"
 
-#define MEDIA_PATH_AUDIO  "/vol/external01/wiiu/apps/cafemp/Audio/"
-#define MEDIA_PATH_VIDEO  "/vol/external01/wiiu/apps/cafemp/Video/"
-#define MEDIA_PATH_PHOTO  "/vol/external01/wiiu/apps/cafemp/Photo/"
-#define MEDIA_PATH_PDF    "/vol/external01/wiiu/apps/cafemp/Library/"
+#define MEDIA_PATH_AUDIO "/vol/external01/wiiu/apps/cafemp/Audio/"
+#define MEDIA_PATH_VIDEO "/vol/external01/wiiu/apps/cafemp/Video/"
+#define MEDIA_PATH_PHOTO "/vol/external01/wiiu/apps/cafemp/Photo/"
+#define MEDIA_PATH_PDF "/vol/external01/wiiu/apps/cafemp/Library/"
 
-#define SETTINGS_PATH     "/vol/external01/wiiu/apps/cafemp/settings.json"
+#define SETTINGS_PATH "/vol/external01/wiiu/apps/cafemp/settings.json"
 
 #endif
 
 #ifdef PLATFORM_WIIU_LEGACY
 
-#define BASE_PATH        "/vol/external01/wiiu/apps/cafemp/"
-#define CONTENT_PATH     "/vol/external01/wiiu/apps/cafemp/content/"
+#define BASE_PATH "/vol/external01/wiiu/apps/cafemp/"
+#define CONTENT_PATH "/vol/external01/wiiu/apps/cafemp/content/"
 
-#define FONT_PATH        CONTENT_PATH "Roboto-Regular.ttf"
-#define AMBIANCE_PATH    CONTENT_PATH "cafebgdemo.mp3"
+#define FONT_PATH CONTENT_PATH "Roboto-Regular.ttf"
+#define AMBIANCE_PATH CONTENT_PATH "cafebgdemo.mp3"
 
-#define MEDIA_PATH_AUDIO  BASE_PATH "Audio/"
-#define MEDIA_PATH_VIDEO  BASE_PATH "Video/"
-#define MEDIA_PATH_PHOTO  BASE_PATH "Photo/"
-#define MEDIA_PATH_PDF    BASE_PATH "Library/"
+#define MEDIA_PATH_AUDIO BASE_PATH "Audio/"
+#define MEDIA_PATH_VIDEO BASE_PATH "Video/"
+#define MEDIA_PATH_PHOTO BASE_PATH "Photo/"
+#define MEDIA_PATH_PDF BASE_PATH "Library/"
 
-#define SETTINGS_PATH     BASE_PATH "settings.json"
+#define SETTINGS_PATH BASE_PATH "settings.json"
 
 #endif
 #define VERSION_STRING_NUMBER "v0.6.0.this.is.pain"

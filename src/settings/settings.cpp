@@ -1,17 +1,13 @@
-#include <stdio.h>
-#include <string.h>
-#include <jansson.h>
-
-#include "main.hpp"
-#include "logger/logger.hpp"
 #include "settings/settings.hpp"
 
-static settings_struct settings = {
-    .version = 1,
-    .background_music_enabled = true,
-    .jellyfin_url = "",
-    .jellyfin_api_key = ""
-};
+#include "logger/logger.hpp"
+#include "main.hpp"
+
+#include <jansson.h>
+#include <stdio.h>
+#include <string.h>
+
+static settings_struct settings = {.version = 1, .background_music_enabled = true, .jellyfin_url = "", .jellyfin_api_key = ""};
 
 void settings_save() {
     json_t *root = json_object();
@@ -26,7 +22,7 @@ void settings_save() {
         json_dumpf(root, file, JSON_INDENT(4));
         fclose(file);
     } else {
-    	log_message(LOG_ERROR, "Settings", "Settings failed to save");
+        log_message(LOG_ERROR, "Settings", "Settings failed to save");
     }
 
     json_decref(root);
@@ -36,7 +32,7 @@ void settings_save() {
 void settings_load() {
     FILE *file = fopen(SETTINGS_PATH, "r");
     if (!file) {
-    	log_message(LOG_ERROR, "Settings", "Settings file not found");
+        log_message(LOG_ERROR, "Settings", "Settings file not found");
         return;
     }
 
@@ -45,13 +41,13 @@ void settings_load() {
     fclose(file);
 
     if (!root) {
-    	log_message(LOG_ERROR, "Settings", "Settings failed to load");
+        log_message(LOG_ERROR, "Settings", "Settings failed to load");
         return;
     }
 
     json_t *j_version = json_object_get(root, "version");
     if (json_is_integer(j_version)) {
-    	if(settings.version != (int)json_integer_value(j_version)) log_message(LOG_WARNING, "Settings", "Local settings format v%i differs from expected format v%i", (int)json_integer_value(j_version), settings.version);
+        if (settings.version != (int)json_integer_value(j_version)) log_message(LOG_WARNING, "Settings", "Local settings format v%i differs from expected format v%i", (int)json_integer_value(j_version), settings.version);
     }
 
     json_t *j_bg = json_object_get(root, "background_music_enabled");
@@ -76,52 +72,50 @@ void settings_load() {
     log_message(LOG_OK, "Settings", "Settings loaded");
 }
 
-void settings_set(settings_keys key, const void* value) {
+void settings_set(settings_keys key, const void *value) {
     switch (key) {
         case SETTINGS_VERSION:
-            settings.version = *(const int*)value;
+            settings.version = *(const int *)value;
             break;
         case SETTINGS_BKG_MUSIC_ENABLED:
-            settings.background_music_enabled = *(const bool*)value;
+            settings.background_music_enabled = *(const bool *)value;
             break;
         case SETTINGS_JELLYFIN_URL:
-            strncpy(settings.jellyfin_url, (const char*)value, MAX_URL_LENGTH);
+            strncpy(settings.jellyfin_url, (const char *)value, MAX_URL_LENGTH);
             settings.jellyfin_url[MAX_URL_LENGTH - 1] = '\0';
             break;
         case SETTINGS_JELLYFIN_API_KEY:
-            strncpy(settings.jellyfin_api_key, (const char*)value, MAX_API_KEY_LENGTH);
+            strncpy(settings.jellyfin_api_key, (const char *)value, MAX_API_KEY_LENGTH);
             settings.jellyfin_api_key[MAX_API_KEY_LENGTH - 1] = '\0';
             break;
         default:
-        	log_message(LOG_ERROR, "Settings", "Settings key is invalid");
+            log_message(LOG_ERROR, "Settings", "Settings key is invalid");
             break;
     }
 }
 
-void settings_get(settings_keys key, void* out_value) {
+void settings_get(settings_keys key, void *out_value) {
     if (!out_value) return;
 
     switch (key) {
         case SETTINGS_VERSION:
-            *(int*)out_value = settings.version;
+            *(int *)out_value = settings.version;
             break;
         case SETTINGS_BKG_MUSIC_ENABLED:
-            *(bool*)out_value = settings.background_music_enabled;
+            *(bool *)out_value = settings.background_music_enabled;
             break;
         case SETTINGS_JELLYFIN_URL:
-            strncpy((char*)out_value, settings.jellyfin_url, MAX_URL_LENGTH);
-            ((char*)out_value)[MAX_URL_LENGTH - 1] = '\0';
+            strncpy((char *)out_value, settings.jellyfin_url, MAX_URL_LENGTH);
+            ((char *)out_value)[MAX_URL_LENGTH - 1] = '\0';
             break;
         case SETTINGS_JELLYFIN_API_KEY:
-            strncpy((char*)out_value, settings.jellyfin_api_key, MAX_API_KEY_LENGTH);
-            ((char*)out_value)[MAX_API_KEY_LENGTH - 1] = '\0';
+            strncpy((char *)out_value, settings.jellyfin_api_key, MAX_API_KEY_LENGTH);
+            ((char *)out_value)[MAX_API_KEY_LENGTH - 1] = '\0';
             break;
         default:
-        	log_message(LOG_ERROR, "Settings", "Settings key is invalid");
+            log_message(LOG_ERROR, "Settings", "Settings key is invalid");
             break;
     }
 }
 
-const settings_struct* settings_get_all() {
-    return &settings;
-}
+const settings_struct *settings_get_all() { return &settings; }

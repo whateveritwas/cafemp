@@ -1,18 +1,17 @@
+#include "ui/scenes/scene_media_player.hpp"
+
+#include "input/input_actions.hpp"
+#include "main.hpp"
+#include "player/media_player.hpp"
+#include "player/photo_viewer.hpp"
+#include "ui/scenes/scene_file_browser.hpp"
+#include "ui/widgets/widget_player_hud.hpp"
+#include "utils/app_state.hpp"
+#include "utils/media_info.hpp"
+
+#include <imgui.h>
 #include <string>
 #include <vector>
-
-#include "vendor/ui/imgui.h"
-#include "input/input_actions.hpp"
-#include "utils/app_state.hpp"
-#include "utils/display.hpp"
-#include "utils/media_info.hpp"
-#include "player/photo_viewer.hpp"
-#include "player/media_player.hpp"
-#include "ui/widgets/widget_player_hud.hpp"
-#include "ui/scenes/scene_file_browser.hpp"
-#include "main.hpp"
-
-#include "ui/scenes/scene_media_player.hpp"
 
 static bool show_hud = false;
 

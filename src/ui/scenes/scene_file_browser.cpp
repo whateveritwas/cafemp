@@ -1,23 +1,22 @@
-#include <dirent.h>
-#include <unordered_map>
-#include <unordered_set>
-#include <string>
-#include <vector>
+#include "ui/scenes/scene_file_browser.hpp"
 
-#include "utils/app_state.hpp"
-#include "vendor/ui/imgui.h"
+#include "input/input_actions.hpp"
+#include "logger/logger.hpp"
 #include "main.hpp"
 #include "ui/widgets/widget_button_icon.hpp"
-#include "ui/widgets/widget_tooltip.hpp"
 #include "ui/widgets/widget_sidebar.hpp"
-
-#include "logger/logger.hpp"
+#include "ui/widgets/widget_tooltip.hpp"
+#include "utils/app_state.hpp"
 #include "utils/display.hpp"
-#include "utils/media_info.hpp"
 #include "utils/font.hpp"
-#include "input/input_actions.hpp"
+#include "utils/media_info.hpp"
 
-#include "ui/scenes/scene_file_browser.hpp"
+#include <dirent.h>
+#include <imgui.h>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 enum file_types { FILE_FOLDER, FILE_AUDIO, FILE_VIDEO, FILE_IMAGE, FILE_BOOK };
 
@@ -196,7 +195,7 @@ void scene_file_browser_go_up() {
     scan_relative_directory(parent_relative(relative_dir));
 }
 
-void scene_file_browser_input(InputState& input) {
+void scene_file_browser_input(InputState &input) {
     if (input_pressed(input, BTN_B)) {
         scene_file_browser_go_up();
     }

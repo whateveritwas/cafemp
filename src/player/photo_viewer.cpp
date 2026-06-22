@@ -1,23 +1,18 @@
-#include <vector>
-#include <string.h>
-#include <stdint.h>
 #include <algorithm>
-
-#include <gif_lib.h>
+#include <backends/imgui_impl_gx2.h>
 #include <coreinit/time.h>
-
-#include "vendor/ui/imgui.h"
-#include "vendor/ui/backends/imgui_impl_gx2.h"
+#include <gif_lib.h>
+#include <imgui.h>
+#include <stdint.h>
+#include <string.h>
+#include <vector>
 
 #define STBI_NO_THREAD_LOCALS
 #define STB_IMAGE_IMPLEMENTATION
-#include "vendor/stb_image.h"
-
-#include "main.hpp"
+#include "player/photo_viewer.hpp"
 #include "utils/display.hpp"
 
-#include "logger/logger.hpp"
-#include "player/photo_viewer.hpp"
+#include <stb_image.h>
 
 #define MIN_ZOOM_SCALE 0.5f
 #define MAX_ZOOM_SCALE 5.0f

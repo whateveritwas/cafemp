@@ -3,31 +3,7 @@
 
 #include <cstdint>
 
-enum InputButton {
-    BTN_A,
-    BTN_B,
-    BTN_X,
-    BTN_Y,
-    BTN_PLUS,
-    BTN_MINUS,
-    BTN_UP,
-    BTN_DOWN,
-    BTN_LEFT,
-    BTN_RIGHT,
-    BTN_L,
-    BTN_ZL,
-    BTN_R,
-    BTN_ZR,
-    BTN_LSTICK_LEFT,
-    BTN_LSTICK_RIGHT,
-    BTN_LSTICK_UP,
-    BTN_LSTICK_DOWN,
-    BTN_RSTICK_LEFT,
-    BTN_RSTICK_RIGHT,
-    BTN_RSTICK_UP,
-    BTN_RSTICK_DOWN,
-    BTN_UNKNOWN
-};
+enum InputButton { BTN_A, BTN_B, BTN_X, BTN_Y, BTN_PLUS, BTN_MINUS, BTN_UP, BTN_DOWN, BTN_LEFT, BTN_RIGHT, BTN_L, BTN_ZL, BTN_R, BTN_ZR, BTN_LSTICK_LEFT, BTN_LSTICK_RIGHT, BTN_LSTICK_UP, BTN_LSTICK_DOWN, BTN_RSTICK_LEFT, BTN_RSTICK_RIGHT, BTN_RSTICK_UP, BTN_RSTICK_DOWN, BTN_UNKNOWN };
 
 constexpr int INPUT_BUTTON_COUNT = BTN_UNKNOWN;
 
@@ -73,34 +49,20 @@ struct InputState {
     ButtonRepeatState repeat_states[INPUT_BUTTON_COUNT];
 };
 
-void input_poll(InputState& state);
+void input_poll(InputState &state);
 
-static inline void set_button(InputState& s, InputButton btn) {
-    s.pressed |= (1ull << btn);
-}
+static inline void set_button(InputState &s, InputButton btn) { s.pressed |= (1ull << btn); }
 
-static inline void set_hold(InputState& s, InputButton btn) {
-    s.held |= (1ull << btn);
-}
+static inline void set_hold(InputState &s, InputButton btn) { s.held |= (1ull << btn); }
 
-static inline void set_repeat(InputState& s, InputButton btn) {
-    s.repeated |= (1ull << btn);
-}
+static inline void set_repeat(InputState &s, InputButton btn) { s.repeated |= (1ull << btn); }
 
-inline bool input_pressed(const InputState& s, InputButton btn) {
-    return s.pressed & (1ull << btn);
-}
+inline bool input_pressed(const InputState &s, InputButton btn) { return s.pressed & (1ull << btn); }
 
-inline bool input_held(const InputState& s, InputButton btn) {
-    return s.held & (1ull << btn);
-}
+inline bool input_held(const InputState &s, InputButton btn) { return s.held & (1ull << btn); }
 
-inline bool input_repeated(const InputState& s, InputButton btn) {
-    return s.repeated & (1ull << btn);
-}
+inline bool input_repeated(const InputState &s, InputButton btn) { return s.repeated & (1ull << btn); }
 
-inline bool input_touched(const InputState& s) {
-    return s.touch.touched;
-}
+inline bool input_touched(const InputState &s) { return s.touch.touched; }
 
 #endif

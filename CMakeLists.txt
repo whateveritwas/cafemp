@@ -111,6 +111,7 @@ add_executable(CafeMP
 
 target_include_directories(CafeMP PRIVATE
   src
+  src/vendor
   src/vendor/ui
   src/vendor/ui/backends
 

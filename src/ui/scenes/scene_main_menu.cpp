@@ -1,12 +1,11 @@
-#include "vendor/ui/imgui.h"
-
-#include "utils/display.hpp"
-
-#include "ui/scenes/scene_main_menu.hpp"
+#include "scene_main_menu.hpp"
 
 #include "main.hpp"
 #include "ui/widgets/widget_sidebar.hpp"
 #include "ui/widgets/widget_tooltip.hpp"
+#include "utils/display.hpp"
+
+#include <imgui.h>
 
 void scene_main_menu_render() {
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
@@ -15,29 +14,31 @@ void scene_main_menu_render() {
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
 
     if (ImGui::Begin(VERSION_STRING, nullptr, window_flags)) {
-	ImGui::Columns(2, nullptr, false);
+        ImGui::Columns(2, nullptr, false);
 
-	ImGui::SetColumnWidth(0, 200.0f * display_get().scale);
-	widget_sidebar_render();
+        ImGui::SetColumnWidth(0, 200.0f * display_get().scale);
+        widget_sidebar_render();
 
-	ImGui::NextColumn();
+        ImGui::NextColumn();
 
-	if (ImGui::BeginChild("Content", ImVec2(0, 0), true)) {
-	    ImGui::Text("Welcome to %s!", VERSION_STRING);
+        if (ImGui::BeginChild("Content", ImVec2(0, 0), true)) {
+            ImGui::Text("Welcome to %s!", VERSION_STRING);
 
-	    ImGui::Spacing();
-	    ImGui::Text("What's new:");
-	    ImGui::Spacing();
+            ImGui::Spacing();
+            ImGui::Text("What's new:");
+            ImGui::Spacing();
 
-	    ImGui::Text("- Hardware video decoding for h264 baseline 720p@30 (NO 1080p!)");
-	    ImGui::Text("- General stability improvements");
-	    ImGui::Text("- Library for reading pdf and epub files");
-	    ImGui::Text("- Wiimote support");
-	    ImGui::Text("- Changing between multiple audio tracks in a video");
-	}
-	ImGui::EndChild();
+            ImGui::Text("- Hardware video decoding for h264 baseline 720p@30 (NO 1080p!)");
+            ImGui::Text("- General stability improvements");
+            ImGui::Text("- Library for reading pdf and epub files");
+            ImGui::Text("- Wiimote support");
+            ImGui::Text("- Changing between multiple audio tracks in a video");
+            ImGui::Text("- New Ui");
+            ImGui::Text("- Cover ard displayed when playing audio files (if present)");
+        }
+        ImGui::EndChild();
 
-	ImGui::Columns(1);
+        ImGui::Columns(1);
     }
 
     ImGui::End();

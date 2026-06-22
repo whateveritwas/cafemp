@@ -1,12 +1,13 @@
-#include <whb/proc.h>
-#include <whb/gfx.h>
-#include <sndcore2/core.h>
-
-#include "utils/display.hpp"
 #include "main.hpp"
-#include "ui/menu.hpp"
-#include "utils/power_manager.hpp"
+
 #include "logger/logger.hpp"
+#include "ui/menu.hpp"
+#include "utils/display.hpp"
+#include "utils/power_manager.hpp"
+
+#include <sndcore2/core.h>
+#include <whb/gfx.h>
+#include <whb/proc.h>
 
 int main(void) {
     WHBProcInit();
@@ -32,6 +33,6 @@ int main(void) {
     power_manager_sleep_enable(true);
     WHBGfxShutdown();
     WHBProcShutdown();
-    
+
     return 0;
 }

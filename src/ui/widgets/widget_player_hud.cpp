@@ -1,13 +1,12 @@
 #include "widget_player_hud.hpp"
 
+#include "../../utils/app_state.hpp"
+#include "../../utils/display.hpp"
+#include "../../utils/media_info.hpp"
+#include "../../vendor/ui/imgui.h"
+
 #include <algorithm>
 #include <string>
-
-#include "main.hpp"
-#include "utils/app_state.hpp"
-#include "utils/display.hpp"
-#include "utils/media_info.hpp"
-#include "vendor/ui/imgui.h"
 
 std::string format_time(int seconds) {
     int mins = seconds / 60;

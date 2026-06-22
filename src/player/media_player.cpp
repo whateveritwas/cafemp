@@ -1,27 +1,33 @@
 // Architecture loosely based on FFmpeg's ffplay.c (Copyright (c) 2003 Fabrice Bellard, LGPL 2.1+).
 
+#include <atomic>
+#include <chrono>
 #include <cmath>
+#include <condition_variable>
 #include <cstring>
+#include <malloc.h>
 #include <mutex>
 #include <thread>
-#include <atomic>
-#include <vector>
-#include <condition_variable>
-#include <chrono>
 #include <unistd.h>
-#include <malloc.h>
+#include <vector>
 
 extern "C" {
-#include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
-#include <libavutil/time.h>
-#include <libavutil/opt.h>
+#include <libavformat/avformat.h>
 #include <libavutil/mathematics.h>
+#include <libavutil/opt.h>
+#include <libavutil/time.h>
 #include <libswresample/swresample.h>
 }
 
-#include <SDL2/SDL.h>
+#include "logger/logger.hpp"
+#include "nv12_shader.h"
+#include "player/media_player.hpp"
+#include "utils/display.hpp"
+#include "utils/media_info.hpp"
+#include "yuv420p_shader.h"
 
+#include <SDL2/SDL.h>
 #include <gx2/draw.h>
 #include <gx2/mem.h>
 #include <gx2/registers.h>
@@ -30,14 +36,6 @@ extern "C" {
 #include <gx2/utils.h>
 #include <gx2r/surface.h>
 #include <whb/gfx.h>
-
-#include "yuv420p_shader.h"
-#include "nv12_shader.h"
-
-#include "utils/display.hpp"
-#include "utils/media_info.hpp"
-#include "logger/logger.hpp"
-#include "player/media_player.hpp"
 
 #define MP "MediaPlayer"
 

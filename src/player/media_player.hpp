@@ -1,15 +1,15 @@
 #ifndef MEDIA_PLAYER_HPP
 #define MEDIA_PLAYER_HPP
 
-#include <vector>
 #include <string>
+#include <vector>
 
 struct AudioTrackInfo {
     int stream_index;
-    const char* codec_name;
+    const char *codec_name;
     int channels;
     int sample_rate;
-    const char* language;
+    const char *language;
 };
 
 struct frame_info {
@@ -17,7 +17,7 @@ struct frame_info {
     int height;
 };
 
-int media_player_init(const char* filepath);
+int media_player_init(const char *filepath);
 void media_player_cleanup();
 void media_player_play(bool play);
 void media_player_seek(double seconds);

@@ -10,6 +10,5 @@ lib/
 .project
 .cproject
 .map
-.clang-format
 .clangd
 .settings

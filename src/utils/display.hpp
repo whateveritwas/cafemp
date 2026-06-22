@@ -1,14 +1,12 @@
 #ifndef DISPLAY_HPP
 #define DISPLAY_HPP
 
-#include <wut.h>
-
 typedef struct {
     float x, y, w, h;
 } rect;
 
 typedef struct {
-    uint16_t width, height;
+    int width, height;
     float scale;
 } scan_mode;
 

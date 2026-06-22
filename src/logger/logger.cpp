@@ -1,7 +1,7 @@
-#include <stdio.h>
-#include <stdarg.h>
-
 #include "logger/logger.hpp"
+
+#include <stdarg.h>
+#include <stdio.h>
 
 #define COLOR_GREEN "\x1b[32m"
 #define COLOR_YELLOW "\x1b[33m"

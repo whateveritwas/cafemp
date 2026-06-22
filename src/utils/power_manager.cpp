@@ -1,9 +1,8 @@
-#ifdef __WIIU__
 #include <coreinit/energysaver.h>
 
 #include "logger/logger.hpp"
 
-#include "utils/power_manager.hpp"
+#include "power_manager.hpp"
 
 uint32_t power_manager_is_auto_power_down_enabled = 0;
 uint32_t power_manager_is_auto_dim_enabled = 0;
@@ -45,4 +44,3 @@ error:
     log_message(LOG_WARNING, "Power Manager", "Failed power management with code %i", error);
     return error;
 }
-#endif
