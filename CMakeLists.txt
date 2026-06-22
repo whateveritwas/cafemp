@@ -87,7 +87,7 @@ set(SRC_FILES
 )
 
 set(VENDOR_FILES
-  src/vendor/logger/stdout.cpp
+  src/vendor/logger/wiiu-stdout.cpp
 
   src/vendor/pdf/wiiu_mupdf_hb_wrappers.c
   src/vendor/pdf/wiiu_time_utils.c
