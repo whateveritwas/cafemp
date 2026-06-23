@@ -5,6 +5,10 @@
 #include "utils/display.hpp"
 #include "utils/power_manager.hpp"
 
+// #ifndef PLATFORM_WIIU_LEGACY
+// #include "utils/usb.hpp"
+// #endif
+
 #include <sndcore2/core.h>
 #include <whb/gfx.h>
 #include <whb/proc.h>
@@ -19,7 +23,12 @@ int main(void) {
 
     log_message(LOG_OK, "Main", "\x1b[2J\x1b[HApplication Start");
 
-    display_setup();
+// #ifndef PLATFORM_WIIU_LEGACY
+//    usb_init();
+//    usb_mount();
+//#endif
+
+    display_init();
     ui_init();
 
     while (WHBProcIsRunning()) {
@@ -27,6 +36,11 @@ int main(void) {
     }
 
     ui_shutdown();
+
+//#ifndef PLATFORM_WIIU_LEGACY
+//    usb_unmount();
+//    usb_shutdown();
+//#endif
 
     log_message(LOG_OK, "Main", "Application End");
 

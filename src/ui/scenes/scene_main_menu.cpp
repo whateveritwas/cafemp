@@ -5,7 +5,7 @@
 #include "ui/widgets/widget_tooltip.hpp"
 #include "utils/display.hpp"
 
-#include <imgui.h>
+#include <imgui/imgui.h>
 
 void scene_main_menu_render() {
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);

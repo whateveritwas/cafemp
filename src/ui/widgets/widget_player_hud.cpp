@@ -1,11 +1,11 @@
-#include "widget_player_hud.hpp"
+#include "ui/widgets/widget_player_hud.hpp"
 
-#include "../../utils/app_state.hpp"
-#include "../../utils/display.hpp"
-#include "../../utils/media_info.hpp"
-#include "../../vendor/ui/imgui.h"
+#include "utils/app_state.hpp"
+#include "utils/display.hpp"
+#include "utils/media_info.hpp"
 
 #include <algorithm>
+#include <imgui/imgui.h>
 #include <string>
 
 std::string format_time(int seconds) {

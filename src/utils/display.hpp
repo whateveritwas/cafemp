@@ -12,6 +12,6 @@ typedef struct {
 
 rect display_calculate_aspect_fit(int width, int height);
 scan_mode display_get();
-void display_setup();
+void display_init();
 
 #endif

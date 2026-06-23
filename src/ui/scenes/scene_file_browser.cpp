@@ -12,7 +12,7 @@
 #include "utils/media_info.hpp"
 
 #include <dirent.h>
-#include <imgui.h>
+#include <imgui/imgui.h>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -199,6 +199,17 @@ void scene_file_browser_input(InputState &input) {
     if (input_pressed(input, BTN_B)) {
         scene_file_browser_go_up();
     }
+
+//   if (input_pressed(input, BTN_X)) {
+//	DIR *dir = opendir("usb:/");
+//	struct dirent *ent;
+//	
+//	while ((ent = readdir(dir)) != nullptr) {
+//	    printf("%s\n", ent->d_name);
+//	}
+//	
+//	closedir(dir);
+//    }
 }
 
 void scene_file_browser_render() {

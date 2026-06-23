@@ -3,7 +3,8 @@
 #include "logger/logger.hpp"
 #include "utils/display.hpp"
 
-#include <backends/imgui_impl_wiiu.h>
+#include <imgui/imgui.h>
+#include <imgui/backends/imgui_impl_wiiu.h>
 #include <cmath>
 #include <cstdio>
 #include <padscore/kpad.h>

@@ -31,7 +31,7 @@ rect display_calculate_aspect_fit(int width, int height) {
     return r;
 }
 
-void display_setup() {
+void display_init() {
     std::lock_guard<std::mutex> lock(current_scan_mode_mutex);
 
     GX2TVScanMode scanMode = GX2GetSystemTVScanMode();
@@ -71,6 +71,7 @@ void display_setup() {
     }
 
     current_scan_mode.scale = static_cast<float>(current_scan_mode.height) / 720.0f;
-
+    current_scan_mode.scale *= 1.2f;
+    
     log_message(LOG_DEBUG, "Display", "Found scan mode %ix%i with scale %.2f", current_scan_mode.width, current_scan_mode.height, current_scan_mode.scale);
 }

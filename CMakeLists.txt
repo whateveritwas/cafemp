@@ -14,8 +14,6 @@ project(CafeMP C CXX)
 
 include(${CMAKE_TOOLCHAIN_FILE})
 
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -ffunction-sections")
 
@@ -84,6 +82,7 @@ set(SRC_FILES
   src/utils/display.cpp
   src/utils/media_info.cpp
   src/utils/power_manager.cpp
+#  src/utils/usb.cpp
 )
 
 set(VENDOR_FILES
@@ -92,13 +91,19 @@ set(VENDOR_FILES
   src/vendor/pdf/wiiu_mupdf_hb_wrappers.c
   src/vendor/pdf/wiiu_time_utils.c
 
-  src/vendor/ui/imgui.cpp
-  src/vendor/ui/imgui_draw.cpp
-  src/vendor/ui/imgui_tables.cpp
-  src/vendor/ui/imgui_widgets.cpp
+  src/vendor/imgui/imgui.cpp
+  src/vendor/imgui/imgui_draw.cpp
+  src/vendor/imgui/imgui_tables.cpp
+  src/vendor/imgui/imgui_widgets.cpp
 
-  src/vendor/ui/backends/imgui_impl_gx2.cpp
-  src/vendor/ui/backends/imgui_impl_wiiu.cpp
+  src/vendor/imgui/backends/imgui_impl_gx2.cpp
+  src/vendor/imgui/backends/imgui_impl_wiiu.cpp
+
+#  src/vendor/fatfs/diskio.c
+#  src/vendor/fatfs/ff.c
+#  src/vendor/fatfs/ffcache.cpp
+#  src/vendor/fatfs/ffsystem.c
+#  src/vendor/fatfs/ffunicode.c
 )
 
 add_executable(CafeMP
@@ -112,12 +117,13 @@ add_executable(CafeMP
 target_include_directories(CafeMP PRIVATE
   src
   src/vendor
-  src/vendor/ui
-  src/vendor/ui/backends
-
+  src/vendor/imgui
+  src/vendor/fatfs
+  
   ${GEN_DIR}
 
   $ENV{DEVKITPRO}/wut/include
+#  $ENV{DEVKITPRO}/wut/usr/include
   $ENV{DEVKITPRO}/portlibs/ppc/include
   $ENV{DEVKITPRO}/portlibs/wiiu/include
   $ENV{DEVKITPRO}/portlibs/wiiu/include/freetype2
@@ -143,6 +149,7 @@ target_link_libraries(CafeMP
   avcodec
   avutil
   SDL2
+#  $ENV{DEVKITPRO}/wut/usr/lib/libmocha.a
   m
   wut
 )

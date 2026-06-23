@@ -9,7 +9,7 @@
 #include "utils/app_state.hpp"
 #include "utils/media_info.hpp"
 
-#include <imgui.h>
+#include <imgui/imgui.h>
 #include <string>
 #include <vector>
 

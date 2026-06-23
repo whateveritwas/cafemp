@@ -1,7 +1,8 @@
-#include "widget_cursor.hpp"
+#include "ui/widgets/widget_cursor.hpp"
 
-#include "../../input/input_actions.hpp"
-#include "../../vendor/ui/imgui.h"
+#include "input/input_actions.hpp"
+
+#include <imgui/imgui.h>
 
 void widget_cursor_render(InputState &state) {
     if (!state.valid_cursor) return;

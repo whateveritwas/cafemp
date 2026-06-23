@@ -16,10 +16,10 @@
 #include "utils/media_info.hpp"
 
 #include <backends/imgui_impl_gx2.h>
-#include <backends/imgui_impl_wiiu.h>
+#include <imgui/backends/imgui_impl_wiiu.h>
 #include <gx2/registers.h>
 #include <gx2/swap.h>
-#include <imgui.h>
+#include <imgui/imgui.h>
 #include <memory>
 #include <whb/gfx.h>
 

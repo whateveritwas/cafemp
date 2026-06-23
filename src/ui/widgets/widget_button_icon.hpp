@@ -1,7 +1,7 @@
 #ifndef UI_WIDGET_BUTTON_ICON_H
 #define UI_WIDGET_BUTTON_ICON_H
 
-#include <imgui.h>
+#include <imgui/imgui.h>
 
 static bool widget_button_icon(const char *label, const char *icon, bool selected, ImVec2 size) {
     ImGui::PushID(label);

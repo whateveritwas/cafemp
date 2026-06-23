@@ -102,4 +102,5 @@ Made with ❤️ in 🇩🇪
 * **mupdf port by hito16**: [GitHub](https://github.com/hito16/mupdf-devkitppc)
 * **Nerd Fonts**: [GitHub](https://github.com/ryanoasis/nerd-fonts/)
 * **stb** [GitHub](https://github.com/nothings/stb)
+* **USB Support Based on Sudachi-E Cafe-Xplorer** [GitHub](https://github.com/Sudachi-E/Cafe-Xplorer)
 * **wiiu-stdout** [GitHub](https://github.com/dkosmari/wiiu-stdout)

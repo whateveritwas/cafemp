@@ -9,7 +9,7 @@ extern "C" {
 
 #include <backends/imgui_impl_gx2.h>
 #include <cstring>
-#include <imgui.h>
+#include <imgui/imgui.h>
 #include <vector>
 
 struct GX2Image {

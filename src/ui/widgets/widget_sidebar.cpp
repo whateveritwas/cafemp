@@ -6,7 +6,7 @@
 #include "utils/app_state.hpp"
 #include "utils/font.hpp"
 
-#include <imgui.h>
+#include <imgui/imgui.h>
 
 void widget_sidebar_render() {
     ImVec2 size(200.0f * display_get().scale, 64.0f * display_get().scale);
@@ -37,6 +37,11 @@ void widget_sidebar_render() {
         app_state_set(STATE_MENU_PDF_FILES);
         scene_file_browser_scan_directory(MEDIA_PATH_PDF);
     }
+
+//    if (widget_button_icon("USB Drive", ICON_USB, app_state_get() == STATE_MENU_PDF_FILES, size)) {
+//        app_state_set(STATE_MENU_PDF_FILES);
+//        scene_file_browser_scan_directory(MEDIA_PATH_PDF);
+//    }
 
     if (widget_button_icon("Settings", ICON_SETTINGS, app_state_get() == STATE_MENU_SETTINGS, size)) {
         app_state_set(STATE_MENU_SETTINGS);

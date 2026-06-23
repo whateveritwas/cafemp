@@ -2,10 +2,12 @@
 #define FONT_HPP
 
 #include "display.hpp"
-#include "main.hpp"
-#include <coreinit/memory.h>
-#include "vendor/ui/backends/imgui_impl_wiiu.h"
 #include "logger/logger.hpp"
+#include "main.hpp"
+
+#include <coreinit/memory.h>
+#include <imgui/imgui.h>
+#include <imgui/backends/imgui_impl_wiiu.h>
 
 static const float default_font_size = 32;
 
@@ -64,25 +66,24 @@ static const float default_font_size = 32;
 #define ICON_LIBRARY "\uf02d"
 #define ICON_SETTINGS "\uf013"
 #define ICON_FOLDER "\uf07b"
+#define ICON_USB "\uf287"
 
 static const ImWchar nerd_font_ranges[] = {
-    0xE0A0, 0xE0A3, // Powerline
-    0xE0B0, 0xE0C8, // Powerline Extra
-    0xE0CC, 0xE0D4,
-    0xE200, 0xE2A9, // Font Awesome Extension
-    0xE300, 0xE3E3, // Weather Icons
-    0xE700, 0xE7C5, // Seti-UI / File icons
-    0xEA60, 0xEC1E, // Codicons
-    0xED00, 0xEFC1,
-    0xF000, 0xF2E0, // Font Awesome
-    0xF300, 0xF372, // Font Logos
-    0xF400, 0xF533, // Octicons
-    0xF500, 0xFD46, // Material Design Icons
+    0xE0A0, 0xE0A3,                 // Powerline
+    0xE0B0, 0xE0C8,                 // Powerline Extra
+    0xE0CC, 0xE0D4, 0xE200, 0xE2A9, // Font Awesome Extension
+    0xE300, 0xE3E3,                 // Weather Icons
+    0xE700, 0xE7C5,                 // Seti-UI / File icons
+    0xEA60, 0xEC1E,                 // Codicons
+    0xED00, 0xEFC1, 0xF000, 0xF2E0, // Font Awesome
+    0xF300, 0xF372,                 // Font Logos
+    0xF400, 0xF533,                 // Octicons
+    0xF500, 0xFD46,                 // Material Design Icons
     0,
 };
 
 static void font_load(OSSharedDataType font, bool merge) {
-    static const char* names[OS_SHAREDDATATYPE_FONT_MAX] = {
+    static const char *names[OS_SHAREDDATATYPE_FONT_MAX] = {
         [OS_SHAREDDATATYPE_FONT_CHINESE] = "CafeCn.ttf",
         [OS_SHAREDDATATYPE_FONT_KOREAN] = "CafeKr.ttf",
         [OS_SHAREDDATATYPE_FONT_STANDARD] = "CafeStd.ttf",
@@ -90,13 +91,13 @@ static void font_load(OSSharedDataType font, bool merge) {
     };
     assert(font < OS_SHAREDDATATYPE_FONT_MAX);
 
-    auto& io = ImGui::GetIO();
+    auto &io = ImGui::GetIO();
     ImFontConfig config;
     config.MergeMode = merge;
     config.EllipsisChar = U'…';
     config.FontDataOwnedByAtlas = false;
 
-    void* font_data = nullptr;
+    void *font_data = nullptr;
     uint32_t font_size = 0;
 
     if (OSGetSharedData(font, 0, &font_data, &font_size)) {
@@ -111,7 +112,7 @@ static void font_load_all() {
     font_load(OS_SHAREDDATATYPE_FONT_KOREAN, true);
     font_load(OS_SHAREDDATATYPE_FONT_TAIWANESE, true);
 
-    auto& io = ImGui::GetIO();
+    auto &io = ImGui::GetIO();
     ImFontConfig cfg;
     cfg.MergeMode = true;
     cfg.PixelSnapH = true;

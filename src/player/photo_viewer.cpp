@@ -2,7 +2,7 @@
 #include <backends/imgui_impl_gx2.h>
 #include <coreinit/time.h>
 #include <gif_lib.h>
-#include <imgui.h>
+#include <imgui/imgui.h>
 #include <stdint.h>
 #include <string.h>
 #include <vector>

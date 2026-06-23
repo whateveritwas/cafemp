@@ -4,7 +4,7 @@
 #include "utils/app_state.hpp"
 #include "utils/font.hpp"
 
-#include <imgui.h>
+#include <imgui/imgui.h>
 
 void widget_tooltip_render() {
     ImGui::SetNextWindowPos(ImVec2(0, display_get().height - TOOLTIP_BAR_HEIGHT * display_get().scale), ImGuiCond_Always);
