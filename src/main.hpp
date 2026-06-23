@@ -9,18 +9,23 @@
 
 #ifdef PLATFORM_WIIU
 
-#define BASE_PATH "/vol/external01/wiiu/apps/cafemp/"
-#define CONTENT_PATH "/vol/content/"
+#define SYMBOLS_FONT "content:/NerdFontsSymbolsOnly/SymbolsNerdFont-Regular.ttf"
+#define AMBIANCE_PATH "content:/cafebgdemo.mp3"
 
-#define FONT_PATH CONTENT_PATH "Roboto-Regular.ttf"
-#define AMBIANCE_PATH CONTENT_PATH "cafebgdemo.mp3"
+#define BASE_PATH_RAW "/vol/external01/wiiu/apps/cafemp/"
+#define MEDIA_PATH_AUDIO_RAW BASE_PATH_RAW "Audio/"
+#define MEDIA_PATH_VIDEO_RAW BASE_PATH_RAW "Video/"
+#define MEDIA_PATH_PHOTO_RAW BASE_PATH_RAW "Photo/"
+#define MEDIA_PATH_PDF_RAW BASE_PATH_RAW "Library/"
 
-#define MEDIA_PATH_AUDIO "/vol/external01/wiiu/apps/cafemp/Audio/"
-#define MEDIA_PATH_VIDEO "/vol/external01/wiiu/apps/cafemp/Video/"
-#define MEDIA_PATH_PHOTO "/vol/external01/wiiu/apps/cafemp/Photo/"
-#define MEDIA_PATH_PDF "/vol/external01/wiiu/apps/cafemp/Library/"
+#define BASE_PATH ""
+#define MEDIA_PATH_AUDIO "audio:/"
+#define MEDIA_PATH_PDF "library:/"
+#define MEDIA_PATH_PHOTO "photo:/"
+#define MEDIA_PATH_VIDEO "video:/"
+#define MEDIA_PATH_USB "usb:/"
 
-#define SETTINGS_PATH "/vol/external01/wiiu/apps/cafemp/settings.json"
+#define SETTINGS_PATH "settings:/settings.json"
 
 #endif
 

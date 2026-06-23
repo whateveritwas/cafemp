@@ -49,19 +49,7 @@ void scene_media_player_input(InputState &input) {
         media_player_play(!is_playing);
     } else if (input_pressed(input, BTN_B)) {
         media_player_cleanup();
-
-        switch (app_state_get()) {
-            case STATE_PLAYING_AUDIO:
-                app_state_set(STATE_MENU_AUDIO_FILES);
-                scene_file_browser_scan_directory(MEDIA_PATH_AUDIO);
-                break;
-            case STATE_PLAYING_VIDEO:
-                app_state_set(STATE_MENU_VIDEO_FILES);
-                scene_file_browser_scan_directory(MEDIA_PATH_VIDEO);
-                break;
-            default:
-                break;
-        }
+	app_state_set(STATE_MENU_FILES);
     } else if (input_pressed(input, BTN_LEFT)) {
         double current_time = media_player_get_current_time();
         media_player_seek(current_time - 5.0);

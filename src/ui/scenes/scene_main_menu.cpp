@@ -28,13 +28,14 @@ void scene_main_menu_render() {
             ImGui::Text("What's new:");
             ImGui::Spacing();
 
-            ImGui::Text("- Hardware video decoding for h264 baseline 720p@30 (NO 1080p!)");
+            ImGui::Text("- Hardware video decoding for h264 baseline 720p@30 (Some 1080p)");
             ImGui::Text("- General stability improvements");
             ImGui::Text("- Library for reading pdf and epub files");
             ImGui::Text("- Wiimote support");
             ImGui::Text("- Changing between multiple audio tracks in a video");
             ImGui::Text("- New Ui");
             ImGui::Text("- Cover ard displayed when playing audio files (if present)");
+	    ImGui::Text("- USB Drive support (FAT32 only)");
         }
         ImGui::EndChild();
 

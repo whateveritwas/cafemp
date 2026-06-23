@@ -69,10 +69,7 @@ void ui_init() {
     ImGui_ImplGX2_Init();
 
     ui_scene_register(STATE_MENU, {[]() {}, [](InputState &input) {}, []() { scene_main_menu_render(); }, []() {}});
-    ui_scene_register(STATE_MENU_VIDEO_FILES, {[]() {}, [](InputState &input) { scene_file_browser_input(input); }, []() { scene_file_browser_render(); }, []() {}});
-    ui_scene_register(STATE_MENU_AUDIO_FILES, {[]() {}, [](InputState &input) { scene_file_browser_input(input); }, []() { scene_file_browser_render(); }, []() {}});
-    ui_scene_register(STATE_MENU_IMAGE_FILES, {[]() {}, [](InputState &input) { scene_file_browser_input(input); }, []() { scene_file_browser_render(); }, []() {}});
-    ui_scene_register(STATE_MENU_PDF_FILES, {[]() {}, [](InputState &input) { scene_file_browser_input(input); }, []() { scene_file_browser_render(); }, []() {}});
+    ui_scene_register(STATE_MENU_FILES, {[]() {}, [](InputState &input) { scene_file_browser_input(input); }, []() { scene_file_browser_render(); }, []() {}});
 
     ui_scene_register(STATE_VIEWING_PHOTO, {[]() {
                                                 scene_photo_viewer_init(media_info_get()->path);

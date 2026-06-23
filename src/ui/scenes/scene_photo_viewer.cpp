@@ -24,7 +24,7 @@ void scene_photo_viewer_render() {
 void scene_photo_viewer_input(InputState &input) {
     if (input_pressed(input, BTN_B)) {
         photo_viewer_cleanup();
-        app_state_set(STATE_MENU_IMAGE_FILES);
+        app_state_set(STATE_MENU_FILES);
     } else if (input_touched(input) || input.valid_cursor) {
         photo_viewer_pan(input.touch.move_x, input.touch.move_y);
         show_tooltip = true;

@@ -18,31 +18,33 @@ void widget_sidebar_render() {
         app_state_set(STATE_MENU);
     }
 
-    if (widget_button_icon("Video", ICON_VIDEO, app_state_get() == STATE_MENU_VIDEO_FILES, size)) {
-        app_state_set(STATE_MENU_VIDEO_FILES);
-        scene_file_browser_scan_directory(MEDIA_PATH_VIDEO);
+    if (widget_button_icon("Video", ICON_VIDEO, app_state_get() == STATE_MENU_FILES, size)) {
+        app_state_set(STATE_MENU_FILES);
+        scene_file_browser_cd(MEDIA_PATH_VIDEO);
     }
 
-    if (widget_button_icon("Audio", ICON_AUDIO, app_state_get() == STATE_MENU_AUDIO_FILES, size)) {
-        app_state_set(STATE_MENU_AUDIO_FILES);
-        scene_file_browser_scan_directory(MEDIA_PATH_AUDIO);
+    if (widget_button_icon("Audio", ICON_AUDIO, app_state_get() == STATE_MENU_FILES, size)) {
+        app_state_set(STATE_MENU_FILES);
+        scene_file_browser_cd(MEDIA_PATH_AUDIO);
     }
 
-    if (widget_button_icon("Photo", ICON_PHOTO, app_state_get() == STATE_MENU_IMAGE_FILES, size)) {
-        app_state_set(STATE_MENU_IMAGE_FILES);
-        scene_file_browser_scan_directory(MEDIA_PATH_PHOTO);
+    if (widget_button_icon("Photo", ICON_PHOTO, app_state_get() == STATE_MENU_FILES, size)) {
+        app_state_set(STATE_MENU_FILES);
+        scene_file_browser_cd(MEDIA_PATH_PHOTO);
     }
 
-    if (widget_button_icon("Library", ICON_LIBRARY, app_state_get() == STATE_MENU_PDF_FILES, size)) {
-        app_state_set(STATE_MENU_PDF_FILES);
-        scene_file_browser_scan_directory(MEDIA_PATH_PDF);
+    if (widget_button_icon("Library", ICON_LIBRARY, app_state_get() == STATE_MENU_FILES, size)) {
+        app_state_set(STATE_MENU_FILES);
+        scene_file_browser_cd(MEDIA_PATH_PDF);
     }
 
-//    if (widget_button_icon("USB Drive", ICON_USB, app_state_get() == STATE_MENU_PDF_FILES, size)) {
-//        app_state_set(STATE_MENU_PDF_FILES);
-//        scene_file_browser_scan_directory(MEDIA_PATH_PDF);
-//    }
-
+#ifndef PLATFORM_WIIU_LEGACY
+    if (widget_button_icon("USB Drive", ICON_USB, app_state_get() == STATE_MENU_FILES, size)) {
+        app_state_set(STATE_MENU_FILES);
+        scene_file_browser_cd(MEDIA_PATH_USB);
+    }
+#endif
+    
     if (widget_button_icon("Settings", ICON_SETTINGS, app_state_get() == STATE_MENU_SETTINGS, size)) {
         app_state_set(STATE_MENU_SETTINGS);
     }

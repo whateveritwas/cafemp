@@ -1,4 +1,5 @@
 #ifndef PLATFORM_WIIU_LEGACY
+#include "main.hpp"
 #include "utils/usb.hpp"
 
 #include "logger/logger.hpp"
@@ -6,8 +7,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <fatfs/diskio.h>
 #include <fatfs/ff.h>
+#include <fatfs/diskio.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <mocha/mocha.h>
@@ -454,6 +455,12 @@ void usb_init() {
     }
 }
 
+void mount_path(const char *dev, const char *path) {
+    MochaUtilsStatus status = Mocha_MountFS(dev, nullptr, path);
+    if (status == MOCHA_RESULT_SUCCESS || status == MOCHA_RESULT_ALREADY_EXISTS) log_message(LOG_OK, "USB", "Mounted %s", path);
+    else log_message(LOG_ERROR, "USB", "Failed to mount %s as %s", path, dev);
+}
+
 void usb_mount() {
     if (!mocha_initialized) usb_init();
 
@@ -461,6 +468,12 @@ void usb_mount() {
         log_message(LOG_ERROR, "USB", "Cannot mount USB - Mocha not initialized");
         return;
     }
+
+    mount_path("content", "/vol/content");
+    mount_path("audio", MEDIA_PATH_AUDIO_RAW);
+    mount_path("library", MEDIA_PATH_PDF_RAW);
+    mount_path("photo", MEDIA_PATH_PHOTO_RAW);
+    mount_path("video", MEDIA_PATH_VIDEO_RAW);
 
     if (active_drive >= 0) {
         log_message(LOG_DEBUG, "USB", "USB already mounted on drive %d", active_drive);

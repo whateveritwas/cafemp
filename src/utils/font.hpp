@@ -1,13 +1,13 @@
 #ifndef FONT_HPP
 #define FONT_HPP
 
-#include "display.hpp"
 #include "logger/logger.hpp"
 #include "main.hpp"
+#include "utils/display.hpp"
 
 #include <coreinit/memory.h>
-#include <imgui/imgui.h>
 #include <imgui/backends/imgui_impl_wiiu.h>
+#include <imgui/imgui.h>
 
 static const float default_font_size = 32;
 
@@ -56,8 +56,6 @@ static const float default_font_size = 32;
 #define FONT_GLYPH_PLAY_COIN "\uE075"
 #define FONT_GLYPH_CLOSE_BUTTON "\uE071"
 #define FONT_GLYPH_UNUSED_CLOSE_BUTTON "\uE070"
-
-#define SYMBOLS_FONT "/vol/content/NerdFontsSymbolsOnly/SymbolsNerdFont-Regular.ttf"
 
 #define ICON_HOME "\uf015"
 #define ICON_VIDEO "\uf03d"

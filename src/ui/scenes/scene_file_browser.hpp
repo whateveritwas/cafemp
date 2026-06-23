@@ -3,7 +3,7 @@
 
 #include "input/input_actions.hpp"
 
-void scene_file_browser_scan_directory(const char *path);
+void scene_file_browser_cd(const char *path);
 void scene_file_browser_input(InputState &input);
 void scene_file_browser_render();
 

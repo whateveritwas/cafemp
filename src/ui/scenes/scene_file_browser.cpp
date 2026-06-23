@@ -20,7 +20,9 @@
 
 enum file_types { FILE_FOLDER, FILE_AUDIO, FILE_VIDEO, FILE_IMAGE, FILE_BOOK };
 
-static const std::unordered_map<file_types, const char *> file_icons = {{FILE_FOLDER, ICON_FOLDER}, {FILE_AUDIO, ICON_AUDIO}, {FILE_VIDEO, ICON_VIDEO}, {FILE_IMAGE, ICON_PHOTO}, {FILE_BOOK, ICON_LIBRARY}};
+static const std::unordered_map<file_types, const char *> file_icons = {
+    {FILE_FOLDER, ICON_FOLDER}, {FILE_AUDIO, ICON_AUDIO}, {FILE_VIDEO, ICON_VIDEO}, {FILE_IMAGE, ICON_PHOTO}, {FILE_BOOK, ICON_LIBRARY},
+};
 
 static const std::unordered_set<std::string> valid_video_endings = {"mp4", "mov", "avi", "mkv"};
 static const std::unordered_set<std::string> valid_audio_endings = {"mp3", "wav", "ogg", "flac", "aac"};
@@ -33,41 +35,16 @@ struct file {
 };
 
 static std::vector<file> files;
-
 static std::string media_root;
 static std::string relative_dir;
-
-struct MediaMapping {
-    const char *folder;
-    char type;
-};
-
-static const std::unordered_map<int, MediaMapping> state_map = {
-    {STATE_MENU_AUDIO_FILES, {"Audio/", 'A'}},
-    {STATE_MENU_VIDEO_FILES, {"Video/", 'V'}},
-    {STATE_MENU_IMAGE_FILES, {"Photo/", 'P'}},
-    {STATE_MENU_PDF_FILES, {"Library/", 'L'}},
-};
 
 static std::string get_extension(const std::string &filename) {
     size_t dot = filename.find_last_of('.');
     if (dot == std::string::npos || dot == filename.size() - 1) return "";
-    return filename.substr(dot + 1);
-}
-
-static bool scene_file_browser_valid_file_ending(const std::string &file_ending) {
-    switch (app_state_get()) {
-        case STATE_MENU_VIDEO_FILES:
-            return valid_video_endings.count(file_ending) > 0;
-        case STATE_MENU_AUDIO_FILES:
-            return valid_audio_endings.count(file_ending) > 0;
-        case STATE_MENU_IMAGE_FILES:
-            return valid_image_endings.count(file_ending) > 0;
-        case STATE_MENU_PDF_FILES:
-            return valid_pdf_endings.count(file_ending) > 0;
-        default:
-            return false;
-    }
+    std::string ext = filename.substr(dot + 1);
+    for (char &c : ext)
+        c = static_cast<char>(tolower(c));
+    return ext;
 }
 
 static file_types file_type_for_extension(const std::string &ext) {
@@ -77,6 +54,8 @@ static file_types file_type_for_extension(const std::string &ext) {
     if (valid_pdf_endings.count(ext)) return FILE_BOOK;
     return FILE_FOLDER;
 }
+
+static bool is_known_media_type(file_types ft) { return ft != FILE_FOLDER; }
 
 static std::string join_relative(const std::string &base, const std::string &name) {
     if (base.empty()) return name;
@@ -89,27 +68,40 @@ static std::string parent_relative(const std::string &base) {
     return base.substr(0, slash);
 }
 
-static void start_file(const std::string &filename) {
-    int state = app_state_get();
-    auto it = state_map.find(state);
-    if (it == state_map.end()) {
-        log_message(LOG_ERROR, "Menu", "Unsupported file type");
+static void start_file(const file &f) {
+    struct TypeInfo {
+        char media_char;
+        AppState next_state;
+        bool is_visual;
+    };
+
+    static const std::unordered_map<file_types, TypeInfo> type_info_map = {
+        {FILE_AUDIO, {'A', STATE_PLAYING_AUDIO, false}},
+        {FILE_VIDEO, {'V', STATE_PLAYING_VIDEO, false}},
+        {FILE_IMAGE, {'P', STATE_VIEWING_PHOTO, true}},
+        {FILE_BOOK, {'L', STATE_VIEWING_PDF, true}},
+    };
+
+    auto it = type_info_map.find(f.file_type);
+
+    if (it == type_info_map.end()) {
+        log_message(LOG_ERROR, "File Browser", "Cannot open file with unknown type: %s", f.path.c_str());
         return;
     }
-    const MediaMapping &mapping = it->second;
+
+    const TypeInfo &info_type = it->second;
 
     auto new_info = std::make_unique<media_info>();
     media_info_set(std::move(new_info));
     media_info *info = media_info_get();
 
-    std::string rel_file = join_relative(relative_dir, filename);
-
-    info->type = mapping.type;
-    info->path = media_root + rel_file;
-    info->filename = filename;
+    info->type = info_type.media_char;
+    if (info_type.media_char == 'A' || info_type.media_char == 'V') info->path = "file:" + media_root + join_relative(relative_dir, f.path);
+    else info->path = media_root + join_relative(relative_dir, f.path);
+    info->filename = f.path;
     info->current_playback_time = 0;
 
-    if (mapping.type == 'P' || mapping.type == 'L') {
+    if (info_type.is_visual) {
         info->current_audio_track_id = 0;
         info->total_audio_track_count = 0;
         info->current_caption_id = 0;
@@ -121,30 +113,17 @@ static void start_file(const std::string &filename) {
         info->total_caption_count = 1;
     }
 
-    switch (mapping.type) {
-        case 'A':
-            app_state_set(STATE_PLAYING_AUDIO);
-            break;
-        case 'V':
-            app_state_set(STATE_PLAYING_VIDEO);
-            break;
-        case 'P':
-            app_state_set(STATE_VIEWING_PHOTO);
-            break;
-        case 'L':
-            app_state_set(STATE_VIEWING_PDF);
-            break;
-    }
+    app_state_set(info_type.next_state);
 }
 
 static void scan_relative_directory(const std::string &new_relative_dir) {
     std::string abs_path = media_root + new_relative_dir;
 
-    log_message(LOG_OK, "File Browser", "Opening folder %s\n", abs_path.c_str());
+    log_message(LOG_OK, "File Browser", "Opening folder %s", abs_path.c_str());
 
     DIR *dir = opendir(abs_path.c_str());
     if (!dir) {
-        log_message(LOG_ERROR, "File Browser", "Failed to open folder %s\n", abs_path.c_str());
+        log_message(LOG_ERROR, "File Browser", "Failed to open folder %s", abs_path.c_str());
         return;
     }
 
@@ -158,7 +137,6 @@ static void scan_relative_directory(const std::string &new_relative_dir) {
     struct dirent *ent;
     while ((ent = readdir(dir)) != NULL) {
         std::string name = ent->d_name;
-
         if (name == "." || name == "..") continue;
 
         if (ent->d_type == DT_DIR) {
@@ -166,26 +144,21 @@ static void scan_relative_directory(const std::string &new_relative_dir) {
             continue;
         }
 
-        std::string ext = get_extension(name);
-        if (!scene_file_browser_valid_file_ending(ext)) continue;
+        file_types ft = file_type_for_extension(get_extension(name));
+        if (!is_known_media_type(ft)) continue; // skip unknown extensions
 
-        files.push_back({name, file_type_for_extension(ext)});
+        files.push_back({name, ft});
     }
 
     closedir(dir);
 }
 
 void scene_file_browser_open(int state) {
-    auto it = state_map.find(state);
-    if (it == state_map.end()) {
-        log_message(LOG_ERROR, "File Browser", "Unsupported file type");
-        return;
-    }
-    media_root = std::string(BASE_PATH) + it->second.folder;
+    media_root = std::string(BASE_PATH);
     scan_relative_directory("");
 }
 
-void scene_file_browser_scan_directory(const char *path) {
+void scene_file_browser_cd(const char *path) {
     media_root = path;
     scan_relative_directory("");
 }
@@ -199,17 +172,6 @@ void scene_file_browser_input(InputState &input) {
     if (input_pressed(input, BTN_B)) {
         scene_file_browser_go_up();
     }
-
-//   if (input_pressed(input, BTN_X)) {
-//	DIR *dir = opendir("usb:/");
-//	struct dirent *ent;
-//	
-//	while ((ent = readdir(dir)) != nullptr) {
-//	    printf("%s\n", ent->d_name);
-//	}
-//	
-//	closedir(dir);
-//    }
 }
 
 void scene_file_browser_render() {
@@ -235,7 +197,7 @@ void scene_file_browser_render() {
                         scan_relative_directory(join_relative(relative_dir, f.path));
                     }
                 } else {
-                    start_file(f.path);
+                    start_file(f);
                 }
             }
         }
