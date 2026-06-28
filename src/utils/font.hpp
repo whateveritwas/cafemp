@@ -100,7 +100,7 @@ static void font_load(OSSharedDataType font, bool merge) {
 
     if (OSGetSharedData(font, 0, &font_data, &font_size)) {
         log_message(LOG_DEBUG, "Font", "Loading font \"%s\" with data size %u", names[font], font_size);
-        io.Fonts->AddFontFromMemoryTTF(font_data, font_size, default_font_size * display_get().scale, &config);
+        io.Fonts->AddFontFromMemoryTTF(font_data, font_size, default_font_size, &config);
     }
 }
 

@@ -17,7 +17,7 @@ std::string format_time(int seconds) {
 }
 
 void widget_player_hud_render(media_info *info) {
-    const float hud_height = 80.0f * display_get().scale;
+    const float hud_height = 80.0f;
 
     ImGui::SetNextWindowPos(ImVec2(0.0f, display_get().height - hud_height));
     ImGui::SetNextWindowSize(ImVec2(display_get().width, hud_height));

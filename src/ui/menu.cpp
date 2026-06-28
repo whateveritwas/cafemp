@@ -15,7 +15,7 @@
 #include "utils/font.hpp"
 #include "utils/media_info.hpp"
 
-#include <backends/imgui_impl_gx2.h>
+#include <imgui/backends/imgui_impl_gx2.h>
 #include <imgui/backends/imgui_impl_wiiu.h>
 #include <gx2/registers.h>
 #include <gx2/swap.h>
@@ -116,7 +116,7 @@ void ui_render() {
     ImGui_ImplGX2_NewFrame();
     ImGui::NewFrame();
 
-    media_player_update();
+    // media_player_update();
 
     {
         ui_scene_render();
@@ -132,10 +132,10 @@ void ui_render() {
     WHBGfxBeginRenderTV();
     GX2SetViewport(0, 0, display_get().width, display_get().height, 0.0f, 1.0f);
 
-    if (app_state_get() == STATE_PLAYING_VIDEO)
-        scene_media_player_render();
-    else
-        WHBGfxClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+    WHBGfxClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+    
+    if (app_state_get() == STATE_PLAYING_VIDEO) scene_media_player_render();
+    //else WHBGfxClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 
     ImGui_ImplGX2_RenderDrawData(ImGui::GetDrawData());
 

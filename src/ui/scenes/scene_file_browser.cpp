@@ -179,17 +179,17 @@ void scene_file_browser_render() {
 
     if (ImGui::Begin(VERSION_STRING, nullptr, window_flags)) {
         ImGui::SetWindowPos(ImVec2(0, 0));
-        ImGui::SetWindowSize(ImVec2(display_get().width, display_get().height - TOOLTIP_BAR_HEIGHT * display_get().scale));
+        ImGui::SetWindowSize(ImVec2(display_get().width, display_get().height - TOOLTIP_BAR_HEIGHT));
 
         ImGui::Columns(2, nullptr, false);
-        ImGui::SetColumnWidth(0, 200.0f * display_get().scale);
+        ImGui::SetColumnWidth(0, 200.0f);
         widget_sidebar_render();
         ImGui::NextColumn();
 
         ImGui::BeginChild("FileList", ImVec2(0, 0), true, ImGuiWindowFlags_None);
 
         for (const file &f : files) {
-            if (widget_button_icon(f.path.c_str(), file_icons.at(f.file_type), false, ImVec2(-1, 64 * display_get().scale))) {
+            if (widget_button_icon(f.path.c_str(), file_icons.at(f.file_type), false, ImVec2(-1, 64))) {
                 if (f.file_type == FILE_FOLDER) {
                     if (f.path == "..") {
                         scene_file_browser_go_up();

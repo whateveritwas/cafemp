@@ -9,10 +9,10 @@
 #include <imgui/imgui.h>
 
 void widget_sidebar_render() {
-    ImVec2 size(200.0f * display_get().scale, 64.0f * display_get().scale);
+    ImVec2 size(200.0f, 64.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 
-    ImGui::BeginChild("Sidebar", ImVec2(200.0f * display_get().scale, 0), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar);
+    ImGui::BeginChild("Sidebar", ImVec2(200.0f, 0), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar);
 
     if (widget_button_icon("Home", ICON_HOME, app_state_get() == STATE_MENU, size)) {
         app_state_set(STATE_MENU);
