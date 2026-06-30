@@ -28,6 +28,9 @@ extern "C" {
 #include "yuv420p_shader.h"
 
 #include <SDL2/SDL.h>
+#include <coreinit/cache.h>
+#include <coreinit/memory.h>
+#include <coreinit/time.h>
 #include <gx2/draw.h>
 #include <gx2/mem.h>
 #include <gx2/registers.h>
@@ -52,10 +55,48 @@ extern "C" {
 #define AUDIO_OUT_RATE 48000
 #define AUDIO_BUF_MAX_BYTES (768 * 1024)
 
-static double wall_now() {
-    using namespace std::chrono;
-    return duration_cast<duration<double>>(steady_clock::now().time_since_epoch()).count();
-}
+__attribute__((always_inline)) static inline double wall_now() { return (double)OSGetSystemTime() * (1.0 / (double)OSTimerClockSpeed); }
+
+__attribute__((always_inline)) static inline void dcbt(const void *addr) { __asm__ volatile("dcbt 0,%0" : : "r"(addr)); }
+
+struct PktNode {
+    AVPacket *pkt = nullptr;
+    int serial = 0;
+    PktNode *next = nullptr;
+};
+
+static constexpr int PKT_POOL_SIZE = 512;
+struct PktNodePool {
+    PktNode nodes[PKT_POOL_SIZE];
+    PktNode *freelist = nullptr;
+    std::mutex mtx;
+
+    void init() {
+        for (int i = 0; i < PKT_POOL_SIZE - 1; ++i)
+            nodes[i].next = &nodes[i + 1];
+        nodes[PKT_POOL_SIZE - 1].next = nullptr;
+        freelist = &nodes[0];
+    }
+
+    PktNode *alloc() {
+        std::lock_guard<std::mutex> lk(mtx);
+        if (!freelist) return new PktNode{}; // fallback
+        PktNode *n = freelist;
+        freelist = n->next;
+        n->next = nullptr;
+        return n;
+    }
+
+    void free_node(PktNode *n) {
+        std::lock_guard<std::mutex> lk(mtx);
+        if (n >= &nodes[0] && n < &nodes[PKT_POOL_SIZE]) {
+            n->next = freelist;
+            freelist = n;
+        } else {
+            delete n;
+        }
+    }
+} g_pkt_pool;
 
 struct VideoPlane {
     GX2Texture tex[2]{};
@@ -74,7 +115,7 @@ struct VideoVertex {
 
 static bool alloc_plane(VideoPlane &p, GX2SurfaceFormat fmt, uint32_t comp_map, int w, int h) {
     for (int b = 0; b < 2; ++b) {
-        memset(&p.tex[b], 0, sizeof(p.tex[b]));
+        OSBlockSet(&p.tex[b], 0, sizeof(p.tex[b]));
         GX2Surface &surf = p.tex[b].surface;
         surf.dim = GX2_SURFACE_DIM_TEXTURE_2D;
         surf.use = GX2_SURFACE_USE_TEXTURE;
@@ -91,7 +132,7 @@ static bool alloc_plane(VideoPlane &p, GX2SurfaceFormat fmt, uint32_t comp_map, 
         p.tex[b].viewNumMips = 1;
         p.tex[b].compMap = comp_map;
 
-        if (!GX2RCreateSurface(&surf, GX2R_RESOURCE_BIND_TEXTURE | GX2R_RESOURCE_USAGE_CPU_WRITE | GX2R_RESOURCE_USAGE_GPU_READ)) {
+        if (!GX2RCreateSurface(&surf, GX2R_RESOURCE_BIND_TEXTURE | GX2R_RESOURCE_USAGE_CPU_WRITE | GX2R_RESOURCE_USAGE_GPU_READ | GX2R_RESOURCE_USAGE_FORCE_MEM1)) {
             log_message(LOG_ERROR, MP, "alloc_plane: GX2RCreateSurface failed buf=%d fmt=%d %dx%d", b, (int)fmt, w, h);
             if (b == 1) GX2RDestroySurfaceEx(&p.tex[0].surface, GX2R_RESOURCE_BIND_NONE);
             return false;
@@ -100,7 +141,7 @@ static bool alloc_plane(VideoPlane &p, GX2SurfaceFormat fmt, uint32_t comp_map, 
 
         void *px = GX2RLockSurfaceEx(&surf, 0, GX2R_RESOURCE_BIND_NONE);
         if (px) {
-            memset(px, 0x10, surf.imageSize);
+            OSBlockSet(px, 0x10, surf.imageSize);
             GX2RUnlockSurfaceEx(&surf, 0, GX2R_RESOURCE_BIND_NONE);
         }
     }
@@ -136,20 +177,21 @@ static void upload_plane(VideoPlane &p, int write_idx, const uint8_t *src, int s
     }
 
     const uint32_t bytes_per_texel = (surf.format == GX2_SURFACE_FORMAT_UNORM_R8_G8) ? 2u : 1u;
-    const uint32_t dst_row_bytes = surf.pitch * bytes_per_texel;
+    const uint32_t dst_pitch_bytes = surf.pitch * bytes_per_texel;
+    const size_t copy_sz = (size_t)copy_bytes_per_row;
 
-    for (int y = 0; y < rows; ++y) {
-        memcpy(dst + (size_t)y * dst_row_bytes, src + (size_t)y * src_linesize, (size_t)copy_bytes_per_row);
+    if ((size_t)src_linesize == copy_sz && (size_t)dst_pitch_bytes == copy_sz) {
+        OSBlockMove(dst, src, copy_sz * (size_t)rows, FALSE);
+    } else {
+        for (int y = 0; y < rows; ++y) {
+            if (y + 2 < rows) dcbt(src + (size_t)(y + 2) * src_linesize);
+
+            OSBlockMove(dst + (size_t)y * dst_pitch_bytes, src + (size_t)y * src_linesize, copy_sz, FALSE);
+        }
     }
 
     GX2RUnlockSurfaceEx(&surf, 0, GX2R_RESOURCE_BIND_NONE);
 }
-
-struct PktNode {
-    AVPacket *pkt;
-    int serial;
-    PktNode *next;
-};
 
 struct PacketQueue {
     PktNode *head = nullptr;
@@ -178,7 +220,7 @@ static void pq_put_private(PacketQueue *q, AVPacket *pkt) {
         return;
     }
 
-    PktNode *n = new PktNode{};
+    PktNode *n = g_pkt_pool.alloc();
 
     n->pkt = pkt;
     n->serial = (pkt->data == g_flush_pkt->data) ? (++q->serial) : q->serial;
@@ -233,7 +275,7 @@ static int pq_get(PacketQueue *q, AVPacket *pkt, bool block, int *serial_out) {
             av_packet_move_ref(pkt, n->pkt);
             if (serial_out) *serial_out = n->serial;
             av_packet_free(&n->pkt);
-            delete n;
+            g_pkt_pool.free_node(n);
 
             return 1;
         }
@@ -249,7 +291,7 @@ static void pq_flush_locked(PacketQueue *q) {
         PktNode *n = q->head;
         q->head = n->next;
         av_packet_free(&n->pkt);
-        delete n;
+        g_pkt_pool.free_node(n);
     }
 
     q->tail = nullptr;
@@ -360,7 +402,7 @@ struct Clock {
     int *q_serial = nullptr;
 };
 
-static double clock_get(const Clock *c) {
+__attribute__((always_inline)) static inline double clock_get(const Clock *c) {
     if (c->q_serial && *c->q_serial != c->serial) return NAN;
     if (c->paused) return c->pts;
     double t = wall_now();
@@ -392,7 +434,9 @@ struct Decoder {
     AVPacket *pkt = nullptr;
     PacketQueue *queue = nullptr;
     AVCodecContext *avctx = nullptr;
-    int pkt_serial = -1, finished = 0, packet_pending = 0;
+    int pkt_serial = -1;
+    int finished = 0;
+    int packet_pending = 0;
     int64_t start_pts = AV_NOPTS_VALUE;
     AVRational start_pts_tb = {0, 1};
     int64_t next_pts = AV_NOPTS_VALUE;
@@ -490,6 +534,9 @@ static int decoder_decode_frame(Decoder *d, AVFrame *frame) {
 
 enum class VideoFmt { Unknown, YUV420P, NV12 };
 
+struct PlayerState;
+using RenderFn = void (*)(const rect &);
+
 struct PlayerState {
     AVFormatContext *fmt_ctx = nullptr;
     int video_idx = -1;
@@ -515,6 +562,8 @@ struct PlayerState {
 
     std::atomic<VideoFmt> video_fmt{VideoFmt::Unknown};
 
+    RenderFn render_fn = nullptr;
+
     VideoPlane plane_y{}; // Y,  full coded resolution
     VideoPlane plane_u{}; // Cb, half resolution
     VideoPlane plane_v{}; // Cr, half resolution
@@ -528,6 +577,7 @@ struct PlayerState {
 
     void *quad_vtx = nullptr;
     uint32_t quad_vtx_size = 0;
+    rect quad_last_rect = {-1, -1, -1, -1};
 
     frame_info *cur_frame_info = nullptr;
     rect dest_rect = {0, 0, 0, 0};
@@ -542,15 +592,18 @@ struct PlayerState {
     std::atomic<bool> running{false};
     std::atomic<bool> playing{false};
     std::atomic<bool> paused{true};
-    std::atomic<bool> force_refresh{false};
+    bool force_refresh = false;
     bool eof = false;
 
-    std::thread read_tid, video_tid, audio_tid;
+    std::thread read_tid, video_tid, audio_tid, audio_pump_tid;
 
     std::mutex seek_mtx;
     std::condition_variable seek_cv;
     bool seek_req = false;
     int64_t seek_pos = 0;
+
+    std::mutex read_sleep_mtx;
+    std::condition_variable read_sleep_cv;
 
     std::vector<AudioTrackInfo> audio_tracks;
     std::mutex audio_tracks_mtx;
@@ -574,7 +627,6 @@ static WHBGfxShaderGroup *load_shader(const uint8_t *gsh_data, const char *name)
     }
 
     WHBGfxInitShaderAttribute(g, "in_pos", 0, 0, GX2_ATTRIB_FORMAT_FLOAT_32_32);
-
     WHBGfxInitShaderAttribute(g, "in_uv", 0, 8, GX2_ATTRIB_FORMAT_FLOAT_32_32);
 
     if (!WHBGfxInitFetchShader(g)) {
@@ -624,6 +676,9 @@ static void free_video_planes() {
 }
 
 static void update_quad(const rect &r) {
+    // Skip if nothing changed
+    if (r.x == S->quad_last_rect.x && r.y == S->quad_last_rect.y && r.w == S->quad_last_rect.w && r.h == S->quad_last_rect.h) return;
+
     constexpr uint32_t needed = 4 * sizeof(VideoVertex);
     if (!S->quad_vtx || S->quad_vtx_size < needed) {
         free(S->quad_vtx);
@@ -641,6 +696,7 @@ static void update_quad(const rect &r) {
     v[3] = {x1, y1, 1.0f, 1.0f}; // bottom-right
 
     GX2Invalidate(GX2_INVALIDATE_MODE_CPU_ATTRIBUTE_BUFFER, S->quad_vtx, S->quad_vtx_size);
+    S->quad_last_rect = r;
 }
 
 static void video_upload_frame(const AVFrame *f) {
@@ -666,7 +722,7 @@ static void video_upload_frame(const AVFrame *f) {
     S->plane_write_idx ^= 1;
 }
 
-static void video_render_common(WHBGfxShaderGroup *grp, const rect &dest) {
+static void video_render_common(WHBGfxShaderGroup *grp) {
     if (!grp || !S->quad_vtx) return;
 
     GX2SetColorControl(GX2_LOGIC_OP_COPY, 0xFF, FALSE, TRUE);
@@ -675,7 +731,6 @@ static void video_render_common(WHBGfxShaderGroup *grp, const rect &dest) {
     GX2SetDepthOnlyControl(FALSE, FALSE, GX2_COMPARE_FUNC_ALWAYS);
     GX2SetViewport(0, 0, display_get().width, display_get().height, 0, 1);
     GX2SetScissor(0, 0, display_get().width, display_get().height);
-    GX2Invalidate(GX2_INVALIDATE_MODE_CPU_ATTRIBUTE_BUFFER, S->quad_vtx, S->quad_vtx_size);
     GX2SetFetchShader(&grp->fetchShader);
     GX2SetVertexShader(grp->vertexShader);
     GX2SetPixelShader(grp->pixelShader);
@@ -687,7 +742,7 @@ static void video_render_common(WHBGfxShaderGroup *grp, const rect &dest) {
     GX2DrawEx(GX2_PRIMITIVE_MODE_TRIANGLE_STRIP, 4, 0, 1);
 }
 
-static void video_render_yuv420p(const rect &dest) {
+static void video_render_yuv420p(const rect & /*dest*/) {
     const int ri = S->plane_write_idx ^ 1;
 
     GX2SetPixelTexture(&S->plane_y.tex[ri], 0);
@@ -697,10 +752,10 @@ static void video_render_yuv420p(const rect &dest) {
     GX2SetPixelTexture(&S->plane_v.tex[ri], 2);
     GX2SetPixelSampler(&S->plane_v.smp, 2);
 
-    video_render_common(S->shader_yuv420p, dest);
+    video_render_common(S->shader_yuv420p);
 }
 
-static void video_render_nv12(const rect &dest) {
+static void video_render_nv12(const rect & /*dest*/) {
     const int ri = S->plane_write_idx ^ 1;
 
     GX2SetPixelTexture(&S->plane_y.tex[ri], 0);
@@ -708,7 +763,7 @@ static void video_render_nv12(const rect &dest) {
     GX2SetPixelTexture(&S->plane_uv.tex[ri], 1);
     GX2SetPixelSampler(&S->plane_uv.smp, 1);
 
-    video_render_common(S->shader_nv12, dest);
+    video_render_common(S->shader_nv12);
 }
 
 static void rebuild_swr() {
@@ -726,6 +781,7 @@ static void rebuild_swr() {
     int64_t in_ch = av_get_default_channel_layout(ac->channels);
     int in_chc = ac->channels;
 #endif
+    (void)in_chc;
     int64_t out_ch = av_get_default_channel_layout(AUDIO_OUT_CHANNELS);
 
     S->swr_ctx = swr_alloc();
@@ -747,9 +803,10 @@ static void rebuild_swr() {
 }
 
 static void pump_audio() {
-    if (!S->audio_enabled || !S->audio_dev || !S->swr_ctx) return;
-    if (S->paused.load()) return;
+    if (!S->audio_enabled || !S->audio_dev) return;
+    if (S->paused.load(std::memory_order_relaxed)) return;
     if (SDL_GetQueuedAudioSize(S->audio_dev) > AUDIO_BUF_MAX_BYTES) return;
+    if (!S->swr_ctx) return;
 
     static std::vector<uint8_t> pcm_buf;
     const int bps = av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
@@ -765,6 +822,7 @@ static void pump_audio() {
         AVFrame *f = af->frame;
         int delay = swr_get_delay(S->swr_ctx, S->audio_avctx->sample_rate);
         int max_out = (int)av_rescale_rnd((int64_t)f->nb_samples + delay, AUDIO_OUT_RATE, S->audio_avctx->sample_rate, AV_ROUND_UP);
+
         size_t need = (size_t)max_out * AUDIO_OUT_CHANNELS * bps;
         if (pcm_buf.size() < need) pcm_buf.resize(need);
 
@@ -784,18 +842,30 @@ static void pump_audio() {
             }
         }
         fq_next(&S->sampq);
+
+        if (SDL_GetQueuedAudioSize(S->audio_dev) > AUDIO_BUF_MAX_BYTES) break;
     }
 }
 
 static bool stream_has_enough_packets(AVStream *st, int id, const PacketQueue &q) { return id < 0 || q.abort || (st->disposition & AV_DISPOSITION_ATTACHED_PIC) || (q.nb_packets > MIN_FRAMES && (!q.dur || av_q2d(st->time_base) * q.dur > 1.0)); }
 
-static double get_master_clock() {
+static void audio_pump_thread() {
+    log_message(LOG_DEBUG, MP, "Audio pump thread started");
+    PlayerState *ps = S;
+    while (ps->running.load(std::memory_order_relaxed)) {
+        if (!ps->paused.load(std::memory_order_relaxed)) pump_audio();
+        std::this_thread::sleep_for(std::chrono::milliseconds(8));
+    }
+    log_message(LOG_DEBUG, MP, "Audio pump thread exiting");
+}
+
+__attribute__((always_inline)) static inline double get_master_clock() {
     if (!S) return 0.0;
     if (S->audio_enabled && S->audio_dev) {
         double t = clock_get(&S->audclk);
         if (!std::isnan(t) && t > 0.0) return t;
     }
-    return S->paused.load() ? S->wall_play_offset : S->wall_play_offset + (wall_now() - S->wall_play_origin);
+    return S->paused.load(std::memory_order_relaxed) ? S->wall_play_offset : S->wall_play_offset + (wall_now() - S->wall_play_origin);
 }
 
 static double vp_duration(Frame *vp, Frame *nextvp) {
@@ -831,6 +901,7 @@ static void video_decode_thread() {
     }
 
     int total = 0, dropped = 0;
+    VideoFmt cached_fmt = VideoFmt::Unknown;
 
     for (;;) {
         int got = decoder_decode_frame(&ps->viddec, raw);
@@ -843,26 +914,28 @@ static void video_decode_thread() {
             break;
         }
 
-        VideoFmt expected = ps->hw_decoder ? VideoFmt::NV12 : VideoFmt::YUV420P;
-        if (ps->video_fmt.load() == VideoFmt::Unknown) {
+        if (cached_fmt == VideoFmt::Unknown) {
             AVPixelFormat fmt = (AVPixelFormat)raw->format;
             if (fmt == AV_PIX_FMT_YUV420P) {
-                ps->video_fmt.store(VideoFmt::YUV420P);
+                cached_fmt = VideoFmt::YUV420P;
+                ps->video_fmt.store(VideoFmt::YUV420P, std::memory_order_release);
+                ps->render_fn = video_render_yuv420p;
                 log_message(LOG_OK, MP, "Video fmt: YUV420P (SW decoder)");
             } else if (fmt == AV_PIX_FMT_NV12) {
-                ps->video_fmt.store(VideoFmt::NV12);
+                cached_fmt = VideoFmt::NV12;
+                ps->video_fmt.store(VideoFmt::NV12, std::memory_order_release);
+                ps->render_fn = video_render_nv12;
                 log_message(LOG_OK, MP, "Video fmt: NV12 (HW decoder)");
             } else {
                 log_message(LOG_ERROR, MP, "Video fmt %d unsupported — only YUV420P and NV12 are handled", (int)fmt);
                 av_frame_unref(raw);
                 continue;
             }
-            (void)expected;
         }
 
-        VideoFmt cur_fmt = ps->video_fmt.load();
-        if ((cur_fmt == VideoFmt::YUV420P && raw->format != AV_PIX_FMT_YUV420P) || (cur_fmt == VideoFmt::NV12 && raw->format != AV_PIX_FMT_NV12)) {
-            log_message(LOG_WARNING, MP, "Frame fmt %d doesn't match active pipeline %d — skipping", raw->format, (int)cur_fmt);
+        AVPixelFormat expected_pix = (cached_fmt == VideoFmt::YUV420P) ? AV_PIX_FMT_YUV420P : AV_PIX_FMT_NV12;
+        if (raw->format != expected_pix) {
+            log_message(LOG_WARNING, MP, "Frame fmt %d doesn't match active pipeline %d — skipping", raw->format, (int)cached_fmt);
             av_frame_unref(raw);
             dropped++;
             continue;
@@ -934,10 +1007,13 @@ static void read_thread() {
     PlayerState *ps = S;
     AVPacket *pkt = av_packet_alloc();
     int pkts_read = 0;
+
     for (;;) {
-        if (!ps->running.load()) break;
-        if (ps->paused.load()) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        if (!ps->running.load(std::memory_order_relaxed)) break;
+
+        if (ps->paused.load(std::memory_order_relaxed)) {
+            std::unique_lock<std::mutex> lk(ps->read_sleep_mtx);
+            ps->read_sleep_cv.wait_for(lk, std::chrono::milliseconds(50), [ps] { return !ps->paused.load(std::memory_order_relaxed) || !ps->running.load(); });
             continue;
         }
 
@@ -957,7 +1033,7 @@ static void read_thread() {
                     pq_start(&ps->audioq);
                 }
                 ps->eof = false;
-                ps->force_refresh.store(true);
+                ps->force_refresh = true;
                 ps->seek_cv.notify_all();
             }
         }
@@ -965,7 +1041,8 @@ static void read_thread() {
         bool ev = (ps->video_idx < 0) || stream_has_enough_packets(ps->fmt_ctx->streams[ps->video_idx], ps->video_idx, ps->videoq);
         bool ea = (ps->audio_idx < 0) || stream_has_enough_packets(ps->fmt_ctx->streams[ps->audio_idx], ps->audio_idx, ps->audioq);
         if (ev && ea) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::unique_lock<std::mutex> lk(ps->read_sleep_mtx);
+            ps->read_sleep_cv.wait_for(lk, std::chrono::milliseconds(10));
             continue;
         }
 
@@ -1067,6 +1144,7 @@ static bool init_video_stream() {
     }
 
     S->dest_rect = display_calculate_aspect_fit(S->out_w, S->out_h);
+    S->quad_last_rect = {-1, -1, -1, -1};
     update_quad(S->dest_rect);
     S->dest_rect_init = true;
 
@@ -1085,6 +1163,7 @@ static bool init_audio_stream() {
         log_message(LOG_WARNING, MP, "No audio stream (continuing without audio)");
         return true;
     }
+
     AVStream *st = S->fmt_ctx->streams[S->audio_idx];
     const AVCodec *codec = avcodec_find_decoder(st->codecpar->codec_id);
     if (!codec) {
@@ -1159,7 +1238,7 @@ int media_player_init(const char *path) {
         media_player_cleanup();
     }
 
-    display_get() = display_get();
+    g_pkt_pool.init();
 
     if (!g_flush_pkt) {
         g_flush_pkt = av_packet_alloc();
@@ -1235,6 +1314,7 @@ int media_player_init(const char *path) {
     S->read_tid = std::thread(read_thread);
     if (has_v) S->video_tid = std::thread(video_decode_thread);
     if (has_a) S->audio_tid = std::thread(audio_decode_thread);
+    if (has_a) S->audio_pump_tid = std::thread(audio_pump_thread);
 
     media_info_get()->playback_status = false;
     if (has_v && S->video_idx >= 0) {
@@ -1267,6 +1347,8 @@ void media_player_play(bool play) {
     S->playing.store(play);
     media_info_get()->playback_status = play;
     if (S->audio_dev) SDL_PauseAudioDevice(S->audio_dev, play ? 0 : 1);
+
+    if (play) S->read_sleep_cv.notify_all();
     log_message(LOG_DEBUG, MP, "media_player_play(%s) clock=%.3f s", play ? "true" : "false", get_master_clock());
 }
 
@@ -1287,6 +1369,7 @@ void media_player_seek(double seconds) {
         S->frame_timer = wall_now();
     }
     S->seek_cv.notify_all();
+    S->read_sleep_cv.notify_all();
     if (was_playing) media_player_play(true);
 }
 
@@ -1294,10 +1377,9 @@ void media_player_update() {
     if (!S) return;
 
     media_info_get()->current_playback_time = get_master_clock();
-    pump_audio();
     if (!S->video_avctx) return;
 
-    if (S->playing.load()) {
+    if (S->playing.load(std::memory_order_relaxed)) {
         double now = wall_now();
         if (now - S->last_log_time >= 5.0) {
             log_message(LOG_DEBUG, MP, "clock=%.2f vq=%d aq=%d pictq=%d sampq=%d dec=%d drp=%d fmt=%d", get_master_clock(), S->videoq.nb_packets, S->audioq.nb_packets, fq_nb_remaining(&S->pictq), fq_nb_remaining(&S->sampq), S->frames_decoded, S->frames_dropped, (int)S->video_fmt.load());
@@ -1305,8 +1387,7 @@ void media_player_update() {
         }
     }
 
-    VideoFmt fmt = S->video_fmt.load();
-    if (fmt == VideoFmt::Unknown) return;
+    if (S->video_fmt.load(std::memory_order_acquire) == VideoFmt::Unknown) return;
 
 retry:
     if (fq_nb_remaining(&S->pictq) > 0) {
@@ -1318,7 +1399,7 @@ retry:
             goto retry;
         }
         if (lastvp->serial != vp->serial) S->frame_timer = wall_now();
-        if (!S->playing.load()) goto display;
+        if (!S->playing.load(std::memory_order_relaxed)) goto display;
 
         double delay = compute_target_delay(vp_duration(lastvp, vp));
         double now = wall_now();
@@ -1340,18 +1421,18 @@ retry:
             if (now > S->frame_timer + vp_duration(vp, nextvp)) {
                 S->frames_dropped++;
                 fq_next(&S->pictq);
-                S->force_refresh.store(false);
+                S->force_refresh = false;
                 goto retry;
             }
         }
         fq_next(&S->pictq);
-        S->force_refresh.store(true);
+        S->force_refresh = true;
         S->frames_decoded++;
     }
 
 display:
-    if (!S->force_refresh.load()) return;
-    S->force_refresh.store(false);
+    if (!S->force_refresh) return;
+    S->force_refresh = false;
     if (S->pictq.rindex_shown == 0) return;
 
     Frame *vp = fq_peek_last(&S->pictq);
@@ -1363,10 +1444,9 @@ display:
     }
 
     rect dest = display_calculate_aspect_fit(vp->width, vp->height);
-    if (fmt == VideoFmt::YUV420P)
-        video_render_yuv420p(dest);
-    else
-        video_render_nv12(dest);
+    update_quad(dest);
+
+    if (S->render_fn) S->render_fn(dest);
 }
 
 bool media_player_switch_audio_track(int new_idx) {
@@ -1378,6 +1458,8 @@ bool media_player_switch_audio_track(int new_idx) {
     double t = get_master_clock();
     bool was_playing = S->playing.load();
     media_player_play(false);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
     if (S->audio_dev) {
         SDL_PauseAudioDevice(S->audio_dev, 1);
         SDL_ClearQueuedAudio(S->audio_dev);
@@ -1418,6 +1500,7 @@ bool media_player_switch_audio_track(int new_idx) {
         S->seek_req = true;
     }
     S->seek_cv.notify_all();
+    S->read_sleep_cv.notify_all();
     S->audio_tid = std::thread(audio_decode_thread);
     if (was_playing) {
         if (S->audio_dev) SDL_PauseAudioDevice(S->audio_dev, 0);
@@ -1469,10 +1552,12 @@ void media_player_cleanup() {
         S->seek_req = false;
     }
     S->seek_cv.notify_all();
+    S->read_sleep_cv.notify_all();
 
     if (S->read_tid.joinable()) S->read_tid.join();
     if (S->video_tid.joinable()) S->video_tid.join();
     if (S->audio_tid.joinable()) S->audio_tid.join();
+    if (S->audio_pump_tid.joinable()) S->audio_pump_tid.join();
 
     fq_destroy(&S->pictq);
     fq_destroy(&S->sampq);
