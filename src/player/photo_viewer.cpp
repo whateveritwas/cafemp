@@ -2,7 +2,9 @@
 #include <backends/imgui_impl_gx2.h>
 #include <coreinit/time.h>
 #include <gif_lib.h>
+#include <imgui/backends/imgui_impl_gx2.h>
 #include <imgui/imgui.h>
+#include <logger/logger.hpp>
 #include <stdint.h>
 #include <string.h>
 #include <vector>
@@ -39,7 +41,7 @@ static float scale = 1.0f;
 static rect dst = {0, 0, 0, 0};
 static bool dst_set = false;
 
-static uint64_t current_time_ms() { return OSTicksToMilliseconds(OSGetTime()); }
+static inline uint64_t current_time_ms() { return OSTicksToMilliseconds(OSGetTime()); }
 
 static GX2Image create_texture_rgba(const uint8_t *rgba, int width, int height, bool is_gif) {
     GX2Image result;
@@ -207,6 +209,7 @@ static bool load_gif(const char *filepath) {
 }
 
 void photo_viewer_open_picture(const char *filepath) {
+    log_message(LOG_OK, "Photo Viewer", "Opening file %s", filepath);
     photo_viewer_cleanup();
 
     const char *ext = strrchr(filepath, '.');
@@ -301,4 +304,6 @@ void photo_viewer_cleanup() {
 
     current_gif_frame = 0;
     dst_set = false;
+
+    log_message(LOG_OK, "Photo Viewer", "Photo Viewer cleanup complete");
 }

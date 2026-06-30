@@ -96,7 +96,7 @@ static void start_file(const file &f) {
     media_info *info = media_info_get();
 
     info->type = info_type.media_char;
-    if (info_type.media_char == 'A' || info_type.media_char == 'V') info->path = "file:" + media_root + join_relative(relative_dir, f.path);
+    if (info_type.media_char == 'A' || info_type.media_char == 'V') info->path = media_root + join_relative(relative_dir, f.path);
     else info->path = media_root + join_relative(relative_dir, f.path);
     info->filename = f.path;
     info->current_playback_time = 0;

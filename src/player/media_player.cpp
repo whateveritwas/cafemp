@@ -1231,7 +1231,8 @@ static bool init_audio_stream() {
     return true;
 }
 
-int media_player_init(const char *path) {
+int media_player_init(const char *path_) {
+    std::string path = "file:" + std::string(path_);
     log_message(LOG_DEBUG, MP, "media_player_init: %s", path);
     if (S) {
         log_message(LOG_WARNING, MP, "Re-init: cleaning up");
@@ -1262,7 +1263,7 @@ int media_player_init(const char *path) {
     }
 
     {
-        int err = avformat_open_input(&S->fmt_ctx, path, nullptr, nullptr);
+        int err = avformat_open_input(&S->fmt_ctx, path.c_str(), nullptr, nullptr);
         if (err < 0) {
             char buf[256]{};
             av_strerror(err, buf, sizeof(buf));

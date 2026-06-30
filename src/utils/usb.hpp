@@ -3,6 +3,7 @@
 #define USB_HPP
 
 void usb_init();
+bool usb_active_drive();
 void usb_mount();
 void usb_unmount();
 void usb_shutdown();

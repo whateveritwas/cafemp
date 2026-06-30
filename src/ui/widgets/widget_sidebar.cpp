@@ -3,6 +3,7 @@
 #include "main.hpp"
 #include "ui/scenes/scene_file_browser.hpp"
 #include "ui/widgets/widget_button_icon.hpp"
+#include "utils/usb.hpp"
 #include "utils/app_state.hpp"
 #include "utils/font.hpp"
 
@@ -39,10 +40,12 @@ void widget_sidebar_render() {
     }
 
 #ifndef PLATFORM_WIIU_LEGACY
-    if (widget_button_icon("USB Drive", ICON_USB, app_state_get() == STATE_MENU_FILES, size)) {
-        app_state_set(STATE_MENU_FILES);
-        scene_file_browser_cd(MEDIA_PATH_USB);
-    }
+    if (usb_active_drive()) {
+	if (widget_button_icon("USB Drive", ICON_USB, app_state_get() == STATE_MENU_FILES, size)) {
+	    app_state_set(STATE_MENU_FILES);
+	    scene_file_browser_cd(MEDIA_PATH_USB);
+	}
+    }    
 #endif
     
     if (widget_button_icon("Settings", ICON_SETTINGS, app_state_get() == STATE_MENU_SETTINGS, size)) {

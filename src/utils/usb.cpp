@@ -461,6 +461,10 @@ void mount_path(const char *dev, const char *path) {
     else log_message(LOG_ERROR, "USB", "Failed to mount %s as %s", path, dev);
 }
 
+bool usb_active_drive() {
+    return fat_dev_count;
+}
+
 void usb_mount() {
     if (!mocha_initialized) usb_init();
 

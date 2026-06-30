@@ -17,7 +17,7 @@ struct frame_info {
     int height;
 };
 
-int media_player_init(const char *filepath);
+int media_player_init(const char *path);
 void media_player_cleanup();
 void media_player_play(bool play);
 void media_player_seek(double seconds);
