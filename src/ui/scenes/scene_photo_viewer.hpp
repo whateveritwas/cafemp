@@ -7,6 +7,6 @@
 
 void scene_photo_viewer_init(std::string full_path);
 void scene_photo_viewer_render();
-void scene_photo_viewer_input(InputState &input);
+void scene_photo_viewer_input();
 
 #endif

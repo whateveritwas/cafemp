@@ -7,7 +7,7 @@
 
 void scene_media_player_init(std::string full_path);
 void scene_media_player_render();
-void scene_media_player_input(InputState &input);
+void scene_media_player_input();
 void scene_media_player_shutdown();
 
 #endif

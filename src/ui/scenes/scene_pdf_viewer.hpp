@@ -7,6 +7,6 @@
 
 void scene_pdf_viewer_init(std::string full_path);
 void scene_pdf_viewer_render();
-void scene_pdf_viewer_input(InputState &input);
+void scene_pdf_viewer_input();
 
 #endif

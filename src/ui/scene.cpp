@@ -21,8 +21,8 @@ void ui_scene_set(int state) {
     }
 }
 
-void ui_scene_input(InputState &input) {
-    if (current_scene && current_scene->input) current_scene->input(input);
+void ui_scene_input() {
+    if (current_scene && current_scene->input) current_scene->input();
 }
 
 void ui_scene_render() {

@@ -168,8 +168,8 @@ void scene_file_browser_go_up() {
     scan_relative_directory(parent_relative(relative_dir));
 }
 
-void scene_file_browser_input(InputState &input) {
-    if (input_pressed(input, BTN_B)) {
+void scene_file_browser_input() {
+    if (input_pressed(BUTTON_B)) {
         scene_file_browser_go_up();
     }
 }

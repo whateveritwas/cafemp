@@ -1,5 +1,5 @@
-#ifndef PROFILER
-#define PROFILER
+#ifndef PROFILER_HPP
+#define PROFILER_HPP
 
 #include <coreinit/time.h>
 #include "logger/logger.hpp"

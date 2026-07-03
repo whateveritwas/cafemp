@@ -7,14 +7,14 @@
 
 struct UIScene {
     std::function<void()> init;
-    std::function<void(InputState &input)> input;
+    std::function<void()> input;
     std::function<void()> render;
     std::function<void()> shutdown;
 };
 
 void ui_scene_register(int state, const UIScene &scene);
 void ui_scene_set(int state);
-void ui_scene_input(InputState &input);
+void ui_scene_input();
 void ui_scene_render();
 void ui_scene_shutdown();
 

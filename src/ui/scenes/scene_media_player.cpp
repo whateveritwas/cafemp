@@ -43,20 +43,20 @@ void scene_media_player_render() {
     }
 }
 
-void scene_media_player_input(InputState &input) {
-    if (input_pressed(input, BTN_A)) {
+void scene_media_player_input() {
+    if (input_pressed(BUTTON_A)) {
         bool is_playing = media_info_get()->playback_status;
         media_player_play(!is_playing);
-    } else if (input_pressed(input, BTN_B)) {
+    } else if (input_pressed(BUTTON_B)) {
         media_player_cleanup();
 	app_state_set(STATE_MENU_FILES);
-    } else if (input_pressed(input, BTN_LEFT)) {
+    } else if (input_pressed(BUTTON_LEFT)) {
         double current_time = media_player_get_current_time();
         media_player_seek(current_time - 5.0);
-    } else if (input_pressed(input, BTN_RIGHT)) {
+    } else if (input_pressed(BUTTON_RIGHT)) {
         double current_time = media_player_get_current_time();
         media_player_seek(current_time + 5.0);
-    } else if (input_pressed(input, BTN_X)) {
+    } else if (input_pressed(BUTTON_X)) {
         if (media_info_get()->total_audio_track_count <= 1) return;
 
         std::vector<AudioTrackInfo> tracks = media_player_get_audio_tracks();
@@ -78,7 +78,7 @@ void scene_media_player_input(InputState &input) {
         if (media_player_switch_audio_track(next_stream_index)) {
             media_info_get()->current_audio_track_id = next_index + 1;
         }
-    } else if (input_touched(input) || input.valid_cursor) {
+    } else if (input_held(BUTTON_TOUCH)) {
         show_hud = true;
     } else {
         show_hud = false;

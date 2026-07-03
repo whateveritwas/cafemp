@@ -25,7 +25,6 @@
 
 static ImGuiIO *io{};
 const ImVec4 clear_color = ImVec4(0.0f, 0.0f, 0.00f, 1.00f);
-static InputState input{};
 
 static bool ambiance_playing = false;
 static bool background_music_enabled = true;
@@ -68,26 +67,26 @@ void ui_init() {
     ImGui_ImplWiiU_Init();
     ImGui_ImplGX2_Init();
 
-    ui_scene_register(STATE_MENU, {[]() {}, [](InputState &input) {}, []() { scene_main_menu_render(); }, []() {}});
-    ui_scene_register(STATE_MENU_FILES, {[]() {}, [](InputState &input) { scene_file_browser_input(input); }, []() { scene_file_browser_render(); }, []() {}});
+    ui_scene_register(STATE_MENU, {[]() {}, []() {}, []() { scene_main_menu_render(); }, []() {}});
+    ui_scene_register(STATE_MENU_FILES, {[]() {}, []() { scene_file_browser_input(); }, []() { scene_file_browser_render(); }, []() {}});
 
     ui_scene_register(STATE_VIEWING_PHOTO, {[]() {
                                                 scene_photo_viewer_init(media_info_get()->path);
                                                 ui_handle_ambiance(false);
                                             },
-                                            [](InputState &input) { scene_photo_viewer_input(input); }, []() { scene_photo_viewer_render(); }, []() { ui_handle_ambiance(true); }});
+                                            []() { scene_photo_viewer_input(); }, []() { scene_photo_viewer_render(); }, []() { ui_handle_ambiance(true); }});
 
     ui_scene_register(STATE_VIEWING_PDF, {[]() {
                                               scene_pdf_viewer_init(media_info_get()->path);
                                               ui_handle_ambiance(false);
                                           },
-                                          [](InputState &input) { scene_pdf_viewer_input(input); }, []() { scene_pdf_viewer_render(); }, []() { ui_handle_ambiance(true); }});
+                                          []() { scene_pdf_viewer_input(); }, []() { scene_pdf_viewer_render(); }, []() { ui_handle_ambiance(true); }});
 
     ui_scene_register(STATE_PLAYING_VIDEO, {[]() {
                                                 scene_media_player_init(media_info_get()->path);
                                                 ui_handle_ambiance(false);
                                             },
-                                            [](InputState &input) { scene_media_player_input(input); }, []() { scene_media_player_render(); },
+                                            []() { scene_media_player_input(); }, []() { scene_media_player_render(); },
                                             []() {
                                                 scene_media_player_shutdown();
                                                 ui_handle_ambiance(true);
@@ -97,18 +96,20 @@ void ui_init() {
                                                 scene_media_player_init(media_info_get()->path);
                                                 ui_handle_ambiance(false);
                                             },
-                                            [](InputState &input) { scene_media_player_input(input); }, []() { scene_media_player_render(); },
+                                            []() { scene_media_player_input(); }, []() { scene_media_player_render(); },
                                             []() {
                                                 scene_media_player_shutdown();
                                                 ui_handle_ambiance(true);
                                             }});
+
+    input_init();
 
     ui_scene_set(app_state_get());
     ui_handle_ambiance(true);
 }
 
 void ui_render() {
-    input_poll(input);
+    input_poll();
 
     GX2ColorBuffer *cb = WHBGfxGetTVColourBuffer();
 
@@ -120,8 +121,8 @@ void ui_render() {
 
     {
         ui_scene_render();
-        ui_scene_input(input);
-        widget_cursor_render(input);
+        ui_scene_input();
+        widget_cursor_render();
     }
 
     ImGui::EndFrame();
@@ -156,6 +157,8 @@ void ui_render() {
 }
 
 void ui_shutdown() {
+    input_shutdown();
+    
     ui_handle_ambiance(false);
 
     ImGui_ImplGX2_Shutdown();

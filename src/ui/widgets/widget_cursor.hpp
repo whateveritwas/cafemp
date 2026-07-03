@@ -3,6 +3,6 @@
 
 #include "input/input_actions.hpp"
 
-void widget_cursor_render(InputState &state);
+void widget_cursor_render();
 
 #endif

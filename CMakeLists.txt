@@ -57,7 +57,10 @@ add_shader(nv12 nv12.frag.glsl)
 
 set(SRC_FILES
   src/main.cpp
+  
   src/input/input_actions.cpp
+  src/input/devices/vpad.cpp
+
   src/logger/logger.cpp
   src/settings/settings.cpp
   src/player/media_player.cpp

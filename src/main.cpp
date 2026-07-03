@@ -42,11 +42,12 @@ int main(void) {
     usb_shutdown();
 #endif
 
-    log_message(LOG_OK, "Main", "========================Application End========================");
-
     power_manager_sleep_enable(true);
+
+    log_message(LOG_OK, "Main", "========================Application End========================");    
+    
     WHBGfxShutdown();
-    WHBProcShutdown();
+    WHBProcShutdown();    
 
     return 0;
 }
