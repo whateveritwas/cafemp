@@ -4,6 +4,7 @@
 #include "imgui/imgui.h"
 #include "input/input_device.hpp"
 #include "logger/logger.hpp"
+
 #include <vpad/input.h>
 
 static VPADStatus vpad_raw;
@@ -22,45 +23,30 @@ void input_device_vpad_init() {
 
 void input_device_vpad_poll() {
     vpad_device = {};
-    vpad_device.connected = false;
 
-    if (VPADRead(VPAD_CHAN_0, &vpad_raw, 1, nullptr)) {       
-	vpad_imgui_input.vpad = &vpad_raw;
+    if (VPADRead(VPAD_CHAN_0, &vpad_raw, 1, nullptr)) {
+        vpad_imgui_input.vpad = &vpad_raw;
         ImGui_ImplWiiU_ProcessInput(&vpad_imgui_input);
-        
+
         VPADGetTPCalibratedPoint(VPAD_CHAN_0, &vpad_raw_touch, &vpad_raw.tpNormal);
 
-        if (vpad_raw.hold & VPAD_BUTTON_A)
-            vpad_device.buttons |= BUTTON_A;
-        if (vpad_raw.hold & VPAD_BUTTON_B)
-            vpad_device.buttons |= BUTTON_B;
-        if (vpad_raw.hold & VPAD_BUTTON_X)
-            vpad_device.buttons |= BUTTON_X;
-        if (vpad_raw.hold & VPAD_BUTTON_Y)
-            vpad_device.buttons |= BUTTON_Y;
+        if (vpad_raw.hold & VPAD_BUTTON_A) vpad_device.buttons |= BUTTON_A;
+        if (vpad_raw.hold & VPAD_BUTTON_B) vpad_device.buttons |= BUTTON_B;
+        if (vpad_raw.hold & VPAD_BUTTON_X) vpad_device.buttons |= BUTTON_X;
+        if (vpad_raw.hold & VPAD_BUTTON_Y) vpad_device.buttons |= BUTTON_Y;
 
-        if (vpad_raw.hold & VPAD_BUTTON_PLUS)
-            vpad_device.buttons |= BUTTON_PLUS;
-        if (vpad_raw.hold & VPAD_BUTTON_MINUS)
-            vpad_device.buttons |= BUTTON_MINUS;
+        if (vpad_raw.hold & VPAD_BUTTON_PLUS) vpad_device.buttons |= BUTTON_PLUS;
+        if (vpad_raw.hold & VPAD_BUTTON_MINUS) vpad_device.buttons |= BUTTON_MINUS;
 
-        if (vpad_raw.hold & VPAD_BUTTON_UP)
-            vpad_device.buttons |= BUTTON_UP;
-        if (vpad_raw.hold & VPAD_BUTTON_DOWN)
-            vpad_device.buttons |= BUTTON_DOWN;
-        if (vpad_raw.hold & VPAD_BUTTON_LEFT)
-            vpad_device.buttons |= BUTTON_LEFT;
-        if (vpad_raw.hold & VPAD_BUTTON_RIGHT)
-            vpad_device.buttons |= BUTTON_RIGHT;
+        if (vpad_raw.hold & VPAD_BUTTON_UP) vpad_device.buttons |= BUTTON_UP;
+        if (vpad_raw.hold & VPAD_BUTTON_DOWN) vpad_device.buttons |= BUTTON_DOWN;
+        if (vpad_raw.hold & VPAD_BUTTON_LEFT) vpad_device.buttons |= BUTTON_LEFT;
+        if (vpad_raw.hold & VPAD_BUTTON_RIGHT) vpad_device.buttons |= BUTTON_RIGHT;
 
-        if (vpad_raw.hold & VPAD_BUTTON_L)
-            vpad_device.buttons |= BUTTON_L;
-        if (vpad_raw.hold & VPAD_BUTTON_ZL)
-            vpad_device.buttons |= BUTTON_ZL;
-        if (vpad_raw.hold & VPAD_BUTTON_R)
-            vpad_device.buttons |= BUTTON_R;
-        if (vpad_raw.hold & VPAD_BUTTON_ZR)
-            vpad_device.buttons |= BUTTON_ZR;
+        if (vpad_raw.hold & VPAD_BUTTON_L) vpad_device.buttons |= BUTTON_L;
+        if (vpad_raw.hold & VPAD_BUTTON_ZL) vpad_device.buttons |= BUTTON_ZL;
+        if (vpad_raw.hold & VPAD_BUTTON_R) vpad_device.buttons |= BUTTON_R;
+        if (vpad_raw.hold & VPAD_BUTTON_ZR) vpad_device.buttons |= BUTTON_ZR;
 
         vpad_device.left.x = vpad_raw.leftStick.x;
         vpad_device.left.y = vpad_raw.leftStick.y;
@@ -79,6 +65,8 @@ void input_device_vpad_poll() {
         }
 
         vpad_device.connected = true;
+    } else {
+        vpad_device.connected = false;
     }
 }
 
@@ -86,5 +74,5 @@ input_device *input_device_vpad_get() { return &vpad_device; }
 
 void input_device_vpad_shutdown() {
     VPADShutdown();
-        log_message(LOG_OK, "Vpad", "Shutdown Vpad");
+    log_message(LOG_OK, "Vpad", "Shutdown Vpad");
 }

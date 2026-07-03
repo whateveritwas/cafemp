@@ -1,5 +1,6 @@
 #include "input/input_actions.hpp"
 
+#include "input/devices/kpad.hpp"
 #include "input/devices/vpad.hpp"
 #include "input/input_device.hpp"
 #include "logger/logger.hpp"
@@ -12,6 +13,7 @@ void input_init() {
     input_device_previous = {};
 
     input_device_vpad_init();
+    input_device_kpad_init();
 
     log_message(LOG_OK, "Input", "Initialised input");
 }
@@ -22,15 +24,18 @@ void input_poll() {
     input_device_current = {};
 
     input_device_vpad_poll();
+    input_device_kpad_poll();
 
     input_device *vpad = input_device_vpad_get();
 
     if (vpad && vpad->connected) {
         input_device_current = *vpad;
+    }
 
-        if (!vpad->pointer.valid) {
-            input_device_current.pointer.valid = false;
-        }
+    input_device *kpad = input_device_kpad_get();
+
+    if (kpad && kpad->connected) {
+        input_device_current = *kpad;
     }
 }
 

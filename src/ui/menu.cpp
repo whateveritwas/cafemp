@@ -15,10 +15,10 @@
 #include "utils/font.hpp"
 #include "utils/media_info.hpp"
 
-#include <imgui/backends/imgui_impl_gx2.h>
-#include <imgui/backends/imgui_impl_wiiu.h>
 #include <gx2/registers.h>
 #include <gx2/swap.h>
+#include <imgui/backends/imgui_impl_gx2.h>
+#include <imgui/backends/imgui_impl_wiiu.h>
 #include <imgui/imgui.h>
 #include <memory>
 #include <whb/gfx.h>
@@ -117,8 +117,6 @@ void ui_render() {
     ImGui_ImplGX2_NewFrame();
     ImGui::NewFrame();
 
-    // media_player_update();
-
     {
         ui_scene_render();
         ui_scene_input();
@@ -134,9 +132,9 @@ void ui_render() {
     GX2SetViewport(0, 0, display_get().width, display_get().height, 0.0f, 1.0f);
 
     WHBGfxClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-    
+
     if (app_state_get() == STATE_PLAYING_VIDEO) scene_media_player_render();
-    //else WHBGfxClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+    // else WHBGfxClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 
     ImGui_ImplGX2_RenderDrawData(ImGui::GetDrawData());
 
@@ -158,7 +156,7 @@ void ui_render() {
 
 void ui_shutdown() {
     input_shutdown();
-    
+
     ui_handle_ambiance(false);
 
     ImGui_ImplGX2_Shutdown();
