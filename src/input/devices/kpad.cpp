@@ -19,6 +19,9 @@ void input_device_kpad_init() {
 }
 
 void input_device_kpad_poll() {
+    kpad_raw = {};
+    kpad_device = {.buttons = 0, .left = {}, .right = {}, .pointer = {}, .connected=kpad_device.connected};
+    
     if (KPADReadEx(WPAD_CHAN_0, &kpad_raw, 1, nullptr) > 0) {
         if (!kpad_device.connected) {
             log_message(LOG_OK, "Kpad", "Connected Kpad");

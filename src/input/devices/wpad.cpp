@@ -20,6 +20,9 @@ void input_device_wpad_init() {
 }
 
 void input_device_wpad_poll() {
+    wpad_raw = {};
+    wpad_device = {.buttons = 0, .left = {}, .right = {}, .pointer = {}, .connected=wpad_device.connected};
+    
     if (WPADProbe(WPAD_CHAN_0, &wpad_ext) == 0 && wpad_ext == WPAD_EXT_PRO_CONTROLLER) {
         WPADRead(WPAD_CHAN_0, &wpad_raw.core);
 

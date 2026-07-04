@@ -11,6 +11,7 @@ bool input_held(buttons button);
 bool input_released(buttons button);
 
 input_device *input_get();
+const input_device *input_get_previous();
 
 void input_shutdown();
 

@@ -23,6 +23,9 @@ void input_device_vpad_init() {
 }
 
 void input_device_vpad_poll() {
+    vpad_raw = {};
+    vpad_device = {.buttons = 0, .left = {}, .right = {}, .pointer = {}, .connected=vpad_device.connected};
+
     if (VPADRead(VPAD_CHAN_0, &vpad_raw, 1, nullptr)) {
         if (!vpad_device.connected) {
             log_message(LOG_OK, "Vpad", "Connected Vpad");
