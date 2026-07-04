@@ -58,6 +58,7 @@ typedef struct input_device {
     input_pointer pointer = {};
 
     bool connected = false;
+    bool active = false;
 } input_device;
 
 #endif

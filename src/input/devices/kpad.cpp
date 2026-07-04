@@ -12,13 +12,19 @@ static KPADStatus kpad_raw;
 
 void input_device_kpad_init() {
     KPADInit();
+
+    kpad_raw = {};
+
     log_message(LOG_OK, "Kpad", "Initialised Kpad");
 }
 
 void input_device_kpad_poll() {
-    kpad_device = {};
-
     if (KPADReadEx(WPAD_CHAN_0, &kpad_raw, 1, nullptr) > 0) {
+        if (!kpad_device.connected) {
+            log_message(LOG_OK, "Kpad", "Connected Kpad");
+            kpad_device.connected = true;
+        }
+
         kpad_device.pointer.valid = (kpad_raw.posValid == 1 || kpad_raw.posValid == 2) && (kpad_raw.pos.x >= -1.0f && kpad_raw.pos.x <= 1.0f) && (kpad_raw.pos.y >= -1.0f && kpad_raw.pos.y <= 1.0f);
 
         if (kpad_device.pointer.valid) {
@@ -27,6 +33,8 @@ void input_device_kpad_poll() {
 
             kpad_device.pointer.y = kpad_raw.pos.y * display_get().height;
             kpad_device.pointer.delta_y = kpad_raw.posDiff.y * display_get().height;
+
+            kpad_device.active = true;
         }
 
         switch (kpad_raw.extensionType) {
@@ -45,6 +53,8 @@ void input_device_kpad_poll() {
                 if (kpad_raw.hold & WPAD_BUTTON_RIGHT) kpad_device.buttons |= BUTTON_DOWN;
                 if (kpad_raw.hold & WPAD_BUTTON_UP) kpad_device.buttons |= BUTTON_LEFT;
                 if (kpad_raw.hold & WPAD_BUTTON_DOWN) kpad_device.buttons |= BUTTON_RIGHT;
+
+                if (kpad_raw.hold) kpad_device.active = true;
 
                 if (kpad_device.pointer.valid) {
                     ImGuiIO &io = ImGui::GetIO();
@@ -73,6 +83,8 @@ void input_device_kpad_poll() {
                 if (kpad_raw.classic.hold & WPAD_CLASSIC_BUTTON_UP) kpad_device.buttons |= BUTTON_LEFT;
                 if (kpad_raw.classic.hold & WPAD_CLASSIC_BUTTON_DOWN) kpad_device.buttons |= BUTTON_RIGHT;
 
+		if (kpad_raw.classic.hold) kpad_device.active = true;
+
                 kpad_device.left.x = kpad_raw.classic.leftStick.x;
                 kpad_device.left.y = kpad_raw.classic.leftStick.y;
                 kpad_device.right.x = kpad_raw.classic.rightStick.x;
@@ -83,16 +95,22 @@ void input_device_kpad_poll() {
             default:
                 break;
         }
-
-        kpad_device.connected = true;
     } else {
-        kpad_device.connected = false;
+        kpad_device.active = false;
+        
+        if (kpad_device.connected) {
+	    log_message(LOG_OK, "Kpad", "Disconnected Kpad");
+	    kpad_device.connected = false;
+	}
     }
 }
 
 input_device *input_device_kpad_get() { return &kpad_device; }
 
 void input_device_kpad_shutdown() {
+    kpad_device.connected = false;
+
     KPADShutdown();
+
     log_message(LOG_OK, "Kpad", "Shutdown Kpad");
 }

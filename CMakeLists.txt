@@ -61,6 +61,7 @@ set(SRC_FILES
   src/input/input_actions.cpp
   src/input/devices/vpad.cpp
   src/input/devices/kpad.cpp
+  src/input/devices/wpad.cpp
 
   src/logger/logger.cpp
   src/settings/settings.cpp
