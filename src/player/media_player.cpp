@@ -55,6 +55,14 @@ extern "C" {
 #define AUDIO_OUT_RATE 48000
 #define AUDIO_BUF_MAX_BYTES (768 * 1024)
 
+#ifdef PROFILER
+#include "utils/profiler.hpp"
+
+profiler profiler_upload_plane;
+profiler profiler_video_upload_frame;
+profiler profiler_video_render_common;
+#endif
+
 __attribute__((always_inline)) static inline double wall_now() { return (double)OSGetSystemTime() * (1.0 / (double)OSTimerClockSpeed); }
 
 __attribute__((always_inline)) static inline void dcbt(const void *addr) { __asm__ volatile("dcbt 0,%0" : : "r"(addr)); }
@@ -132,7 +140,7 @@ static bool alloc_plane(VideoPlane &p, GX2SurfaceFormat fmt, uint32_t comp_map, 
         p.tex[b].viewNumMips = 1;
         p.tex[b].compMap = comp_map;
 
-        if (!GX2RCreateSurface(&surf, GX2R_RESOURCE_BIND_TEXTURE | GX2R_RESOURCE_USAGE_CPU_WRITE | GX2R_RESOURCE_USAGE_GPU_READ | GX2R_RESOURCE_USAGE_FORCE_MEM1)) {
+        if (!GX2RCreateSurface(&surf, GX2R_RESOURCE_BIND_TEXTURE | GX2R_RESOURCE_USAGE_CPU_WRITE | GX2R_RESOURCE_USAGE_GPU_READ)) {
             log_message(LOG_ERROR, MP, "alloc_plane: GX2RCreateSurface failed buf=%d fmt=%d %dx%d", b, (int)fmt, w, h);
             if (b == 1) GX2RDestroySurfaceEx(&p.tex[0].surface, GX2R_RESOURCE_BIND_NONE);
             return false;
@@ -168,6 +176,10 @@ static void free_plane(VideoPlane &p) {
 }
 
 static void upload_plane(VideoPlane &p, int write_idx, const uint8_t *src, int src_linesize, int copy_bytes_per_row, int rows) {
+#ifdef PROFILER
+    profiler_begin(&profiler_upload_plane, __func__);
+#endif
+
     GX2Surface &surf = p.tex[write_idx].surface;
 
     uint8_t *dst = (uint8_t *)GX2RLockSurfaceEx(&surf, 0, GX2R_RESOURCE_BIND_NONE);
@@ -191,6 +203,10 @@ static void upload_plane(VideoPlane &p, int write_idx, const uint8_t *src, int s
     }
 
     GX2RUnlockSurfaceEx(&surf, 0, GX2R_RESOURCE_BIND_NONE);
+
+#ifdef PROFILER
+    profiler_end(&profiler_upload_plane);
+#endif
 }
 
 struct PacketQueue {
@@ -363,9 +379,9 @@ static void fq_signal(FrameQueue *f) {
     f->cond.notify_all();
 }
 
-static Frame *fq_peek(FrameQueue *f) { return &f->buf[(f->rindex + f->rindex_shown) % f->max_size]; }
-static Frame *fq_peek_next(FrameQueue *f) { return &f->buf[(f->rindex + f->rindex_shown + 1) % f->max_size]; }
-static Frame *fq_peek_last(FrameQueue *f) { return &f->buf[f->rindex]; }
+__attribute__((always_inline)) static inline Frame *fq_peek(FrameQueue *f) { return &f->buf[(f->rindex + f->rindex_shown) % f->max_size]; }
+__attribute__((always_inline)) static inline Frame *fq_peek_next(FrameQueue *f) { return &f->buf[(f->rindex + f->rindex_shown + 1) % f->max_size]; }
+__attribute__((always_inline)) static inline Frame *fq_peek_last(FrameQueue *f) { return &f->buf[f->rindex]; }
 
 static Frame *fq_peek_writable(FrameQueue *f) {
     std::unique_lock<std::mutex> lk(f->mtx);
@@ -393,7 +409,7 @@ static void fq_next(FrameQueue *f) {
     f->cond.notify_one();
 }
 
-static int fq_nb_remaining(FrameQueue *f) { return f->size - f->rindex_shown; }
+__attribute__((always_inline)) static inline int fq_nb_remaining(FrameQueue *f) { return f->size - f->rindex_shown; }
 
 struct Clock {
     double pts = NAN, pts_drift = 0, last_upd = 0, speed = 1.0;
@@ -416,7 +432,7 @@ static void clock_set_at(Clock *c, double pts, int serial, double t) {
     c->serial = serial;
 }
 
-static void clock_set(Clock *c, double pts, int serial) { clock_set_at(c, pts, serial, wall_now()); }
+__attribute__((always_inline)) static inline void clock_set(Clock *c, double pts, int serial) { clock_set_at(c, pts, serial, wall_now()); }
 
 static void clock_init(Clock *c, int *q_serial) {
     c->speed = 1.0;
@@ -455,14 +471,14 @@ static int decoder_init(Decoder *d, AVCodecContext *avctx, PacketQueue *queue) {
     return 0;
 }
 
-static void decoder_free_pkt(Decoder *d) { av_packet_free(&d->pkt); }
+__attribute__((always_inline)) static inline void decoder_free_pkt(Decoder *d) { av_packet_free(&d->pkt); }
 
 static void decoder_abort(Decoder *d, FrameQueue *fq) {
     pq_abort(d->queue);
     fq_signal(fq);
 }
 
-static int decoder_decode_frame(Decoder *d, AVFrame *frame) {
+static int decoder_decode_frame(Decoder *d, AVFrame *frame) {   
     int ret = AVERROR(EAGAIN);
     for (;;) {
         if (d->queue->serial == d->pkt_serial) {
@@ -700,6 +716,10 @@ static void update_quad(const rect &r) {
 }
 
 static void video_upload_frame(const AVFrame *f) {
+#ifdef PROFILER
+    profiler_begin(&profiler_video_upload_frame, __func__);
+#endif
+
     const int wi = S->plane_write_idx;
 
     if (f->format == AV_PIX_FMT_YUV420P) {
@@ -716,14 +736,27 @@ static void video_upload_frame(const AVFrame *f) {
         upload_plane(S->plane_uv, wi, f->data[1], f->linesize[1], f->width, f->height / 2);
     } else {
         log_message(LOG_WARNING, MP, "video_upload_frame: unsupported fmt=%d — frame skipped", f->format);
+
+#ifdef PROFILER
+	profiler_end(&profiler_video_upload_frame);
+#endif
+        
         return;
     }
 
     S->plane_write_idx ^= 1;
+
+#ifdef PROFILER
+    profiler_end(&profiler_video_upload_frame);
+#endif
 }
 
 static void video_render_common(WHBGfxShaderGroup *grp) {
     if (!grp || !S->quad_vtx) return;
+
+#ifdef PROFILER
+    profiler_begin(&profiler_video_render_common, __func__);
+#endif
 
     GX2SetColorControl(GX2_LOGIC_OP_COPY, 0xFF, FALSE, TRUE);
     GX2SetBlendControl(GX2_RENDER_TARGET_0, GX2_BLEND_MODE_ONE, GX2_BLEND_MODE_ZERO, GX2_BLEND_COMBINE_MODE_ADD, FALSE, GX2_BLEND_MODE_ONE, GX2_BLEND_MODE_ZERO, GX2_BLEND_COMBINE_MODE_ADD);
@@ -740,6 +773,10 @@ static void video_render_common(WHBGfxShaderGroup *grp) {
     GX2SetVertexUniformReg(0, 16, &mvp[0][0]);
     GX2SetAttribBuffer(0, S->quad_vtx_size, sizeof(VideoVertex), S->quad_vtx);
     GX2DrawEx(GX2_PRIMITIVE_MODE_TRIANGLE_STRIP, 4, 0, 1);
+
+#ifdef PROFILER
+    profiler_end(&profiler_video_render_common);
+#endif
 }
 
 static void video_render_yuv420p(const rect & /*dest*/) {
@@ -847,7 +884,7 @@ static void pump_audio() {
     }
 }
 
-static bool stream_has_enough_packets(AVStream *st, int id, const PacketQueue &q) { return id < 0 || q.abort || (st->disposition & AV_DISPOSITION_ATTACHED_PIC) || (q.nb_packets > MIN_FRAMES && (!q.dur || av_q2d(st->time_base) * q.dur > 1.0)); }
+__attribute__((always_inline)) static inline bool stream_has_enough_packets(AVStream *st, int id, const PacketQueue &q) { return id < 0 || q.abort || (st->disposition & AV_DISPOSITION_ATTACHED_PIC) || (q.nb_packets > MIN_FRAMES && (!q.dur || av_q2d(st->time_base) * q.dur > 1.0)); }
 
 static void audio_pump_thread() {
     log_message(LOG_DEBUG, MP, "Audio pump thread started");
@@ -1232,7 +1269,7 @@ static bool init_audio_stream() {
 }
 
 int media_player_init(const char *path_) {
-    std::string path = "file:" + std::string(path_);
+    std::string path = "file:" + std::string(path_); // Workaround for file path starting with video:/ or audio:/
     log_message(LOG_DEBUG, MP, "media_player_init: %s", path);
     if (S) {
         log_message(LOG_WARNING, MP, "Re-init: cleaning up");

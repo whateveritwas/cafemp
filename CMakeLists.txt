@@ -132,6 +132,7 @@ target_include_directories(CafeMP PRIVATE
   $ENV{DEVKITPRO}/portlibs/ppc/include
   $ENV{DEVKITPRO}/portlibs/wiiu/include
   $ENV{DEVKITPRO}/portlibs/wiiu/include/freetype2
+  $ENV{DEVKITPRO}/portlibs/ppc/include/freetype2
 )
 
 target_compile_definitions(CafeMP PRIVATE

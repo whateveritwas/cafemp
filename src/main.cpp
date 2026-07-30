@@ -22,7 +22,7 @@ int main(void) {
     AXQuit();
 
     log_message(LOG_OK, "Main", "========================Application Start========================");
-    
+
 #ifndef PLATFORM_WIIU_LEGACY
     usb_init();
     usb_mount();
@@ -44,10 +44,10 @@ int main(void) {
 
     power_manager_sleep_enable(true);
 
-    log_message(LOG_OK, "Main", "========================Application End========================");    
-    
+    log_message(LOG_OK, "Main", "========================Application End========================");
+
     WHBGfxShutdown();
-    WHBProcShutdown();    
+    WHBProcShutdown();
 
     return 0;
 }
