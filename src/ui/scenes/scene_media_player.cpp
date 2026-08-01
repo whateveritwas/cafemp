@@ -32,13 +32,20 @@ void scene_media_player_init(std::string full_path) {
 void scene_media_player_render() {
     media_player_update();
 
-    if (media_info_get()->type == 'A') {
+    media_info *info = media_info_get();
+    
+    if (info->type == 'A') {
         photo_texture_zoom(0.0f);
         photo_viewer_pan(0, 0);
         photo_viewer_render();
     }
 
-    if (!media_info_get()->playback_status || show_hud) {
+    if (info->current_playback_time >= info->total_playback_time) {
+	media_player_cleanup();
+	app_state_set(STATE_MENU_FILES);
+    }
+
+    if (!info->playback_status || show_hud) {
         widget_player_hud_render(media_info_get());
     }
 }

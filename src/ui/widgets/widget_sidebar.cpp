@@ -48,9 +48,9 @@ void widget_sidebar_render() {
     }    
 #endif
     
-    if (widget_button_icon("Settings", ICON_SETTINGS, app_state_get() == STATE_MENU_SETTINGS, size)) {
-        app_state_set(STATE_MENU_SETTINGS);
-    }
+    // if (widget_button_icon("Settings", ICON_SETTINGS, app_state_get() == STATE_MENU_SETTINGS, size)) {
+    //     app_state_set(STATE_MENU_SETTINGS);
+    // }
 
     ImGui::EndChild();
     ImGui::PopStyleVar();

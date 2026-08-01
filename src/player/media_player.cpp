@@ -478,7 +478,7 @@ static void decoder_abort(Decoder *d, FrameQueue *fq) {
     fq_signal(fq);
 }
 
-static int decoder_decode_frame(Decoder *d, AVFrame *frame) {   
+static int decoder_decode_frame(Decoder *d, AVFrame *frame) {
     int ret = AVERROR(EAGAIN);
     for (;;) {
         if (d->queue->serial == d->pkt_serial) {
@@ -738,9 +738,9 @@ static void video_upload_frame(const AVFrame *f) {
         log_message(LOG_WARNING, MP, "video_upload_frame: unsupported fmt=%d — frame skipped", f->format);
 
 #ifdef PROFILER
-	profiler_end(&profiler_video_upload_frame);
+        profiler_end(&profiler_video_upload_frame);
 #endif
-        
+
         return;
     }
 
