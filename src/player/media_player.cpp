@@ -9,6 +9,7 @@
 #include <mutex>
 #include <thread>
 #include <unistd.h>
+#include <unordered_set>
 #include <vector>
 
 extern "C" {
@@ -31,6 +32,7 @@ extern "C" {
 #include <coreinit/cache.h>
 #include <coreinit/memory.h>
 #include <coreinit/time.h>
+#include <dmae/mem.h>
 #include <gx2/draw.h>
 #include <gx2/mem.h>
 #include <gx2/registers.h>
@@ -61,11 +63,19 @@ extern "C" {
 profiler profiler_upload_plane;
 profiler profiler_video_upload_frame;
 profiler profiler_video_render_common;
+profiler profiler_gx2_lock;
+profiler profiler_dmae_copy;
+profiler profiler_cpu_copy;
+profiler profiler_media_player_update;
+profiler profiler_decoder_decode_frame;
+profiler profiler_pq_get;
+profiler profiler_fq_peek_writable;
+profiler profiler_pump_audio;
+profiler profiler_swr_convert;
+profiler profiler_read_frame;
 #endif
 
 __attribute__((always_inline)) static inline double wall_now() { return (double)OSGetSystemTime() * (1.0 / (double)OSTimerClockSpeed); }
-
-__attribute__((always_inline)) static inline void dcbt(const void *addr) { __asm__ volatile("dcbt 0,%0" : : "r"(addr)); }
 
 struct PktNode {
     AVPacket *pkt = nullptr;
@@ -105,6 +115,47 @@ struct PktNodePool {
         }
     }
 } g_pkt_pool;
+
+static constexpr int AVPKT_POOL_SIZE = 512;
+struct AVPacketPool {
+    AVPacket *slots[AVPKT_POOL_SIZE]{};
+    AVPacket *freelist[AVPKT_POOL_SIZE]{};
+    int free_count = 0;
+    std::unordered_set<AVPacket *> owned;
+    std::mutex mtx;
+    bool inited = false;
+
+    void init() {
+        std::lock_guard<std::mutex> lk(mtx);
+        if (inited) return;
+        free_count = 0;
+        owned.reserve(AVPKT_POOL_SIZE * 2);
+        for (int i = 0; i < AVPKT_POOL_SIZE; ++i) {
+            slots[i] = av_packet_alloc();
+            if (!slots[i]) continue;
+            owned.insert(slots[i]);
+            freelist[free_count++] = slots[i];
+        }
+        inited = true;
+    }
+
+    AVPacket *acquire() {
+        std::lock_guard<std::mutex> lk(mtx);
+        if (free_count > 0) return freelist[--free_count];
+        return av_packet_alloc();
+    }
+
+    void release(AVPacket *p) {
+        if (!p) return;
+        av_packet_unref(p);
+        std::lock_guard<std::mutex> lk(mtx);
+        if (owned.count(p) && free_count < AVPKT_POOL_SIZE) {
+            freelist[free_count++] = p;
+        } else {
+            av_packet_free(&p);
+        }
+    }
+} g_avpkt_pool;
 
 struct VideoPlane {
     GX2Texture tex[2]{};
@@ -182,24 +233,51 @@ static void upload_plane(VideoPlane &p, int write_idx, const uint8_t *src, int s
 
     GX2Surface &surf = p.tex[write_idx].surface;
 
+#ifdef PROFILER
+    profiler_begin(&profiler_gx2_lock, "GX2RLockSurfaceEx");
+#endif
     uint8_t *dst = (uint8_t *)GX2RLockSurfaceEx(&surf, 0, GX2R_RESOURCE_BIND_NONE);
+#ifdef PROFILER
+    profiler_end(&profiler_gx2_lock);
+#endif
+
     if (!dst) {
         log_message(LOG_ERROR, MP, "upload_plane: GX2RLockSurfaceEx returned null");
+#ifdef PROFILER
+        profiler_end(&profiler_upload_plane);
+#endif
         return;
     }
 
     const uint32_t bytes_per_texel = (surf.format == GX2_SURFACE_FORMAT_UNORM_R8_G8) ? 2u : 1u;
+
     const uint32_t dst_pitch_bytes = surf.pitch * bytes_per_texel;
     const size_t copy_sz = (size_t)copy_bytes_per_row;
 
     if ((size_t)src_linesize == copy_sz && (size_t)dst_pitch_bytes == copy_sz) {
-        OSBlockMove(dst, src, copy_sz * (size_t)rows, FALSE);
-    } else {
-        for (int y = 0; y < rows; ++y) {
-            if (y + 2 < rows) dcbt(src + (size_t)(y + 2) * src_linesize);
+        log_message(LOG_DEBUG, MP, "Frame correct size and using DMAECopyMem");
 
-            OSBlockMove(dst + (size_t)y * dst_pitch_bytes, src + (size_t)y * src_linesize, copy_sz, FALSE);
+        const size_t total = copy_sz * (size_t)rows;
+
+#ifdef PROFILER
+        profiler_begin(&profiler_dmae_copy, "DMAECopyMem");
+#endif
+        DCFlushRange((void *)src, total);
+        while (!DMAEWaitDone(DMAECopyMem((void *)dst, (const void *)src, (uint32_t)(total / 4), DMAE_SWAP_NONE)));
+#ifdef PROFILER
+        profiler_end(&profiler_dmae_copy);
+#endif
+    } else {
+        log_message(LOG_DEBUG, MP, "Frame not correct size and using OSBlockMove");
+#ifdef PROFILER
+        profiler_begin(&profiler_cpu_copy, "OSBlockMove per-row");
+#endif
+        for (int y = 0; y < rows; ++y) {
+            OSBlockMove(dst + (size_t)y * dst_pitch_bytes, src + (size_t)y * src_linesize, copy_sz, true);
         }
+#ifdef PROFILER
+        profiler_end(&profiler_cpu_copy);
+#endif
     }
 
     GX2RUnlockSurfaceEx(&surf, 0, GX2R_RESOURCE_BIND_NONE);
@@ -255,7 +333,7 @@ static void pq_put_private(PacketQueue *q, AVPacket *pkt) {
 }
 
 static bool pq_put(PacketQueue *q, AVPacket *pkt) {
-    AVPacket *p = av_packet_alloc();
+    AVPacket *p = g_avpkt_pool.acquire();
 
     if (!p) {
         av_packet_unref(pkt);
@@ -266,7 +344,7 @@ static bool pq_put(PacketQueue *q, AVPacket *pkt) {
     std::lock_guard<std::mutex> lk(q->mtx);
 
     if (q->abort) {
-        av_packet_free(&p);
+        g_avpkt_pool.release(p);
         return false;
     }
 
@@ -275,10 +353,20 @@ static bool pq_put(PacketQueue *q, AVPacket *pkt) {
     return true;
 }
 
+static void notify_packet_consumed();
+
 static int pq_get(PacketQueue *q, AVPacket *pkt, bool block, int *serial_out) {
+#ifdef PROFILER
+    profiler_begin(&profiler_pq_get, __func__);
+#endif
     std::unique_lock<std::mutex> lk(q->mtx);
     for (;;) {
-        if (q->abort) return -1;
+        if (q->abort) {
+#ifdef PROFILER
+            profiler_end(&profiler_pq_get);
+#endif
+            return -1;
+        }
         if (q->head) {
             PktNode *n = q->head;
             q->head = n->next;
@@ -290,12 +378,23 @@ static int pq_get(PacketQueue *q, AVPacket *pkt, bool block, int *serial_out) {
             q->dur -= n->pkt->duration;
             av_packet_move_ref(pkt, n->pkt);
             if (serial_out) *serial_out = n->serial;
-            av_packet_free(&n->pkt);
+            g_avpkt_pool.release(n->pkt);
+            n->pkt = nullptr;
             g_pkt_pool.free_node(n);
 
+            lk.unlock();
+            notify_packet_consumed();
+#ifdef PROFILER
+            profiler_end(&profiler_pq_get);
+#endif
             return 1;
         }
-        if (!block) return 0;
+        if (!block) {
+#ifdef PROFILER
+            profiler_end(&profiler_pq_get);
+#endif
+            return 0;
+        }
         q->cond.wait(lk);
     }
 }
@@ -306,7 +405,8 @@ static void pq_flush_locked(PacketQueue *q) {
     while (q->head) {
         PktNode *n = q->head;
         q->head = n->next;
-        av_packet_free(&n->pkt);
+        g_avpkt_pool.release(n->pkt);
+        n->pkt = nullptr;
         g_pkt_pool.free_node(n);
     }
 
@@ -384,9 +484,16 @@ __attribute__((always_inline)) static inline Frame *fq_peek_next(FrameQueue *f) 
 __attribute__((always_inline)) static inline Frame *fq_peek_last(FrameQueue *f) { return &f->buf[f->rindex]; }
 
 static Frame *fq_peek_writable(FrameQueue *f) {
+#ifdef PROFILER
+    profiler_begin(&profiler_fq_peek_writable, __func__);
+#endif
     std::unique_lock<std::mutex> lk(f->mtx);
     f->cond.wait(lk, [f] { return f->size < f->max_size || f->pktq->abort; });
-    return f->pktq->abort ? nullptr : &f->buf[f->windex];
+    Frame *result = f->pktq->abort ? nullptr : &f->buf[f->windex];
+#ifdef PROFILER
+    profiler_end(&profiler_fq_peek_writable);
+#endif
+    return result;
 }
 
 static void fq_push(FrameQueue *f) {
@@ -479,11 +586,19 @@ static void decoder_abort(Decoder *d, FrameQueue *fq) {
 }
 
 static int decoder_decode_frame(Decoder *d, AVFrame *frame) {
+#ifdef PROFILER
+    profiler_begin(&profiler_decoder_decode_frame, __func__);
+#endif
     int ret = AVERROR(EAGAIN);
     for (;;) {
         if (d->queue->serial == d->pkt_serial) {
             do {
-                if (d->queue->abort) return -1;
+                if (d->queue->abort) {
+#ifdef PROFILER
+                    profiler_end(&profiler_decoder_decode_frame);
+#endif
+                    return -1;
+                }
                 switch (d->avctx->codec_type) {
                     case AVMEDIA_TYPE_VIDEO:
                         ret = avcodec_receive_frame(d->avctx, frame);
@@ -509,9 +624,17 @@ static int decoder_decode_frame(Decoder *d, AVFrame *frame) {
                 if (ret == AVERROR_EOF) {
                     d->finished = d->pkt_serial;
                     avcodec_flush_buffers(d->avctx);
+#ifdef PROFILER
+                    profiler_end(&profiler_decoder_decode_frame);
+#endif
                     return 0;
                 }
-                if (ret >= 0) return 1;
+                if (ret >= 0) {
+#ifdef PROFILER
+                    profiler_end(&profiler_decoder_decode_frame);
+#endif
+                    return 1;
+                }
             } while (ret != AVERROR(EAGAIN));
         }
         do {
@@ -519,7 +642,12 @@ static int decoder_decode_frame(Decoder *d, AVFrame *frame) {
                 d->packet_pending = 0;
             } else {
                 int old_serial = d->pkt_serial;
-                if (pq_get(d->queue, d->pkt, true, &d->pkt_serial) < 0) return -1;
+                if (pq_get(d->queue, d->pkt, true, &d->pkt_serial) < 0) {
+#ifdef PROFILER
+                    profiler_end(&profiler_decoder_decode_frame);
+#endif
+                    return -1;
+                }
                 if (old_serial != d->pkt_serial) {
                     avcodec_flush_buffers(d->avctx);
                     d->finished = 0;
@@ -621,6 +749,9 @@ struct PlayerState {
     std::mutex read_sleep_mtx;
     std::condition_variable read_sleep_cv;
 
+    std::mutex audio_pump_mtx;
+    std::condition_variable audio_pump_cv;
+
     std::vector<AudioTrackInfo> audio_tracks;
     std::mutex audio_tracks_mtx;
     int cur_audio_track = -1;
@@ -632,6 +763,16 @@ struct PlayerState {
 
 static PlayerState *S = nullptr;
 static void rebuild_swr();
+
+static void notify_packet_consumed() {
+    if (!S) return;
+    S->read_sleep_cv.notify_all();
+}
+
+static void notify_audio_pump() {
+    if (!S) return;
+    S->audio_pump_cv.notify_all();
+}
 
 static WHBGfxShaderGroup *load_shader(const uint8_t *gsh_data, const char *name) {
     WHBGfxShaderGroup *g = new WHBGfxShaderGroup{};
@@ -840,10 +981,33 @@ static void rebuild_swr() {
 }
 
 static void pump_audio() {
-    if (!S->audio_enabled || !S->audio_dev) return;
-    if (S->paused.load(std::memory_order_relaxed)) return;
-    if (SDL_GetQueuedAudioSize(S->audio_dev) > AUDIO_BUF_MAX_BYTES) return;
-    if (!S->swr_ctx) return;
+#ifdef PROFILER
+    profiler_begin(&profiler_pump_audio, __func__);
+#endif
+    if (!S->audio_enabled || !S->audio_dev) {
+#ifdef PROFILER
+        profiler_end(&profiler_pump_audio);
+#endif
+        return;
+    }
+    if (S->paused.load(std::memory_order_relaxed)) {
+#ifdef PROFILER
+        profiler_end(&profiler_pump_audio);
+#endif
+        return;
+    }
+    if (SDL_GetQueuedAudioSize(S->audio_dev) > AUDIO_BUF_MAX_BYTES) {
+#ifdef PROFILER
+        profiler_end(&profiler_pump_audio);
+#endif
+        return;
+    }
+    if (!S->swr_ctx) {
+#ifdef PROFILER
+        profiler_end(&profiler_pump_audio);
+#endif
+        return;
+    }
 
     static std::vector<uint8_t> pcm_buf;
     const int bps = av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
@@ -864,7 +1028,13 @@ static void pump_audio() {
         if (pcm_buf.size() < need) pcm_buf.resize(need);
 
         uint8_t *out = pcm_buf.data();
+#ifdef PROFILER
+        profiler_begin(&profiler_swr_convert, "swr_convert");
+#endif
         int n = swr_convert(S->swr_ctx, &out, max_out, (const uint8_t **)f->data, f->nb_samples);
+#ifdef PROFILER
+        profiler_end(&profiler_swr_convert);
+#endif
         if (n < 0) {
             fq_next(&S->sampq);
             continue;
@@ -882,6 +1052,9 @@ static void pump_audio() {
 
         if (SDL_GetQueuedAudioSize(S->audio_dev) > AUDIO_BUF_MAX_BYTES) break;
     }
+#ifdef PROFILER
+    profiler_end(&profiler_pump_audio);
+#endif
 }
 
 __attribute__((always_inline)) static inline bool stream_has_enough_packets(AVStream *st, int id, const PacketQueue &q) { return id < 0 || q.abort || (st->disposition & AV_DISPOSITION_ATTACHED_PIC) || (q.nb_packets > MIN_FRAMES && (!q.dur || av_q2d(st->time_base) * q.dur > 1.0)); }
@@ -889,9 +1062,18 @@ __attribute__((always_inline)) static inline bool stream_has_enough_packets(AVSt
 static void audio_pump_thread() {
     log_message(LOG_DEBUG, MP, "Audio pump thread started");
     PlayerState *ps = S;
+
     while (ps->running.load(std::memory_order_relaxed)) {
-        if (!ps->paused.load(std::memory_order_relaxed)) pump_audio();
-        std::this_thread::sleep_for(std::chrono::milliseconds(8));
+        bool playing = !ps->paused.load(std::memory_order_relaxed);
+
+        if (playing) {
+            pump_audio();
+            std::unique_lock<std::mutex> lk(ps->audio_pump_mtx);
+            ps->audio_pump_cv.wait_for(lk, std::chrono::milliseconds(8));
+        } else {
+            std::unique_lock<std::mutex> lk(ps->audio_pump_mtx);
+            ps->audio_pump_cv.wait_for(lk, std::chrono::milliseconds(200), [ps] { return !ps->running.load(std::memory_order_relaxed) || !ps->paused.load(std::memory_order_relaxed); });
+        }
     }
     log_message(LOG_DEBUG, MP, "Audio pump thread exiting");
 }
@@ -1033,6 +1215,7 @@ static void audio_decode_thread() {
         af->duration = av_q2d(AVRational{frame->nb_samples, frame->sample_rate});
         av_frame_move_ref(af->frame, frame);
         fq_push(&ps->sampq);
+        notify_audio_pump(); // wake the pump thread: a new sample frame is ready
         total++;
     }
     av_frame_free(&frame);
@@ -1079,20 +1262,37 @@ static void read_thread() {
         bool ea = (ps->audio_idx < 0) || stream_has_enough_packets(ps->fmt_ctx->streams[ps->audio_idx], ps->audio_idx, ps->audioq);
         if (ev && ea) {
             std::unique_lock<std::mutex> lk(ps->read_sleep_mtx);
-            ps->read_sleep_cv.wait_for(lk, std::chrono::milliseconds(10));
+            ps->read_sleep_cv.wait_for(lk, std::chrono::milliseconds(50), [ps] {
+                if (!ps->running.load(std::memory_order_relaxed) || ps->paused.load(std::memory_order_relaxed) || ps->seek_req) return true;
+                bool v_ok = (ps->video_idx < 0) || stream_has_enough_packets(ps->fmt_ctx->streams[ps->video_idx], ps->video_idx, ps->videoq);
+                bool a_ok = (ps->audio_idx < 0) || stream_has_enough_packets(ps->fmt_ctx->streams[ps->audio_idx], ps->audio_idx, ps->audioq);
+                return !(v_ok && a_ok);
+            });
             continue;
         }
 
+#ifdef PROFILER
+        profiler_begin(&profiler_read_frame, "av_read_frame");
+#endif
         int ret = av_read_frame(ps->fmt_ctx, pkt);
+#ifdef PROFILER
+        profiler_end(&profiler_read_frame);
+#endif
         if (ret == AVERROR_EOF || avio_feof(ps->fmt_ctx->pb)) {
             if (!ps->eof) {
                 if (ps->video_idx >= 0) {
                     AVPacket *ep = av_packet_alloc();
-                    if (ep) pq_put(&ps->videoq, ep);
+                    if (ep) {
+                        pq_put(&ps->videoq, ep);
+                        av_packet_free(&ep);
+                    }
                 }
                 if (ps->audio_idx >= 0) {
                     AVPacket *ep = av_packet_alloc();
-                    if (ep) pq_put(&ps->audioq, ep);
+                    if (ep) {
+                        pq_put(&ps->audioq, ep);
+                        av_packet_free(&ep);
+                    }
                 }
                 ps->eof = true;
             }
@@ -1277,6 +1477,7 @@ int media_player_init(const char *path_) {
     }
 
     g_pkt_pool.init();
+    g_avpkt_pool.init();
 
     if (!g_flush_pkt) {
         g_flush_pkt = av_packet_alloc();
@@ -1387,6 +1588,7 @@ void media_player_play(bool play) {
     if (S->audio_dev) SDL_PauseAudioDevice(S->audio_dev, play ? 0 : 1);
 
     if (play) S->read_sleep_cv.notify_all();
+    notify_audio_pump();
     log_message(LOG_DEBUG, MP, "media_player_play(%s) clock=%.3f s", play ? "true" : "false", get_master_clock());
 }
 
@@ -1412,10 +1614,23 @@ void media_player_seek(double seconds) {
 }
 
 void media_player_update() {
-    if (!S) return;
+#ifdef PROFILER
+    profiler_begin(&profiler_media_player_update, __func__);
+#endif
+    if (!S) {
+#ifdef PROFILER
+        profiler_end(&profiler_media_player_update);
+#endif
+        return;
+    }
 
     media_info_get()->current_playback_time = get_master_clock();
-    if (!S->video_avctx) return;
+    if (!S->video_avctx) {
+#ifdef PROFILER
+        profiler_end(&profiler_media_player_update);
+#endif
+        return;
+    }
 
     if (S->playing.load(std::memory_order_relaxed)) {
         double now = wall_now();
@@ -1425,7 +1640,12 @@ void media_player_update() {
         }
     }
 
-    if (S->video_fmt.load(std::memory_order_acquire) == VideoFmt::Unknown) return;
+    if (S->video_fmt.load(std::memory_order_acquire) == VideoFmt::Unknown) {
+#ifdef PROFILER
+        profiler_end(&profiler_media_player_update);
+#endif
+        return;
+    }
 
 retry:
     if (fq_nb_remaining(&S->pictq) > 0) {
@@ -1469,12 +1689,27 @@ retry:
     }
 
 display:
-    if (!S->force_refresh) return;
+    if (!S->force_refresh) {
+#ifdef PROFILER
+        profiler_end(&profiler_media_player_update);
+#endif
+        return;
+    }
     S->force_refresh = false;
-    if (S->pictq.rindex_shown == 0) return;
+    if (S->pictq.rindex_shown == 0) {
+#ifdef PROFILER
+        profiler_end(&profiler_media_player_update);
+#endif
+        return;
+    }
 
     Frame *vp = fq_peek_last(&S->pictq);
-    if (!vp || !vp->frame || !vp->frame->data[0]) return;
+    if (!vp || !vp->frame || !vp->frame->data[0]) {
+#ifdef PROFILER
+        profiler_end(&profiler_media_player_update);
+#endif
+        return;
+    }
 
     if (!vp->uploaded) {
         video_upload_frame(vp->frame);
@@ -1485,6 +1720,10 @@ display:
     update_quad(dest);
 
     if (S->render_fn) S->render_fn(dest);
+
+#ifdef PROFILER
+    profiler_end(&profiler_media_player_update);
+#endif
 }
 
 bool media_player_switch_audio_track(int new_idx) {
@@ -1591,6 +1830,7 @@ void media_player_cleanup() {
     }
     S->seek_cv.notify_all();
     S->read_sleep_cv.notify_all();
+    notify_audio_pump();
 
     if (S->read_tid.joinable()) S->read_tid.join();
     if (S->video_tid.joinable()) S->video_tid.join();

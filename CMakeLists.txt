@@ -15,7 +15,7 @@ project(CafeMP C CXX)
 include(${CMAKE_TOOLCHAIN_FILE})
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -ffunction-sections")
+set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -ffunction-sections -mcpu=750 -mtune=750 -flto -fomit-frame-pointer -frename-registers -fweb -fgcse-sm -fmodulo-sched")
 
 set(GEN_DIR ${CMAKE_BINARY_DIR}/generated)
 set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/shaders)
@@ -138,6 +138,7 @@ target_include_directories(CafeMP PRIVATE
 target_compile_definitions(CafeMP PRIVATE
   IMGUI_DISABLE_DEFAULT_SHELL_FUNCTIONS
   DEBUG
+  PROFILER
   __WIIU__
 )
 
