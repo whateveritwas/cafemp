@@ -263,7 +263,8 @@ static void upload_plane(VideoPlane &p, int write_idx, const uint8_t *src, int s
         profiler_begin(&profiler_dmae_copy, "DMAECopyMem");
 #endif
         DCFlushRange((void *)src, total);
-        while (!DMAEWaitDone(DMAECopyMem((void *)dst, (const void *)src, (uint32_t)(total / 4), DMAE_SWAP_NONE)));
+        while (!DMAEWaitDone(DMAECopyMem((void *)dst, (const void *)src, (uint32_t)(total / 4), DMAE_SWAP_NONE)))
+            ;
 #ifdef PROFILER
         profiler_end(&profiler_dmae_copy);
 #endif
@@ -523,9 +524,21 @@ struct Clock {
     int serial = -1;
     bool paused = false;
     int *q_serial = nullptr;
+
+    mutable std::mutex mtx;
 };
 
-__attribute__((always_inline)) static inline double clock_get(const Clock *c) {
+static double clock_get(const Clock *c) {
+    std::lock_guard<std::mutex> lk(c->mtx);
+    if (c->q_serial && *c->q_serial != c->serial) return NAN;
+    if (c->paused) return c->pts;
+    double t = wall_now();
+    return c->pts_drift + t - (t - c->last_upd) * (1.0 - c->speed);
+}
+
+static double clock_get_with_serial(const Clock *c, int *serial_out) {
+    std::lock_guard<std::mutex> lk(c->mtx);
+    if (serial_out) *serial_out = c->serial;
     if (c->q_serial && *c->q_serial != c->serial) return NAN;
     if (c->paused) return c->pts;
     double t = wall_now();
@@ -533,24 +546,45 @@ __attribute__((always_inline)) static inline double clock_get(const Clock *c) {
 }
 
 static void clock_set_at(Clock *c, double pts, int serial, double t) {
+    std::lock_guard<std::mutex> lk(c->mtx);
     c->pts = pts;
     c->last_upd = t;
     c->pts_drift = pts - t;
     c->serial = serial;
 }
 
-__attribute__((always_inline)) static inline void clock_set(Clock *c, double pts, int serial) { clock_set_at(c, pts, serial, wall_now()); }
+static inline void clock_set(Clock *c, double pts, int serial) { clock_set_at(c, pts, serial, wall_now()); }
 
 static void clock_init(Clock *c, int *q_serial) {
-    c->speed = 1.0;
-    c->paused = true;
-    c->q_serial = q_serial;
+    {
+        std::lock_guard<std::mutex> lk(c->mtx);
+        c->speed = 1.0;
+        c->paused = true;
+        c->q_serial = q_serial;
+    }
     clock_set_at(c, 0.0, q_serial ? *q_serial : 0, wall_now());
 }
 
 static void clock_sync_to_slave(Clock *c, const Clock *slave) {
-    double mt = clock_get(c), st = clock_get(slave);
-    if (!std::isnan(st) && (std::isnan(mt) || std::fabs(mt - st) > AV_NOSYNC_THRESHOLD)) clock_set(c, st, slave->serial);
+    int slave_serial = 0;
+    double st = clock_get_with_serial(slave, &slave_serial);
+    double mt = clock_get(c);
+    if (!std::isnan(st) && (std::isnan(mt) || std::fabs(mt - st) > AV_NOSYNC_THRESHOLD)) clock_set(c, st, slave_serial);
+}
+
+static void clock_set_paused(Clock *c, bool p) {
+    std::lock_guard<std::mutex> lk(c->mtx);
+    c->paused = p;
+}
+
+static double clock_get_last_upd(const Clock *c) {
+    std::lock_guard<std::mutex> lk(c->mtx);
+    return c->last_upd;
+}
+
+static int clock_get_serial(const Clock *c) {
+    std::lock_guard<std::mutex> lk(c->mtx);
+    return c->serial;
 }
 
 struct Decoder {
@@ -684,7 +718,8 @@ using RenderFn = void (*)(const rect &);
 struct PlayerState {
     AVFormatContext *fmt_ctx = nullptr;
     int video_idx = -1;
-    int audio_idx = -1;
+
+    std::atomic<int> audio_idx{-1};
     AVRational video_tb = {0, 1};
 
     AVCodecContext *video_avctx = nullptr;
@@ -700,6 +735,8 @@ struct PlayerState {
     double wall_play_offset = 0.0;
 
     SwrContext *swr_ctx = nullptr;
+
+    std::mutex audio_ctx_mtx;
     SDL_AudioDeviceID audio_dev = 0;
     SDL_AudioSpec audio_spec = {};
     bool audio_enabled = false;
@@ -754,7 +791,7 @@ struct PlayerState {
 
     std::vector<AudioTrackInfo> audio_tracks;
     std::mutex audio_tracks_mtx;
-    int cur_audio_track = -1;
+    std::atomic<int> cur_audio_track{-1};
 
     int frames_decoded = 0;
     int frames_dropped = 0;
@@ -944,7 +981,7 @@ static void video_render_nv12(const rect & /*dest*/) {
     video_render_common(S->shader_nv12);
 }
 
-static void rebuild_swr() {
+static void rebuild_swr_locked() {
     if (S->swr_ctx) {
         swr_free(&S->swr_ctx);
         S->swr_ctx = nullptr;
@@ -980,6 +1017,11 @@ static void rebuild_swr() {
     }
 }
 
+static void rebuild_swr() {
+    std::lock_guard<std::mutex> lk(S->audio_ctx_mtx);
+    rebuild_swr_locked();
+}
+
 static void pump_audio() {
 #ifdef PROFILER
     profiler_begin(&profiler_pump_audio, __func__);
@@ -1002,7 +1044,8 @@ static void pump_audio() {
 #endif
         return;
     }
-    if (!S->swr_ctx) {
+    std::lock_guard<std::mutex> actx_lk(S->audio_ctx_mtx);
+    if (!S->swr_ctx || !S->audio_avctx) {
 #ifdef PROFILER
         profiler_end(&profiler_pump_audio);
 #endif
@@ -1215,7 +1258,7 @@ static void audio_decode_thread() {
         af->duration = av_q2d(AVRational{frame->nb_samples, frame->sample_rate});
         av_frame_move_ref(af->frame, frame);
         fq_push(&ps->sampq);
-        notify_audio_pump(); // wake the pump thread: a new sample frame is ready
+        notify_audio_pump();
         total++;
     }
     av_frame_free(&frame);
@@ -1258,14 +1301,16 @@ static void read_thread() {
             }
         }
 
+        int aidx = ps->audio_idx.load();
         bool ev = (ps->video_idx < 0) || stream_has_enough_packets(ps->fmt_ctx->streams[ps->video_idx], ps->video_idx, ps->videoq);
-        bool ea = (ps->audio_idx < 0) || stream_has_enough_packets(ps->fmt_ctx->streams[ps->audio_idx], ps->audio_idx, ps->audioq);
+        bool ea = (aidx < 0) || stream_has_enough_packets(ps->fmt_ctx->streams[aidx], aidx, ps->audioq);
         if (ev && ea) {
             std::unique_lock<std::mutex> lk(ps->read_sleep_mtx);
             ps->read_sleep_cv.wait_for(lk, std::chrono::milliseconds(50), [ps] {
                 if (!ps->running.load(std::memory_order_relaxed) || ps->paused.load(std::memory_order_relaxed) || ps->seek_req) return true;
+                int aidx2 = ps->audio_idx.load();
                 bool v_ok = (ps->video_idx < 0) || stream_has_enough_packets(ps->fmt_ctx->streams[ps->video_idx], ps->video_idx, ps->videoq);
-                bool a_ok = (ps->audio_idx < 0) || stream_has_enough_packets(ps->fmt_ctx->streams[ps->audio_idx], ps->audio_idx, ps->audioq);
+                bool a_ok = (aidx2 < 0) || stream_has_enough_packets(ps->fmt_ctx->streams[aidx2], aidx2, ps->audioq);
                 return !(v_ok && a_ok);
             });
             continue;
@@ -1421,7 +1466,7 @@ static bool init_audio_stream() {
 #else
     int nch = avctx->channels;
 #endif
-    log_message(LOG_OK, MP, "Audio: stream=%d codec=%s %dHz %dch", S->audio_idx, codec->name, avctx->sample_rate, nch);
+    log_message(LOG_OK, MP, "Audio: stream=%d codec=%s %dHz %dch", (int)S->audio_idx, codec->name, avctx->sample_rate, nch);
 
     if (!SDL_WasInit(SDL_INIT_AUDIO)) SDL_InitSubSystem(SDL_INIT_AUDIO);
     SDL_AudioSpec want{};
@@ -1443,7 +1488,7 @@ static bool init_audio_stream() {
     if (fq_init(&S->sampq, &S->audioq, AUDIO_FRAME_QUEUE_SIZE, 1) < 0) return false;
     if (decoder_init(&S->auddec, avctx, &S->audioq) < 0) return false;
 
-    S->cur_audio_track = S->audio_idx;
+    S->cur_audio_track = S->audio_idx.load();
     S->audio_enabled = true;
     SDL_PauseAudioDevice(S->audio_dev, 1);
 
@@ -1513,7 +1558,7 @@ int media_player_init(const char *path_) {
             return -1;
         }
     }
-    S->fmt_ctx->flags |= AVFMT_FLAG_NOBUFFER;
+
     S->fmt_ctx->probesize = 32 * 1024;
     S->fmt_ctx->max_analyze_duration = AV_TIME_BASE / 2;
 
@@ -1573,15 +1618,17 @@ int media_player_init(const char *path_) {
 void media_player_play(bool play) {
     if (!S) return;
     if (play && S->paused.load()) {
-        S->frame_timer += wall_now() - S->vidclk.last_upd;
-        S->vidclk.paused = false;
+        S->frame_timer += wall_now() - clock_get_last_upd(&S->vidclk);
+        clock_set_paused(&S->vidclk, false);
         S->wall_play_origin = wall_now();
-        clock_set(&S->vidclk, clock_get(&S->vidclk), S->vidclk.serial);
+        clock_set(&S->vidclk, clock_get(&S->vidclk), clock_get_serial(&S->vidclk));
     } else if (!play && !S->paused.load()) {
         S->wall_play_offset = get_master_clock();
     }
-    clock_set(&S->extclk, clock_get(&S->extclk), S->extclk.serial);
-    S->audclk.paused = S->vidclk.paused = S->extclk.paused = !play;
+    clock_set(&S->extclk, clock_get(&S->extclk), clock_get_serial(&S->extclk));
+    clock_set_paused(&S->audclk, !play);
+    clock_set_paused(&S->vidclk, !play);
+    clock_set_paused(&S->extclk, !play);
     S->paused.store(!play);
     S->playing.store(play);
     media_info_get()->playback_status = play;
@@ -1605,7 +1652,7 @@ void media_player_seek(double seconds) {
         if (S->audio_dev) SDL_ClearQueuedAudio(S->audio_dev);
         clock_set(&S->audclk, seconds, S->audioq.serial);
         clock_set(&S->vidclk, seconds, S->videoq.serial);
-        clock_set(&S->extclk, seconds, S->extclk.serial);
+        clock_set(&S->extclk, seconds, clock_get_serial(&S->extclk));
         S->frame_timer = wall_now();
     }
     S->seek_cv.notify_all();
@@ -1666,12 +1713,9 @@ retry:
         S->frame_timer += delay;
         if (delay > 0 && now - S->frame_timer > AV_SYNC_THRESHOLD_MAX) S->frame_timer = now;
 
-        {
-            std::lock_guard<std::mutex> lk(S->pictq.mtx);
-            if (!std::isnan(vp->pts)) {
-                clock_set(&S->vidclk, vp->pts, vp->serial);
-                clock_sync_to_slave(&S->extclk, &S->vidclk);
-            }
+        if (!std::isnan(vp->pts)) {
+            clock_set(&S->vidclk, vp->pts, vp->serial);
+            clock_sync_to_slave(&S->extclk, &S->vidclk);
         }
 
         if (fq_nb_remaining(&S->pictq) > 1) {
@@ -1756,11 +1800,14 @@ bool media_player_switch_audio_track(int new_idx) {
         return false;
     }
     avctx->pkt_timebase = st->time_base;
-    avcodec_free_context(&S->audio_avctx);
-    S->audio_avctx = avctx;
-
-    rebuild_swr();
+    {
+        std::lock_guard<std::mutex> actx_lk(S->audio_ctx_mtx);
+        avcodec_free_context(&S->audio_avctx);
+        S->audio_avctx = avctx;
+        rebuild_swr_locked();
+    }
     if (!S->swr_ctx) {
+        std::lock_guard<std::mutex> actx_lk(S->audio_ctx_mtx);
         avcodec_free_context(&S->audio_avctx);
         return false;
     }
@@ -1794,7 +1841,7 @@ std::vector<AudioTrackInfo> media_player_get_audio_tracks() {
 
 double media_player_get_current_time() { return S ? get_master_clock() : 0.0; }
 bool media_player_is_playing() { return S && S->playing.load(); }
-int media_player_get_current_audio_track() { return S ? S->cur_audio_track : -1; }
+int media_player_get_current_audio_track() { return S ? S->cur_audio_track.load() : -1; }
 
 double media_player_get_total_time() {
     if (!S || !S->fmt_ctx) return 0.0;

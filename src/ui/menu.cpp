@@ -131,19 +131,13 @@ void ui_render() {
     WHBGfxBeginRenderTV();
     GX2SetViewport(0, 0, display_get().width, display_get().height, 0.0f, 1.0f);
 
-    WHBGfxClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-
     if (app_state_get() == STATE_PLAYING_VIDEO) scene_media_player_render();
-    // else WHBGfxClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 
     ImGui_ImplGX2_RenderDrawData(ImGui::GetDrawData());
-
     ImGui_ImplWiiU_DrawKeyboardOverlay(ImGui_KeyboardOverlay_Auto);
 
     WHBGfxFinishRenderTV();
-
     GX2CopyColorBufferToScanBuffer(WHBGfxGetTVColourBuffer(), GX2_SCAN_TARGET_DRC);
-
     WHBGfxFinishRender();
 
     /*

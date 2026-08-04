@@ -138,7 +138,6 @@ target_include_directories(CafeMP PRIVATE
 target_compile_definitions(CafeMP PRIVATE
   IMGUI_DISABLE_DEFAULT_SHELL_FUNCTIONS
   DEBUG
-  PROFILER
   __WIIU__
 )
 

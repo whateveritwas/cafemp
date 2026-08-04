@@ -1,6 +1,7 @@
 #include "ui/scenes/scene_media_player.hpp"
 
 #include "input/input_actions.hpp"
+#include "input/input_device.hpp"
 #include "main.hpp"
 #include "player/media_player.hpp"
 #include "player/photo_viewer.hpp"
@@ -12,6 +13,7 @@
 #include <imgui/imgui.h>
 #include <string>
 #include <vector>
+#include <whb/gfx.h>
 
 static bool show_hud = false;
 
@@ -33,7 +35,7 @@ void scene_media_player_render() {
     media_player_update();
 
     media_info *info = media_info_get();
-    
+
     if (info->type == 'A') {
         photo_texture_zoom(0.0f);
         photo_viewer_pan(0, 0);
@@ -41,8 +43,8 @@ void scene_media_player_render() {
     }
 
     if (info->current_playback_time >= info->total_playback_time) {
-	media_player_cleanup();
-	app_state_set(STATE_MENU_FILES);
+        media_player_cleanup();
+        app_state_set(STATE_MENU_FILES);
     }
 
     if (!info->playback_status || show_hud) {
@@ -56,7 +58,7 @@ void scene_media_player_input() {
         media_player_play(!is_playing);
     } else if (input_pressed(BUTTON_B)) {
         media_player_cleanup();
-	app_state_set(STATE_MENU_FILES);
+        app_state_set(STATE_MENU_FILES);
     } else if (input_pressed(BUTTON_LEFT)) {
         double current_time = media_player_get_current_time();
         media_player_seek(current_time - 5.0);
@@ -89,6 +91,10 @@ void scene_media_player_input() {
         show_hud = true;
     } else {
         show_hud = false;
+    }
+
+    if (input_released(BUTTON_TOUCH)) {
+        WHBGfxClearColor(0, 0, 0, 255);
     }
 }
 
