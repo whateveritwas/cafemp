@@ -129,9 +129,10 @@ void ui_render() {
     WHBGfxBeginRender();
 
     WHBGfxBeginRenderTV();
-    GX2SetViewport(0, 0, display_get().width, display_get().height, 0.0f, 1.0f);
+    //GX2SetViewport(0, 0, display_get().width, display_get().height, 0.0f, 1.0f);
 
-    if (app_state_get() == STATE_PLAYING_VIDEO) scene_media_player_render();
+    if (app_state_get() == STATE_PLAYING_VIDEO)
+        scene_media_player_render();
 
     ImGui_ImplGX2_RenderDrawData(ImGui::GetDrawData());
     ImGui_ImplWiiU_DrawKeyboardOverlay(ImGui_KeyboardOverlay_Auto);

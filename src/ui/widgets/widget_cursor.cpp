@@ -7,7 +7,7 @@
 
 void widget_cursor_render() {
     input_device *input = input_get();
-    if (!input->pointer.valid) return;
+    if (!input->pointer.valid || input_held(BUTTON_TOUCH)) return;
 
     ImDrawList *draw_list = ImGui::GetForegroundDrawList();
 
