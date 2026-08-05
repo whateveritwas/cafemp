@@ -1,5 +1,6 @@
 #include "ui/widgets/widget_player_hud.hpp"
 
+#include "utils/font.hpp"
 #include "utils/app_state.hpp"
 #include "utils/display.hpp"
 #include "utils/media_info.hpp"
@@ -17,12 +18,12 @@ std::string format_time(int seconds) {
 }
 
 void widget_player_hud_render(media_info *info) {
-    const float hud_height = 80.0f;
+    const float hud_height = 100.0f;
 
     ImGui::SetNextWindowPos(ImVec2(0.0f, display_get().height - hud_height));
     ImGui::SetNextWindowSize(ImVec2(display_get().width, hud_height));
 
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoNav;
 
     if (ImGui::Begin("HUD", nullptr, flags)) {
         double progress_seconds = 0.0;
@@ -31,13 +32,14 @@ void widget_player_hud_render(media_info *info) {
         progress_seconds = info->current_playback_time;
         total_seconds = info->total_playback_time;
 
-        if (total_seconds <= 0.0) total_seconds = 1.0;
+        if (total_seconds <= 0.0)
+            total_seconds = 1.0;
 
         float progress = static_cast<float>(progress_seconds / total_seconds);
 
-        ImGui::ProgressBar(progress, ImVec2(-1.0f, (hud_height / 2.0f) - 10.0f));
+        ImGui::ProgressBar(progress, ImVec2(-1.0f, (hud_height / 3.0f) - 10.0f));
 
-        std::string left_text = (info->playback_status ? "> " : "|| ");
+        std::string left_text = (info->playback_status ? ICON_PLAY : ICON_PAUSE);
 
         left_text += format_time(progress_seconds);
         left_text += " / ";

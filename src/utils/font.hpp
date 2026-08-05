@@ -66,6 +66,13 @@ static const float default_font_size = 32;
 #define ICON_FOLDER "\uf07b"
 #define ICON_USB "\uf287"
 
+#define ICON_PLAY "\uf04b"
+#define ICON_PAUSE "\uf04c"
+#define ICON_BUFFER "\uf017"
+
+#define ICON_YOUTUBE "\uf16a"
+#define ICON_JELLYFIN "\uf26c"
+
 static const ImWchar nerd_font_ranges[] = {
     0xE0A0, 0xE0A3,                 // Powerline
     0xE0B0, 0xE0C8,                 // Powerline Extra

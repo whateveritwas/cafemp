@@ -40,7 +40,8 @@ static std::string relative_dir;
 
 static std::string get_extension(const std::string &filename) {
     size_t dot = filename.find_last_of('.');
-    if (dot == std::string::npos || dot == filename.size() - 1) return "";
+    if (dot == std::string::npos || dot == filename.size() - 1)
+        return "";
     std::string ext = filename.substr(dot + 1);
     for (char &c : ext)
         c = static_cast<char>(tolower(c));
@@ -48,23 +49,29 @@ static std::string get_extension(const std::string &filename) {
 }
 
 static file_types file_type_for_extension(const std::string &ext) {
-    if (valid_video_endings.count(ext)) return FILE_VIDEO;
-    if (valid_audio_endings.count(ext)) return FILE_AUDIO;
-    if (valid_image_endings.count(ext)) return FILE_IMAGE;
-    if (valid_pdf_endings.count(ext)) return FILE_BOOK;
+    if (valid_video_endings.count(ext))
+        return FILE_VIDEO;
+    if (valid_audio_endings.count(ext))
+        return FILE_AUDIO;
+    if (valid_image_endings.count(ext))
+        return FILE_IMAGE;
+    if (valid_pdf_endings.count(ext))
+        return FILE_BOOK;
     return FILE_FOLDER;
 }
 
 static bool is_known_media_type(file_types ft) { return ft != FILE_FOLDER; }
 
 static std::string join_relative(const std::string &base, const std::string &name) {
-    if (base.empty()) return name;
+    if (base.empty())
+        return name;
     return base + "/" + name;
 }
 
 static std::string parent_relative(const std::string &base) {
     size_t slash = base.find_last_of('/');
-    if (slash == std::string::npos) return "";
+    if (slash == std::string::npos)
+        return "";
     return base.substr(0, slash);
 }
 
@@ -96,8 +103,10 @@ static void start_file(const file &f) {
     media_info *info = media_info_get();
 
     info->type = info_type.media_char;
-    if (info_type.media_char == 'A' || info_type.media_char == 'V') info->path = media_root + join_relative(relative_dir, f.path);
-    else info->path = media_root + join_relative(relative_dir, f.path);
+    if (info_type.media_char == 'A' || info_type.media_char == 'V')
+        info->path = media_root + join_relative(relative_dir, f.path);
+    else
+        info->path = media_root + join_relative(relative_dir, f.path);
     info->filename = f.path;
     info->current_playback_time = 0;
 
@@ -137,7 +146,8 @@ static void scan_relative_directory(const std::string &new_relative_dir) {
     struct dirent *ent;
     while ((ent = readdir(dir)) != NULL) {
         std::string name = ent->d_name;
-        if (name == "." || name == "..") continue;
+        if (name == "." || name == "..")
+            continue;
 
         if (ent->d_type == DT_DIR) {
             files.push_back({name, FILE_FOLDER});
@@ -145,7 +155,8 @@ static void scan_relative_directory(const std::string &new_relative_dir) {
         }
 
         file_types ft = file_type_for_extension(get_extension(name));
-        if (!is_known_media_type(ft)) continue; // skip unknown extensions
+        if (!is_known_media_type(ft))
+            continue; // skip unknown extensions
 
         files.push_back({name, ft});
     }
@@ -164,7 +175,8 @@ void scene_file_browser_cd(const char *path) {
 }
 
 void scene_file_browser_go_up() {
-    if (relative_dir.empty()) return;
+    if (relative_dir.empty())
+        return;
     scan_relative_directory(parent_relative(relative_dir));
 }
 
@@ -182,7 +194,7 @@ void scene_file_browser_render() {
         ImGui::SetWindowSize(ImVec2(display_get().width, display_get().height - TOOLTIP_BAR_HEIGHT));
 
         ImGui::Columns(2, nullptr, false);
-        ImGui::SetColumnWidth(0, 200.0f);
+        ImGui::SetColumnWidth(0, WIDGET_SIDEBAR_WIDTH);
         widget_sidebar_render();
         ImGui::NextColumn();
 

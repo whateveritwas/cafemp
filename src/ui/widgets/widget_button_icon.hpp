@@ -33,14 +33,12 @@ static bool widget_button_icon(const char *label, const char *icon, bool selecte
     ImVec2 icon_max = ImVec2(p0.x + icon_size, p0.y + icon_size);
 
     dl->AddRectFilled(icon_min, icon_max, ImGui::GetColorU32(ImGuiCol_FrameBg));
-
     dl->AddLine(ImVec2(p0.x + icon_size, p0.y), ImVec2(p0.x + icon_size, p1.y), ImGui::GetColorU32(ImGuiCol_Border));
 
     if (icon) {
         ImGui::SetWindowFontScale(2.0f);
 
         ImVec2 text_size = ImGui::CalcTextSize(icon);
-
         ImVec2 icon_pos(icon_min.x + (icon_size - text_size.x) * 0.5f, icon_min.y + (icon_size - text_size.y) * 0.5f);
 
         dl->AddText(icon_pos, ImGui::GetColorU32(ImGuiCol_Text), icon);

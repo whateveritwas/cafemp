@@ -16,7 +16,7 @@ void scene_main_menu_render() {
     if (ImGui::Begin(VERSION_STRING, nullptr, window_flags)) {
         ImGui::Columns(2, nullptr, false);
 
-        ImGui::SetColumnWidth(0, 200.0f);
+        ImGui::SetColumnWidth(0, WIDGET_SIDEBAR_WIDTH);
         widget_sidebar_render();
 
         ImGui::NextColumn();
@@ -34,8 +34,8 @@ void scene_main_menu_render() {
             ImGui::Text("- Wiimote support");
             ImGui::Text("- Changing between multiple audio tracks in a video");
             ImGui::Text("- New Ui");
-            ImGui::Text("- Cover ard displayed when playing audio files (if present)");
-	    ImGui::Text("- USB Drive support (FAT32 only)");
+            ImGui::Text("- Cover art displayed when playing audio files (if present)");
+            ImGui::Text("- USB Drive support (FAT32 only)");
         }
         ImGui::EndChild();
 
