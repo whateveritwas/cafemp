@@ -13,35 +13,35 @@
 
 static const char *get_level_color(LogLevel level) {
     switch (level) {
-        case LOG_OK:
-            return COLOR_GREEN;
-         case LOG_WARNING:
-            return COLOR_YELLOW;
-        case LOG_ERROR:
-            return COLOR_RED;
-        case LOG_DEBUG:
-            return COLOR_BLUE;
-        case LOG_PROFILER:
-	    return COLOR_MAGENTA;
-        default:
-            return COLOR_RESET;
+    case LOG_OK:
+        return COLOR_GREEN;
+    case LOG_WARNING:
+        return COLOR_YELLOW;
+    case LOG_ERROR:
+        return COLOR_RED;
+    case LOG_DEBUG:
+        return COLOR_BLUE;
+    case LOG_PROFILER:
+        return COLOR_MAGENTA;
+    default:
+        return COLOR_RESET;
     }
 }
 
 static const char *get_level_label(LogLevel level) {
     switch (level) {
-        case LOG_OK:
-            return "OK";
-        case LOG_WARNING:
-            return "WARNING";
-        case LOG_ERROR:
-            return "ERROR";
-        case LOG_DEBUG:
-            return "DEBUG";
-        case LOG_PROFILER:
-	    return "PROFILER";
-        default:
-            return "UNKNOWN";
+    case LOG_OK:
+        return "OK";
+    case LOG_WARNING:
+        return "WARNING";
+    case LOG_ERROR:
+        return "ERROR";
+    case LOG_DEBUG:
+        return "DEBUG";
+    case LOG_PROFILER:
+        return "PROFILER";
+    default:
+        return "UNKNOWN";
     }
 }
 #endif
@@ -57,5 +57,5 @@ void log_message(LogLevel level, const char *system, const char *format, ...) {
     vprintf(format, args);
     va_end(args);
     printf("%s\n", COLOR_RESET);
-#endif    
+#endif
 }

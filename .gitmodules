@@ -1,0 +1,6 @@
+[submodule "src/vendor/wiiu-stdout"]
+	path = src/vendor/wiiu-stdout
+	url = https://github.com/dkosmari/wiiu-stdout
+[submodule "src/vendor/imgui"]
+	path = src/vendor/imgui
+	url = https://github.com/dkosmari/imgui

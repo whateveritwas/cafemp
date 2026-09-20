@@ -31,7 +31,7 @@ function(add_shader NAME FRAG_FILE)
             ${GSH_FILE}
             ${HEADER_FILE}
 
-        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tools/glslcompiler.elf
+        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tools/glslcompiler
             -vs ${SHADER_DIR}/video.vert.glsl
             -ps ${SHADER_DIR}/${FRAG_FILE}
             -o ${GSH_FILE}
@@ -43,7 +43,7 @@ function(add_shader NAME FRAG_FILE)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/bin2h.cmake
 
         DEPENDS
-            ${CMAKE_CURRENT_SOURCE_DIR}/tools/glslcompiler.elf
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/glslcompiler
             ${SHADER_DIR}/video.vert.glsl
             ${SHADER_DIR}/${FRAG_FILE}
     )
@@ -91,7 +91,7 @@ set(SRC_FILES
 )
 
 set(VENDOR_FILES
-  src/vendor/logger/wiiu-stdout.cpp
+  src/vendor/wiiu-stdout/wiiu-stdout.c
 
   src/vendor/pdf/wiiu_mupdf_hb_wrappers.c
   src/vendor/pdf/wiiu_time_utils.c

@@ -23,22 +23,26 @@ void scene_main_menu_render() {
 
         if (ImGui::BeginChild("Content", ImVec2(0, 0), true)) {
             ImGui::Text("Welcome to %s!", VERSION_STRING);
+            ImGui::Separator();
 
-            ImGui::Spacing();
-            ImGui::Text("What's new:");
+            ImGui::BeginChild("changelog", ImVec2(0, 512), true);
+
+            ImGui::TextUnformatted("What's New");
             ImGui::Spacing();
 
-            ImGui::Text("- Hardware video decoding for h264 baseline 720p@30 (Some 1080p)");
-            ImGui::Text("- General stability improvements");
-            ImGui::Text("- Library for reading pdf and epub files");
-            ImGui::Text("- Wiimote support");
-            ImGui::Text("- Changing between multiple audio tracks in a video");
-            ImGui::Text("- New Ui");
-            ImGui::Text("- Cover art displayed when playing audio files (if present)");
-            ImGui::Text("- USB Drive support (FAT32 only)");
+            ImGui::BulletText("Hardware video decoding for H.264 Baseline (720p @ 30 FPS)");
+            ImGui::BulletText("General stability improvements");
+            ImGui::BulletText("PDF and EPUB reader");
+            ImGui::BulletText("Wiimote support");
+            ImGui::BulletText("Pro controller support");
+            ImGui::BulletText("Switch between multiple audio tracks");
+            ImGui::BulletText("User interface improvements");
+            ImGui::BulletText("Display embedded cover art for audio files (folder.jpg)");
+            ImGui::BulletText("USB drive support (MBR/FAT32)");
+            ImGui::EndChild();
         }
-        ImGui::EndChild();
 
+        ImGui::EndChild();
         ImGui::Columns(1);
     }
 

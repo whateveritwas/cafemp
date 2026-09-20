@@ -8,8 +8,6 @@ This is a **work-in-progress**—expect occasional crashes, stutters, or other i
 
 Made with ❤️ in 🇩🇪
 
-> **Note:** 720p30 is the *goal*, not a guarantee. Playback performance depends on encoding complexity.
-
 ---
 
 ## Installation
@@ -33,33 +31,7 @@ Made with ❤️ in 🇩🇪
 
 1. Launch **CaféMP** from the Wii U main menu or Homebrew Launcher.
 2. Select your desired media type from the sidebar.
-3. Use the file browser to locate and select and play your media.
-
-### Controls – Video Player
-
-| Button | Action                |
-|--------|-----------------------|
-| `A`    | Play / Pause          |
-| `B`    | Return to file browser|
-| `X`    | Change audio track    |
-
-### Controls – Audio Player
-
-| Button      | Action                 |
-|-------------|------------------------|
-| `A`         | Play / Pause           |
-| `B`         | Return to file browser |
-| `D-Pad L/R` | Skip / Rewind          |
-
-### Controls – Photo Viewer
-
-| Button           | Action                     |
-|------------------|----------------------------|
-| `B`              | Return to file browser     |
-| `X`              | Change audio track         |
-| `Left Stick L/R` | Show next / previous photo |
-| `ZR / RL`        | Zoom in / Zoom out         |
-| `Touch`          | Pan                        |
+3. Use the file browser to locate and play your media.
 
 ---
 
@@ -69,16 +41,15 @@ Made with ❤️ in 🇩🇪
 * Audio playback (common formats)
 * Image viewer (common formats, animated gifs)
 * PDF / EBook viewer (pdf, epub)
+* USB drive support (FAT32, exFAT, ssd prefered)
+* Wiimote / Pro Controller input
 
 ---
 
 ## Planned Features
-
 * DLNA / Jellyfin streaming
-* USB drive support (ext4, exFAT)
 * Audio visualizations
 * Playlist support (M3U)
-* Wiimote / Pro Controller input
 * YouTube (via Invidious) playback
 
 ---

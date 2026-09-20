@@ -10,7 +10,7 @@
 #include <imgui/imgui.h>
 
 void widget_sidebar_render() {
-    ImVec2 size(WIDGET_SIDEBAR_WIDTH, 64.0f);
+    ImVec2 size(WIDGET_SIDEBAR_WIDTH - 16.0f, 64.0f);
 
     ImGui::BeginChild("Sidebar", ImVec2(WIDGET_SIDEBAR_WIDTH, 0), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar);
 
@@ -47,6 +47,7 @@ void widget_sidebar_render() {
     }
 #endif
 
+#ifdef DEBUG    
     if (widget_button_icon("YouTube", ICON_YOUTUBE, app_state_get() == STATE_MENU_SETTINGS, size)) {
     }
 
@@ -55,6 +56,6 @@ void widget_sidebar_render() {
 
     if (widget_button_icon("Settings", ICON_SETTINGS, app_state_get() == STATE_MENU_SETTINGS, size)) {
     }
-
+#endif
     ImGui::EndChild();
 }
