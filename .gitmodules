@@ -4,3 +4,6 @@
 [submodule "src/vendor/imgui"]
 	path = src/vendor/imgui
 	url = https://github.com/dkosmari/imgui
+[submodule "src/vendor/stb"]
+	path = src/vendor/stb
+	url = https://github.com/nothings/stb
